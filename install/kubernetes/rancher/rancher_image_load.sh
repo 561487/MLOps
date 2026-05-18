@@ -1,0 +1,17 @@
+gunzip -c rancher-shell-v0.3.1.tar.gz | docker load 
+gunzip -c rancher-hyperkube-v1.28.15-rancher1.tar.gz | docker load 
+gunzip -c rancher-calico-cni-v3.27.4-rancher1.tar.gz | docker load 
+gunzip -c rancher-mirrored-calico-node-v3.27.4.tar.gz | docker load 
+gunzip -c rancher-mirrored-pause-3.7.tar.gz | docker load 
+gunzip -c rancher-kube-api-auth-v0.2.4.tar.gz | docker load 
+gunzip -c rancher-mirrored-coreos-etcd-v3.5.10.tar.gz | docker load 
+gunzip -c rancher-rancher-v2.10.3.tar.gz | docker load 
+gunzip -c rancher-rancher-webhook-v0.6.4.tar.gz | docker load 
+gunzip -c rancher-rke-tools-v0.1.105.tar.gz | docker load 
+gunzip -c rancher-mirrored-coredns-coredns-1.10.1.tar.gz | docker load 
+gunzip -c rancher-rancher-agent-v2.10.3.tar.gz | docker load 
+gunzip -c rancher-mirrored-flannel-flannel-v0.24.2.tar.gz | docker load 
+gunzip -c rancher-mirrored-cluster-proportional-autoscaler-v1.8.9.tar.gz | docker load 
+gunzip -c rancher-mirrored-calico-kube-controllers-v3.27.4.tar.gz | docker load 
+gunzip -c rancher-mirrored-metrics-server-v0.7.0.tar.gz | docker load 
+gunzip -c rancher-rke-tools-v0.1.109.tar.gz | docker load 

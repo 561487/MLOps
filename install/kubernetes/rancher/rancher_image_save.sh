@@ -1,0 +1,17 @@
+docker pull rancher/shell:v0.3.1 && docker save rancher/shell:v0.3.1 | gzip > rancher-shell-v0.3.1.tar.gz 
+docker pull rancher/hyperkube:v1.28.15-rancher1 && docker save rancher/hyperkube:v1.28.15-rancher1 | gzip > rancher-hyperkube-v1.28.15-rancher1.tar.gz 
+docker pull rancher/calico-cni:v3.27.4-rancher1 && docker save rancher/calico-cni:v3.27.4-rancher1 | gzip > rancher-calico-cni-v3.27.4-rancher1.tar.gz 
+docker pull rancher/mirrored-calico-node:v3.27.4 && docker save rancher/mirrored-calico-node:v3.27.4 | gzip > rancher-mirrored-calico-node-v3.27.4.tar.gz 
+docker pull rancher/mirrored-pause:3.7 && docker save rancher/mirrored-pause:3.7 | gzip > rancher-mirrored-pause-3.7.tar.gz 
+docker pull rancher/kube-api-auth:v0.2.4 && docker save rancher/kube-api-auth:v0.2.4 | gzip > rancher-kube-api-auth-v0.2.4.tar.gz 
+docker pull rancher/mirrored-coreos-etcd:v3.5.10 && docker save rancher/mirrored-coreos-etcd:v3.5.10 | gzip > rancher-mirrored-coreos-etcd-v3.5.10.tar.gz 
+docker pull rancher/rancher:v2.10.3 && docker save rancher/rancher:v2.10.3 | gzip > rancher-rancher-v2.10.3.tar.gz 
+docker pull rancher/rancher-webhook:v0.6.4 && docker save rancher/rancher-webhook:v0.6.4 | gzip > rancher-rancher-webhook-v0.6.4.tar.gz 
+docker pull rancher/rke-tools:v0.1.105 && docker save rancher/rke-tools:v0.1.105 | gzip > rancher-rke-tools-v0.1.105.tar.gz 
+docker pull rancher/mirrored-coredns-coredns:1.10.1 && docker save rancher/mirrored-coredns-coredns:1.10.1 | gzip > rancher-mirrored-coredns-coredns-1.10.1.tar.gz 
+docker pull rancher/rancher-agent:v2.10.3 && docker save rancher/rancher-agent:v2.10.3 | gzip > rancher-rancher-agent-v2.10.3.tar.gz 
+docker pull rancher/mirrored-flannel-flannel:v0.24.2 && docker save rancher/mirrored-flannel-flannel:v0.24.2 | gzip > rancher-mirrored-flannel-flannel-v0.24.2.tar.gz 
+docker pull rancher/mirrored-cluster-proportional-autoscaler:v1.8.9 && docker save rancher/mirrored-cluster-proportional-autoscaler:v1.8.9 | gzip > rancher-mirrored-cluster-proportional-autoscaler-v1.8.9.tar.gz 
+docker pull rancher/mirrored-calico-kube-controllers:v3.27.4 && docker save rancher/mirrored-calico-kube-controllers:v3.27.4 | gzip > rancher-mirrored-calico-kube-controllers-v3.27.4.tar.gz 
+docker pull rancher/mirrored-metrics-server:v0.7.0 && docker save rancher/mirrored-metrics-server:v0.7.0 | gzip > rancher-mirrored-metrics-server-v0.7.0.tar.gz 
+docker pull rancher/rke-tools:v0.1.109 && docker save rancher/rke-tools:v0.1.109 | gzip > rancher-rke-tools-v0.1.109.tar.gz 
