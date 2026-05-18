@@ -39,3 +39,4 @@ compile.py
 .test/
 cube-studio.wiki/
 venv/
+.venv/
