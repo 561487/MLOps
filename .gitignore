@@ -40,3 +40,5 @@ compile.py
 cube-studio.wiki/
 venv/
 .venv/
+.cursor/
+/install/docker/data-dev/

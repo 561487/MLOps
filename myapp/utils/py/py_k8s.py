@@ -70,7 +70,7 @@ class K8s():
         self.get_gpu = core.get_gpu
 
     # 获取指定范围的pod
-    # @pysnooper.snoop()
+    @pysnooper.snoop()
     def get_running_pods(self, namespace=None):
         all_pods=[]
         all_endpoints = self.v1.list_namespaced_endpoints(namespace=namespace)  # 先查询入口点，
@@ -213,7 +213,7 @@ class K8s():
         temp.update(ai_resource)
         return temp
 
-    # @pysnooper.snoop()
+    @pysnooper.snoop()
     def get_pods(self, namespace=None, service_name=None, pod_name=None, labels={},status=None,cache=False):
         # print(namespace)
         back_pods = []
@@ -289,7 +289,7 @@ class K8s():
         return events
 
 
-    # @pysnooper.snoop()
+    @pysnooper.snoop()
     def get_job_event(self, namespace, job_name):
         events = [item.to_dict() for item in self.v1.list_namespaced_event(namespace, field_selector=f'involvedObject.name={job_name}').items]
         for event in events:
@@ -347,7 +347,7 @@ class K8s():
             print(e)
         return all_pods
 
-    # @pysnooper.snoop()
+    @pysnooper.snoop()
     def get_all_node_allocated_resources(self,cache=False):
 
         nodes_resource = {}
@@ -429,7 +429,7 @@ class K8s():
         return back_event
 
     # 获取指定label的nodeip列表
-    # @pysnooper.snoop()
+    @pysnooper.snoop()
     def get_node(self, label=None, name=None, ip=None,cache=False):
         try:
             back_nodes = []
@@ -531,7 +531,7 @@ class K8s():
             return None
 
     # 根据各种crd自定义的status结构，判断最终评定的status
-    # @pysnooper.snoop()
+    @pysnooper.snoop()
     def get_crd_status(self, crd_object, group, plural):
         status = ''
         # workflows 使用最后一个node的状态为真是状态
@@ -709,7 +709,7 @@ class K8s():
                             back_name.append(crd['name'])
             return back_name
 
-    # @pysnooper.snoop()
+    @pysnooper.snoop()
     def delete_workflow(self, all_crd_info, namespace, run_id):
         if not run_id:
             return None
@@ -878,8 +878,8 @@ class K8s():
             except Exception as e:
                 print(e)
 
-    # @pysnooper.snoop()
     @staticmethod
+    @pysnooper.snoop()
     def get_volume_mounts(volume_mount, username):
         k8s_volumes = []
         k8s_volume_mounts = []
@@ -1186,7 +1186,7 @@ class K8s():
 
         return container
 
-    # @pysnooper.snoop()
+    @pysnooper.snoop()
     def make_pod(self, namespace, name, labels, command, args, volume_mount, working_dir, node_selector,
                  resource_memory, resource_cpu, resource_gpu, image_pull_policy, image_pull_secrets, image, hostAliases,
                  env, privileged, accounts, username, ports=None, restart_policy='OnFailure',
@@ -1278,7 +1278,7 @@ class K8s():
         pod = v1_pod.V1Pod(api_version='v1', kind='Pod', metadata=metadata, spec=spec)
         return pod, spec
 
-    # @pysnooper.snoop()
+    @pysnooper.snoop()
     def create_debug_pod(self, namespace, name, labels, command, args, volume_mount, working_dir, node_selector,
                          resource_memory, resource_cpu, resource_gpu, image_pull_policy, image_pull_secrets, image,
                          hostAliases, env, privileged, accounts, username, scheduler_name='default-scheduler',
@@ -1328,7 +1328,7 @@ class K8s():
         time.sleep(1)
 
     # 创建hubsecret
-    # @pysnooper.snoop()
+    @pysnooper.snoop()
     def apply_hubsecret(self, namespace, name, user, password, server):
 
         # try:
@@ -1496,7 +1496,7 @@ class K8s():
         except Exception as e:
             print(e)
 
-    # @pysnooper.snoop()
+    @pysnooper.snoop()
     def create_deployment(self, namespace, name, replicas, labels, command, args, volume_mount,working_dir,
                                      node_selector, resource_memory, resource_cpu, resource_gpu, image_pull_policy,
                                      image_pull_secrets, image, hostAliases, env, privileged, accounts, username,
@@ -1540,7 +1540,7 @@ class K8s():
         # # time.sleep(2)
 
     # 删除statefulset
-    # @pysnooper.snoop()
+    @pysnooper.snoop()
     def delete_statefulset(self, namespace, name=None, labels=None):
         if name:
             try:
@@ -1598,7 +1598,7 @@ class K8s():
 
 
     # 创建pod
-    # @pysnooper.snoop()
+    @pysnooper.snoop()
     def create_service(self,namespace,name,username,ports,selector,service_type='ClusterIP',external_ip=None,annotations=None,load_balancer_ip=None,external_traffic_policy=None,disable_load_balancer=False):
         svc_metadata = v1_object_meta.V1ObjectMeta(name=name, namespace=namespace, labels=selector,annotations=annotations)
         service_ports=[]
@@ -1633,7 +1633,7 @@ class K8s():
                 # print(service)
                 service = self.v1.create_namespaced_service(namespace, body=service)
 
-    # @pysnooper.snoop()
+    @pysnooper.snoop()
     def create_headless_service(self,namespace,name,username,run_id):
         svc_metadata = v1_object_meta.V1ObjectMeta(name=name, namespace=namespace, labels={"app":name,'user':username,"run-id":run_id})
         svc_spec = client.V1ServiceSpec(cluster_ip='None', selector={"app":name,'user':username},type='ClusterIP')
@@ -1670,7 +1670,7 @@ class K8s():
         except Exception as e:
             print(e)
 
-    # @pysnooper.snoop()
+    @pysnooper.snoop()
     def create_istio_ingress(self, namespace, name, host, ports, canary=None, shadow=None):
         crd_info = {
             "group": "networking.istio.io",
@@ -1880,7 +1880,7 @@ class K8s():
         except Exception as e:
             print(e)
 
-    # @pysnooper.snoop()
+    @pysnooper.snoop()
     def create_configmap(self, namespace, name, data, labels):
         try:
             self.v1.delete_namespaced_config_map(name=name, namespace=namespace)
@@ -1912,7 +1912,7 @@ class K8s():
         except Exception as e:
             print(e)
 
-    # @pysnooper.snoop()
+    @pysnooper.snoop()
     def create_hpa(self,namespace,name,min_replicas,max_replicas,hpa):
         self.delete_hpa(namespace,name)
         hpa = re.split(',|;', hpa)
@@ -2011,7 +2011,7 @@ class K8s():
                 print(e)
                 raise e
 
-    # @pysnooper.snoop()
+    @pysnooper.snoop()
     def to_memory_GB(self, memory):
         if 'K' in memory:
             return round(float(memory.replace('Ki', '').replace('K', '')) / 1024 / 1024,2)
@@ -2048,7 +2048,7 @@ class K8s():
         # print(back_metrics)
         return back_metrics
 
-    # @pysnooper.snoop()
+    @pysnooper.snoop()
     def get_pod_metrics(self, namespace=None):
         back_metrics = []
         try:
@@ -2076,7 +2076,7 @@ class K8s():
         # print(back_metrics)
         return back_metrics
 
-    # @pysnooper.snoop()
+    @pysnooper.snoop()
     def exec_command(self, name, namespace, command):
         try:
             self.v1.read_namespaced_pod(name=name, namespace=namespace,_request_timeout=5)
@@ -2418,7 +2418,7 @@ class K8SStreamThread(threading.Thread):
                 break
 
 
-# @pysnooper.snoop()
+@pysnooper.snoop()
 def check_status_time(status, hour=8):
     if type(status) == dict:
         for key in status:

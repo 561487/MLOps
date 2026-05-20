@@ -357,10 +357,14 @@ def dag_to_pipeline(pipeline, dbsession, workflow_label=None, **kwargs):
         if resource_gpu:
 
             gpu_num, gpu_type, gpu_resource_name = core.get_gpu(resource_gpu)
+            print(f"gpu_num: {gpu_num}, gpu_type: {gpu_type}, gpu_resource_name: {gpu_resource_name}")
+            if gpu_type and gpu_type.strip():
+                nodeSelector['gpu-type'] = gpu_type.strip().upper()
 
             # 整卡占用
             if gpu_num >= 1:
-
+                nodeSelector.pop('cpu', None)
+                nodeSelector['gpu'] = 'true'
                 resources_requests[gpu_resource_name] = str(int(gpu_num))
                 resources_limits[gpu_resource_name] = str(int(gpu_num))
 
@@ -868,7 +872,7 @@ class Pipeline_ModelView_Base():
 
     pre_add_req = pre_update_req
 
-    # @pysnooper.snoop()
+    @pysnooper.snoop()
     def pre_update(self, item):
         if item.expand:
             core.validate_json(item.expand)
@@ -921,7 +925,7 @@ class Pipeline_ModelView_Base():
         db.session.commit()
 
     # 删除前先把下面的task删除了，把里面的运行实例也删除了，把定时调度删除了
-    # @pysnooper.snoop()
+    @pysnooper.snoop()
     def pre_delete(self, pipeline):
         db.session.commit()
         if __("(废弃)") not in pipeline.describe:
