@@ -14,7 +14,7 @@ import os
 KFJ_CREATOR = os.getenv('KFJ_CREATOR', 'admin')
 host = os.getenv('HOST',os.getenv('KFJ_MODEL_REPO_API_URL','http://kubeflow-dashboard.infra')).strip('/')
 
-@pysnooper.snoop()
+# @pysnooper.snoop()
 def download(**kwargs):
     # print(kwargs)
     headers = {

@@ -290,7 +290,7 @@ class Offline_Predict():
             else:
                 self.consumer()
 
-    @pysnooper.snoop()
+    # @pysnooper.snoop()
     def run(self):
         VC_TASK_INDEX = os.environ.get('VC_TASK_INDEX', None)
         local_rank = int(os.environ.get('LOCAL_RANK', 0))

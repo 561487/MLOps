@@ -284,7 +284,11 @@ class Task_ModelView_Base():
         item.change_datetime = datetime.datetime.now()
         gpu_num, _, _ = core.get_gpu(item.resource_gpu)
         gpu_num = math.ceil(float(str(gpu_num).split(',')[-1]))
-        if gpu_num==0:
+        if gpu_num < 0:
+            item.node_selector = item.node_selector.replace('cpu=true', 'gpu=true')
+            if 'mps=true' not in item.node_selector:
+                item.node_selector += ';mps=true'
+        elif gpu_num==0:
             item.node_selector = item.node_selector.replace('gpu=true', 'cpu=true')
         else:
             item.node_selector = item.node_selector.replace('cpu=true', 'gpu=true')
@@ -361,7 +365,11 @@ class Task_ModelView_Base():
         item.change_datetime = datetime.datetime.now()
         gpu_num, _, _ = core.get_gpu(item.resource_gpu)
         gpu_num = math.ceil(float(str(gpu_num).replace('，',',').split(',')[-1]))
-        if gpu_num==0:
+        if gpu_num < 0:
+            item.node_selector = item.node_selector.replace('cpu=true', 'gpu=true')
+            if 'mps=true' not in item.node_selector:
+                item.node_selector += ';mps=true'
+        elif gpu_num==0:
             item.node_selector = item.node_selector.replace('gpu=true', 'cpu=true')
         else:
             item.node_selector = item.node_selector.replace('cpu=true', 'gpu=true')
@@ -429,7 +437,9 @@ class Task_ModelView_Base():
             task_env += 'PORT1=' + str(meet_ports[1])+ "\n"
             task_env += 'PORT2=' + str(meet_ports[2])+ "\n"
 
-        _, _, resource_name = core.get_gpu(task.resource_gpu)
+        gpu_num, _, resource_name = core.get_gpu(task.resource_gpu)
+        if isinstance(gpu_num, (int, float)) and gpu_num < 0:
+            _, _, resource_name = core.get_gpu_shared_resource(task.resource_gpu)
 
         # 系统环境变量
         task_env += 'KFJ_TASK_ID=' + str(task.id) + "\n"
@@ -448,6 +458,7 @@ class Task_ModelView_Base():
         task_env += 'KFJ_PIPELINE_NAME=' + str(task.pipeline.name) + "\n"
         task_env += 'KFJ_NAMESPACE=pipeline' + "\n"
         task_env += f'GPU_RESOURCE_NAME={resource_name}' + "\n"
+        task_env += f"GPU_SHARED_RESOURCE_NAME={conf.get('GPU_SHARED_RESOURCE_NAME', 'nvidia.com/gpu.shared')}" + "\n"
 
         template_kwargs={}
         def template_str(src_str):

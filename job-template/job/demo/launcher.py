@@ -19,7 +19,7 @@ run_id = os.getenv('KFJ_RUN_ID','xx')                        # 任务流运行�
 
 
 # 你想要实现的计算逻辑，通过文件输入输出
-@pysnooper.snoop()
+# @pysnooper.snoop()
 def do_something(args):
     input_file_path = args.input_file_path
     output_file_path = args.output_file_path
@@ -30,7 +30,7 @@ def do_something(args):
     result.to_csv(output_file_path, index=False)    # 保存结果数据
 
 # 你想要实现的计算逻辑，通过缓存输入输出
-@pysnooper.snoop()
+# @pysnooper.snoop()
 def do_something_with_cache():
     cache = redis.Redis.from_url(os.getenv('KFJ_CACHE_URL', ''))  # 缓存地址，可以在上下有传递数据
     # 你的任务逻辑，从目录读取输入，进行计算，保存输出
@@ -43,7 +43,7 @@ def do_something_with_cache():
 
 
 # 保存任务指标数据
-@pysnooper.snoop()
+# @pysnooper.snoop()
 def save_metrics():
 
     # 只有分布式存储中的数据才可以被读取，所以先复制可视化内容到个人分布式存储目录

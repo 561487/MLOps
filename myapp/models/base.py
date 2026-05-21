@@ -322,7 +322,9 @@ class MyappModelBase():
         gpu_num = core.get_gpu(resource_gpu)[0]
         if type(gpu_num)==str and ',' in gpu_num:
             node_selector = node_selector.replace('cpu=true', 'vgpu=true') + ";vgpu=true;%s=true" % model_type
-        elif gpu_num>=1 or gpu_num==-1:
+        elif isinstance(gpu_num, (int, float)) and gpu_num < 0:
+            node_selector = node_selector.replace('cpu=true', 'gpu=true') + ";gpu=true;mps=true;%s=true"%model_type
+        elif gpu_num>=1:
             node_selector = node_selector.replace('cpu=true', 'gpu=true') + ";gpu=true;%s=true"%model_type
         elif 1>gpu_num>0:
             node_selector = node_selector.replace('cpu=true', 'vgpu=true') + ";vgpu=true;%s=true" % model_type

@@ -33,7 +33,7 @@ def download_file(url,des_dir=None,local_path=None):
                 f.write(chunk)
         r.close()
 
-@pysnooper.snoop()
+# @pysnooper.snoop()
 def download(name,version,partition,save_dir,**kwargs):
     # print(kwargs)
     headers = {

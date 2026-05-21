@@ -237,7 +237,9 @@ def dag_to_pipeline(pipeline, dbsession, workflow_label=None, **kwargs):
             container_envs.append((global_env_key, global_envs[global_env_key]))
 
         # 设置task的默认环境变量
-        _, _, gpu_resource_name = core.get_gpu(task.resource_gpu)
+        gpu_num, _, gpu_resource_name = core.get_gpu(task.resource_gpu)
+        if isinstance(gpu_num, (int, float)) and gpu_num < 0:
+            _, _, gpu_resource_name = core.get_gpu_shared_resource(task.resource_gpu)
         container_envs.append(("KFJ_TASK_ID", str(task.id)))
         container_envs.append(("KFJ_TASK_NAME", str(task.name)))
         container_envs.append(("KFJ_TASK_NODE_SELECTOR", str(task.get_node_selector())))
@@ -248,6 +250,7 @@ def dag_to_pipeline(pipeline, dbsession, workflow_label=None, **kwargs):
         container_envs.append(("KFJ_TASK_RESOURCE_GPU", str(task.resource_gpu)))
         container_envs.append(("KFJ_TASK_PROJECT_NAME", str(pipeline.project.name)))
         container_envs.append(("GPU_RESOURCE_NAME", gpu_resource_name))
+        container_envs.append(("GPU_SHARED_RESOURCE_NAME", conf.get('GPU_SHARED_RESOURCE_NAME', 'nvidia.com/gpu.shared')))
         container_envs.append(("USERNAME", pipeline.created_by.username))
         container_envs.append(("IMAGE_PULL_POLICY", conf.get('IMAGE_PULL_POLICY','Always')))
         if hubsecret_list:
@@ -357,7 +360,6 @@ def dag_to_pipeline(pipeline, dbsession, workflow_label=None, **kwargs):
         if resource_gpu:
 
             gpu_num, gpu_type, gpu_resource_name = core.get_gpu(resource_gpu)
-            print(f"gpu_num: {gpu_num}, gpu_type: {gpu_type}, gpu_resource_name: {gpu_resource_name}")
             if gpu_type and gpu_type.strip():
                 nodeSelector['gpu-type'] = gpu_type.strip().upper()
 
@@ -367,6 +369,14 @@ def dag_to_pipeline(pipeline, dbsession, workflow_label=None, **kwargs):
                 nodeSelector['gpu'] = 'true'
                 resources_requests[gpu_resource_name] = str(int(gpu_num))
                 resources_limits[gpu_resource_name] = str(int(gpu_num))
+
+            shared_count, _, shared_resource_name = core.get_gpu_shared_resource(resource_gpu)
+            if shared_count:
+                nodeSelector.pop('cpu', None)
+                for selector_key, selector_value in conf.get('GPU_SHARED_NODE_SELECTOR', {}).items():
+                    nodeSelector[selector_key] = selector_value
+                resources_requests[shared_resource_name] = str(shared_count)
+                resources_limits[shared_resource_name] = str(shared_count)
 
             if 0 == gpu_num:
                 # 没要gpu的容器，就要加上可视gpu为空，不然gpu镜像能看到和使用所有gpu

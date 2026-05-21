@@ -169,7 +169,7 @@ class Notebook_ModelView_Base():
         self.add_form_extra_fields['resource_gpu'] = StringField(
             _('gpu'),
             default='0',
-            description= _('申请的gpu卡数目，示例:2，每个容器独占整卡。-1为共享占用方式，小数(0.1)为vgpu方式，申请具体的卡型号，可以类似 1(V100)'),
+            description= _('申请的gpu卡数目，示例:2为独占整卡。负数为共享GPU模式，每个容器申请1个共享GPU份额。小数(0.1)为vgpu方式，申请具体的卡型号，可以类似 1(V100)'),
             widget=BS3TextFieldWidget(),
             validators=[DataRequired(),Regexp('^[\-\.0-9,a-zA-Z\(\)]*$')]
         )

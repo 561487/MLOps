@@ -682,6 +682,11 @@ GPU_RESOURCE={
     "gpu":"nvidia.com/gpu"
 }
 DEFAULT_GPU_RESOURCE_NAME='nvidia.com/gpu'
+GPU_SHARED_RESOURCE_NAME='nvidia.com/gpu.shared'
+GPU_SHARED_NODE_SELECTOR={
+    "gpu":"true",
+    "mps":"true"
+}
 
 # 配置禁用gpu的方法，不然对复合共用型机器，gpu会被共享使用
 GPU_NONE={

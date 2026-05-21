@@ -385,10 +385,13 @@ def create_worker_deploy(header_name,worker_name):
     if int(gpu_num)>=1:
         worker_deploy['spec']['template']['spec']['containers'][0]['resources']['requests'][GPU_RESOURCE_NAME] = int(gpu_num)
         worker_deploy['spec']['template']['spec']['containers'][0]['resources']['limits'][GPU_RESOURCE_NAME] = int(gpu_num)
-    elif int(gpu_num)==-1:
-        worker_deploy['spec']['template']['spec']['containers'][0]['securityContext']={
-            "privileged": True
-        }
+    elif int(gpu_num)<0:
+        shared_count, _, shared_resource_name = k8s_client.get_gpu_shared_resource(GPU_RESOURCE)
+        worker_deploy['spec']['template']['spec']['containers'][0]['resources']['requests'][shared_resource_name] = shared_count
+        worker_deploy['spec']['template']['spec']['containers'][0]['resources']['limits'][shared_resource_name] = shared_count
+        worker_deploy['spec']['template']['spec']['nodeSelector'].pop('cpu', None)
+        worker_deploy['spec']['template']['spec']['nodeSelector']['gpu'] = 'true'
+        worker_deploy['spec']['template']['spec']['nodeSelector']['mps'] = 'true'
     else:
         # 添加禁用指令
         worker_deploy['spec']['template']['spec']['containers'][0]['env'].append({

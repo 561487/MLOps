@@ -33,6 +33,7 @@ class K8s():
         self.vgpu_resource = {
             "vgpu": "nvidia.com/vgpu",  # 第四范式解决方案虚拟化方法，cuda层拦截
         }
+        self.gpu_shared_resource_name = os.getenv('GPU_SHARED_RESOURCE_NAME', 'nvidia.com/gpu.shared')
         self.vgpu_drive_type = 'TENCENT'
 
     # @pysnooper.snoop()
@@ -83,6 +84,13 @@ class K8s():
 
         # gpu_num 可以是小数，可以是整数，也可以是1G,0.1这种写了显存的字符串结构
         return gpu_num, gpu_type, resource_name
+
+    def get_gpu_shared_resource(self, resource_gpu, resource_name=None):
+        gpu_num, gpu_type, _ = self.get_gpu(resource_gpu)
+        if isinstance(gpu_num, (int, float)) and gpu_num < 0:
+            return 1, gpu_type, resource_name or self.gpu_shared_resource_name
+
+        return 0, gpu_type, None
 
     # 获取指定范围的pod
     # @pysnooper.snoop()
@@ -1009,6 +1017,12 @@ class K8s():
                 resources_requests[resource_name] = str(int(gpu_num))
                 resources_limits[resource_name] = str(int(gpu_num))
 
+        shared_count, _, shared_resource_name = self.get_gpu_shared_resource(resource_gpu)
+        if shared_count:
+            resources_requests[shared_resource_name] = str(shared_count)
+            resources_limits[shared_resource_name] = str(shared_count)
+            k8s_volume_mounts = [mount for mount in k8s_volume_mounts if mount.get("mountPath") != "/dev/shm"]
+
         if 0 < gpu_num < 1:
             # 虚拟gpu
             vgpu_drive_type = self.vgpu_drive_type
@@ -1091,7 +1105,7 @@ class K8s():
             annotations['scheduling.k8s.io/group-name'] = name
         metadata = v1_object_meta.V1ObjectMeta(name=name, namespace=namespace, labels=labels, annotations=annotations)
         image_pull_secrets = [client.V1LocalObjectReference(image_pull_secret) for image_pull_secret in image_pull_secrets]
-        nodeSelector = None
+        nodeSelector = {}
         if node_selector and '=' in node_selector:
             nodeSelector = {}
             for selector in re.split(',|;|\n|\t', node_selector):
@@ -1100,15 +1114,20 @@ class K8s():
                     nodeSelector[selector.strip().split('=')[0].strip()] = selector.strip().split('=')[1].strip()
 
         gpu_num, gpu_type, resource_name = self.get_gpu(resource_gpu)
+        shared_count, _, _ = self.get_gpu_shared_resource(resource_gpu)
         # 设置卡型
         if gpu_type and gpu_type.strip():
             nodeSelector['gpu-type'] = gpu_type
-        if gpu_num >= 1 or gpu_num==-1:
+        if gpu_num >= 1 or shared_count:
             nodeSelector['gpu'] = 'true'
+        if shared_count:
+            nodeSelector['mps'] = 'true'
         if 1 > gpu_num > 0:
             nodeSelector['vgpu'] = 'true'
 
         k8s_volumes, k8s_volume_mounts = self.get_volume_mounts(volume_mount, username)
+        if shared_count:
+            k8s_volumes = [volume for volume in k8s_volumes if volume.get("name") != "dshm"]
 
         containers = [self.make_container(name=name,
                                           command=command,

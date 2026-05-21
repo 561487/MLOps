@@ -177,7 +177,7 @@ def monitoring(crd_k8s,name,namespace):
 
 
 
-@pysnooper.snoop()
+# @pysnooper.snoop()
 def make_volcanojob(name,num_workers,image,working_dir,command,env):
     # if type(command)==str:
     #     command=command.split(" ")
@@ -286,8 +286,13 @@ def make_volcanojob(name,num_workers,image,working_dir,command,env):
     if int(gpu_num)>=1:
         task_spec['template']['spec']['containers'][0]['resources']['requests'][GPU_RESOURCE_NAME] = int(gpu_num)
         task_spec['template']['spec']['containers'][0]['resources']['limits'][GPU_RESOURCE_NAME] = int(gpu_num)
-    elif int(gpu_num)==-1:
-        pass
+    elif int(gpu_num)<0:
+        shared_count, _, shared_resource_name = k8s_client.get_gpu_shared_resource(GPU_RESOURCE)
+        task_spec['template']['spec']['containers'][0]['resources']['requests'][shared_resource_name] = shared_count
+        task_spec['template']['spec']['containers'][0]['resources']['limits'][shared_resource_name] = shared_count
+        task_spec['template']['spec']['nodeSelector'].pop('cpu', None)
+        task_spec['template']['spec']['nodeSelector']['gpu'] = 'true'
+        task_spec['template']['spec']['nodeSelector']['mps'] = 'true'
     else:
         # 添加禁用指令
         task_spec['template']['spec']['containers'][0]['env'].append({
@@ -357,7 +362,7 @@ def make_volcanojob(name,num_workers,image,working_dir,command,env):
     return volcano_deploy
 
 
-@pysnooper.snoop()
+# @pysnooper.snoop()
 def launch_volcanojob(name, num_workers, image,working_dir, worker_command,env):
     if KFJ_RUN_ID:
         print('delete old volcanojob, run-id %s'%KFJ_RUN_ID, flush=True)
@@ -406,7 +411,7 @@ def launch_volcanojob(name, num_workers, image,working_dir, worker_command,env):
 
 
 # 创建单机版本rabbitmq
-@pysnooper.snoop()
+# @pysnooper.snoop()
 def create_rabbitmq(name,create=True):
     try:
         pod_str={

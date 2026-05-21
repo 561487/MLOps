@@ -279,10 +279,13 @@ def make_pytorchjob(name,num_workers,image,working_dir,command):
     if int(gpu_num)>=1:
         pod_spec['template']['spec']['containers'][0]['resources']['requests'][GPU_RESOURCE_NAME] = int(gpu_num)
         pod_spec['template']['spec']['containers'][0]['resources']['limits'][GPU_RESOURCE_NAME] = int(gpu_num)
-    elif int(gpu_num)==-1: # -1表示共享占用，使用gpu机器，但是不强制声明使用gpu，用户容器自行决定
-        pod_spec['template']['spec']['containers'][0]['securityContext']={
-            "privileged": True
-        }
+    elif int(gpu_num)<0:
+        shared_count, _, shared_resource_name = k8s_client.get_gpu_shared_resource(GPU_RESOURCE)
+        pod_spec['template']['spec']['containers'][0]['resources']['requests'][shared_resource_name] = shared_count
+        pod_spec['template']['spec']['containers'][0]['resources']['limits'][shared_resource_name] = shared_count
+        pod_spec['template']['spec']['nodeSelector'].pop('cpu', None)
+        pod_spec['template']['spec']['nodeSelector']['gpu'] = 'true'
+        pod_spec['template']['spec']['nodeSelector']['mps'] = 'true'
     else:
         # 添加禁用指令
         pod_spec['template']['spec']['containers'][0]['env'].append({

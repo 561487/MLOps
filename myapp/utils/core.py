@@ -1651,6 +1651,17 @@ def get_gpu(resource_gpu,resource_name=None):
     # gpu_num 可以是小数，可以是整数，也可以是1G,0.1这种写了显存的字符串结构
     return gpu_num, gpu_type, resource_name
 
+
+def get_gpu_shared_resource(resource_gpu, resource_name=None):
+    from myapp import conf
+
+    gpu_num, gpu_type, _ = get_gpu(resource_gpu)
+    if isinstance(gpu_num, (int, float)) and gpu_num < 0:
+        shared_resource_name = resource_name or conf.get('GPU_SHARED_RESOURCE_NAME', 'nvidia.com/gpu.shared')
+        return 1, gpu_type, shared_resource_name
+
+    return 0, gpu_type, None
+
 # @pysnooper.snoop()
 def get_rdma(resource_rdma,resource_name=None):
     from myapp import conf

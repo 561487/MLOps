@@ -27,6 +27,10 @@ spec:
                 operator: In
                 values:
                 - "true"
+              - key: mps
+                operator: In
+                values:
+                - "false"
       tolerations:
       # This toleration is deprecated. Kept here for backward compatibility
       # See https://kubernetes.io/docs/tasks/administer-cluster/guaranteed-scheduling-critical-addon-pods/

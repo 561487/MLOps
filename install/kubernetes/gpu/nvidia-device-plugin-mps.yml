@@ -1,0 +1,185 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nvidia-device-plugin-mps-config
+  namespace: kube-system
+data:
+  config.yaml: |
+    version: v1
+    flags:
+      migStrategy: none
+    sharing:
+      mps:
+        renameByDefault: true
+        resources:
+        - name: nvidia.com/gpu
+          replicas: 4
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: nvidia-device-plugin-mps-daemonset
+  namespace: kube-system
+spec:
+  selector:
+    matchLabels:
+      name: nvidia-device-plugin-mps-ds
+  updateStrategy:
+    type: RollingUpdate
+  template:
+    metadata:
+      # This annotation is deprecated. Kept here for backward compatibility
+      # See https://kubernetes.io/docs/tasks/administer-cluster/guaranteed-scheduling-critical-addon-pods/
+      # annotations:
+      #   scheduler.alpha.kubernetes.io/critical-pod: ""
+      labels:
+        name: nvidia-device-plugin-mps-ds
+    spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: gpu     # nvidia-device-enable
+                operator: In
+                values:
+                - "true"
+              - key: mps
+                operator: In
+                values:
+                - "true"
+      tolerations:
+      # This toleration is deprecated. Kept here for backward compatibility
+      # See https://kubernetes.io/docs/tasks/administer-cluster/guaranteed-scheduling-critical-addon-pods/
+      - key: CriticalAddonsOnly
+        operator: Exists
+      - key: nvidia.com/gpu
+        operator: Exists
+        effect: NoSchedule
+      # Mark this pod as a critical add-on; when enabled, the critical add-on
+      # scheduler reserves resources for critical add-on pods so that they can
+      # be rescheduled after a failure.
+      # See https://kubernetes.io/docs/tasks/administer-cluster/guaranteed-scheduling-critical-addon-pods/
+      priorityClassName: "system-node-critical"
+      containers:
+      - image: nvcr.io/nvidia/k8s-device-plugin:v0.17.1  # nvidia/k8s-device-plugin:v0.11.0-ubuntu20.04   # nvcr.io/nvidia/k8s-device-plugin:v0.14.2-ubuntu20.04
+        imagePullPolicy: IfNotPresent
+        name: nvidia-device-plugin-ctr
+        command: ["nvidia-device-plugin"]
+        env:
+          - name: FAIL_ON_INIT_ERROR
+            value: "false"
+          - name: CONFIG_FILE
+            value: /config/config.yaml
+          - name: MPS_ROOT
+            value: /run/nvidia/mps
+          - name: NVIDIA_VISIBLE_DEVICES
+            value: all
+          - name: NVIDIA_DRIVER_CAPABILITIES
+            value: compute,utility
+#        env:
+#          - name: NVIDIA_VISIBLE_DEVICES
+#            value: "0,1,2"
+        volumeMounts:
+          - name: device-plugin
+            mountPath: /var/lib/kubelet/device-plugins
+          - name: config
+            mountPath: /config
+          - name: mps-shm
+            mountPath: /dev/shm
+          - name: mps-root
+            mountPath: /mps
+      volumes:
+        - name: device-plugin
+          hostPath:
+            path: /var/lib/kubelet/device-plugins
+        - name: config
+          configMap:
+            name: nvidia-device-plugin-mps-config
+        - name: mps-root
+          hostPath:
+            path: /run/nvidia/mps
+            type: DirectoryOrCreate
+        - name: mps-shm
+          hostPath:
+            path: /run/nvidia/mps/shm
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: nvidia-device-plugin-mps-control-daemon
+  namespace: kube-system
+spec:
+  selector:
+    matchLabels:
+      name: nvidia-device-plugin-mps-control-daemon
+  updateStrategy:
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        name: nvidia-device-plugin-mps-control-daemon
+    spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: gpu
+                operator: In
+                values:
+                - "true"
+              - key: mps
+                operator: In
+                values:
+                - "true"
+      tolerations:
+      - key: CriticalAddonsOnly
+        operator: Exists
+      - key: nvidia.com/gpu
+        operator: Exists
+        effect: NoSchedule
+      priorityClassName: "system-node-critical"
+      initContainers:
+      - image: nvcr.io/nvidia/k8s-device-plugin:v0.17.1
+        imagePullPolicy: IfNotPresent
+        name: mps-control-daemon-mounts
+        command: ["mps-control-daemon", "mount-shm"]
+        securityContext:
+          privileged: true
+        volumeMounts:
+          - name: mps-root
+            mountPath: /mps
+            mountPropagation: Bidirectional
+      containers:
+      - image: nvcr.io/nvidia/k8s-device-plugin:v0.17.1
+        imagePullPolicy: IfNotPresent
+        name: mps-control-daemon-ctr
+        command: ["mps-control-daemon"]
+        env:
+          - name: CONFIG_FILE
+            value: /config/config.yaml
+          - name: NVIDIA_VISIBLE_DEVICES
+            value: all
+          - name: NVIDIA_DRIVER_CAPABILITIES
+            value: compute,utility
+        securityContext:
+          privileged: true
+        volumeMounts:
+          - name: config
+            mountPath: /config
+          - name: mps-shm
+            mountPath: /dev/shm
+          - name: mps-root
+            mountPath: /mps
+      volumes:
+        - name: config
+          configMap:
+            name: nvidia-device-plugin-mps-config
+        - name: mps-root
+          hostPath:
+            path: /run/nvidia/mps
+            type: DirectoryOrCreate
+        - name: mps-shm
+          hostPath:
+            path: /run/nvidia/mps/shm
