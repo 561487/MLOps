@@ -284,6 +284,7 @@ class Task_ModelView_Base():
         item.change_datetime = datetime.datetime.now()
         gpu_num, _, _ = core.get_gpu(item.resource_gpu)
         gpu_num = math.ceil(float(str(gpu_num).split(',')[-1]))
+        item.node_selector = item.node_selector.replace(';mps=true', '').replace(';mps=false', '').replace('mps=true;', '').replace('mps=false;', '').replace('mps=true', '').replace('mps=false', '')
         if gpu_num < 0:
             item.node_selector = item.node_selector.replace('cpu=true', 'gpu=true')
             if 'mps=true' not in item.node_selector:
@@ -292,6 +293,8 @@ class Task_ModelView_Base():
             item.node_selector = item.node_selector.replace('gpu=true', 'cpu=true')
         else:
             item.node_selector = item.node_selector.replace('cpu=true', 'gpu=true')
+            if 'mps=false' not in item.node_selector:
+                item.node_selector += ';mps=false'
 
     def pre_update_req(self,req_json=None,src_item=None,*args,**kwargs):
         if src_item and src_item.pipeline and src_item.pipeline.parameter:
@@ -365,6 +368,7 @@ class Task_ModelView_Base():
         item.change_datetime = datetime.datetime.now()
         gpu_num, _, _ = core.get_gpu(item.resource_gpu)
         gpu_num = math.ceil(float(str(gpu_num).replace('，',',').split(',')[-1]))
+        item.node_selector = item.node_selector.replace(';mps=true', '').replace(';mps=false', '').replace('mps=true;', '').replace('mps=false;', '').replace('mps=true', '').replace('mps=false', '')
         if gpu_num < 0:
             item.node_selector = item.node_selector.replace('cpu=true', 'gpu=true')
             if 'mps=true' not in item.node_selector:
@@ -373,6 +377,8 @@ class Task_ModelView_Base():
             item.node_selector = item.node_selector.replace('gpu=true', 'cpu=true')
         else:
             item.node_selector = item.node_selector.replace('cpu=true', 'gpu=true')
+            if 'mps=false' not in item.node_selector:
+                item.node_selector += ';mps=false'
 
         # 修改了名称，要在pipeline的属性里面一起改了
         src_task_name = self.src_item_json.get('name', item.name)

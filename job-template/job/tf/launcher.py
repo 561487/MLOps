@@ -72,7 +72,7 @@ HUBSECRET=[{"name":hubsecret} for hubsecret in HUBSECRET.split(',')]
 DEFAULT_POD_RESOURCES = os.getenv('DEFAULT_POD_RESOURCES','')
 DEFAULT_POD_RESOURCES = json.loads(DEFAULT_POD_RESOURCES) if DEFAULT_POD_RESOURCES else {}
 
-schedulerName = os.getenv('SCHEDULER', 'default-scheduler')
+schedulerName = os.getenv('SCHEDULER', 'volcano')
 
 
 
@@ -246,6 +246,9 @@ def make_tfjob(name,num_workers,image,working_dir,command):
     if int(gpu_num)>=1:
         pod_spec['template']['spec']['containers'][0]['resources']['requests'][GPU_RESOURCE_NAME] = int(gpu_num)
         pod_spec['template']['spec']['containers'][0]['resources']['limits'][GPU_RESOURCE_NAME] = int(gpu_num)
+        pod_spec['template']['spec']['nodeSelector'].pop('cpu', None)
+        pod_spec['template']['spec']['nodeSelector']['gpu'] = 'true'
+        pod_spec['template']['spec']['nodeSelector']['mps'] = 'false'
     elif int(gpu_num)<0:
         shared_count, _, shared_resource_name = k8s_client.get_gpu_shared_resource(GPU_RESOURCE)
         pod_spec['template']['spec']['containers'][0]['resources']['requests'][shared_resource_name] = shared_count

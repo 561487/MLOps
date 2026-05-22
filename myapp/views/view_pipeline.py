@@ -252,9 +252,11 @@ def dag_to_pipeline(pipeline, dbsession, workflow_label=None, **kwargs):
         container_envs.append(("GPU_RESOURCE_NAME", gpu_resource_name))
         container_envs.append(("GPU_SHARED_RESOURCE_NAME", conf.get('GPU_SHARED_RESOURCE_NAME', 'nvidia.com/gpu.shared')))
         container_envs.append(("USERNAME", pipeline.created_by.username))
-        container_envs.append(("IMAGE_PULL_POLICY", conf.get('IMAGE_PULL_POLICY','Always')))
+        container_envs.append(("IMAGE_PULL_POLICY", conf.get('IMAGE_PULL_POLICY','IfNotPresent')))
         if hubsecret_list:
             container_envs.append(("HUBSECRET", ','.join(hubsecret_list)))
+        if not any(env_key == "SCHEDULER" for env_key, _ in container_envs):
+            container_envs.append(("SCHEDULER", "volcano"))
 
 
         # 创建工作目录
@@ -367,6 +369,7 @@ def dag_to_pipeline(pipeline, dbsession, workflow_label=None, **kwargs):
             if gpu_num >= 1:
                 nodeSelector.pop('cpu', None)
                 nodeSelector['gpu'] = 'true'
+                nodeSelector['mps'] = 'false'
                 resources_requests[gpu_resource_name] = str(int(gpu_num))
                 resources_limits[gpu_resource_name] = str(int(gpu_num))
 
@@ -428,7 +431,7 @@ def dag_to_pipeline(pipeline, dbsession, workflow_label=None, **kwargs):
                 },
                 "volumeMounts": k8s_volume_mounts,
                 "workingDir": working_dir,
-                "imagePullPolicy": conf.get('IMAGE_PULL_POLICY', 'Always')
+                "imagePullPolicy": conf.get('IMAGE_PULL_POLICY', 'IfNotPresent')
             },
             "nodeSelector": nodeSelector,
             "securityContext": {

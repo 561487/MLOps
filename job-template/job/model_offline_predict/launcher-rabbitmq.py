@@ -286,6 +286,9 @@ def make_volcanojob(name,num_workers,image,working_dir,command,env):
     if int(gpu_num)>=1:
         task_spec['template']['spec']['containers'][0]['resources']['requests'][GPU_RESOURCE_NAME] = int(gpu_num)
         task_spec['template']['spec']['containers'][0]['resources']['limits'][GPU_RESOURCE_NAME] = int(gpu_num)
+        task_spec['template']['spec']['nodeSelector'].pop('cpu', None)
+        task_spec['template']['spec']['nodeSelector']['gpu'] = 'true'
+        task_spec['template']['spec']['nodeSelector']['mps'] = 'false'
     elif int(gpu_num)<0:
         shared_count, _, shared_resource_name = k8s_client.get_gpu_shared_resource(GPU_RESOURCE)
         task_spec['template']['spec']['containers'][0]['resources']['requests'][shared_resource_name] = shared_count

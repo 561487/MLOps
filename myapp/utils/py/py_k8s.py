@@ -1238,6 +1238,7 @@ class K8s():
                     nodeSelector[selector_key] = selector_value
             else:
                 nodeSelector['gpu'] = 'true'
+                nodeSelector['mps'] = 'false'
             labels['gpu']='true'
             # 优先选择gpu卡占用的地方，这样不容易造成卡的零碎化占用
             affinity.pod_affinity = client.V1PodAffinity(

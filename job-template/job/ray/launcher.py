@@ -62,6 +62,7 @@ HUBSECRET=[{"name":hubsecret} for hubsecret in HUBSECRET.split(',')]
 
 DEFAULT_POD_RESOURCES = os.getenv('DEFAULT_POD_RESOURCES','')
 DEFAULT_POD_RESOURCES = json.loads(DEFAULT_POD_RESOURCES) if DEFAULT_POD_RESOURCES else {}
+schedulerName = os.getenv('SCHEDULER', 'volcano')
 
 def create_header_service(name):
     service_json = {
@@ -152,9 +153,11 @@ def create_header_deploy(name):
                     }
                 },
                 "spec": {
+                    "schedulerName": schedulerName,
                     "restartPolicy": "Always",
                     "volumes": k8s_volumes,
                     "imagePullSecrets": HUBSECRET,
+                    "nodeSelector": dict(KFJ_TASK_NODE_SELECTOR),
                     "affinity": {
                         "nodeAffinity": {
                             "requiredDuringSchedulingIgnoredDuringExecution": {
@@ -292,6 +295,8 @@ def create_worker_deploy(header_name,worker_name):
                 },
 
                 "spec": {
+                    "schedulerName": schedulerName,
+                    "nodeSelector": dict(KFJ_TASK_NODE_SELECTOR),
                     "affinity": {
                         "nodeAffinity": {
                             "requiredDuringSchedulingIgnoredDuringExecution": {
@@ -385,6 +390,9 @@ def create_worker_deploy(header_name,worker_name):
     if int(gpu_num)>=1:
         worker_deploy['spec']['template']['spec']['containers'][0]['resources']['requests'][GPU_RESOURCE_NAME] = int(gpu_num)
         worker_deploy['spec']['template']['spec']['containers'][0]['resources']['limits'][GPU_RESOURCE_NAME] = int(gpu_num)
+        worker_deploy['spec']['template']['spec']['nodeSelector'].pop('cpu', None)
+        worker_deploy['spec']['template']['spec']['nodeSelector']['gpu'] = 'true'
+        worker_deploy['spec']['template']['spec']['nodeSelector']['mps'] = 'false'
     elif int(gpu_num)<0:
         shared_count, _, shared_resource_name = k8s_client.get_gpu_shared_resource(GPU_RESOURCE)
         worker_deploy['spec']['template']['spec']['containers'][0]['resources']['requests'][shared_resource_name] = shared_count
