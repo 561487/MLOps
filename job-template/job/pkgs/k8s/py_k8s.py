@@ -1129,6 +1129,7 @@ class K8s():
 
         k8s_volumes, k8s_volume_mounts = self.get_volume_mounts(volume_mount, username)
         if shared_count:
+            k8s_volume_mounts = [mount for mount in k8s_volume_mounts if mount.get("mountPath") != "/dev/shm"]
             k8s_volumes = [volume for volume in k8s_volumes if volume.get("name") != "dshm"]
 
         containers = [self.make_container(name=name,

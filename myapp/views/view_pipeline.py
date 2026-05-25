@@ -380,6 +380,10 @@ def dag_to_pipeline(pipeline, dbsession, workflow_label=None, **kwargs):
                     nodeSelector[selector_key] = selector_value
                 resources_requests[shared_resource_name] = str(shared_count)
                 resources_limits[shared_resource_name] = str(shared_count)
+                k8s_volume_mounts = [mount for mount in k8s_volume_mounts if mount.get("mountPath") != "/dev/shm"]
+                k8s_volumes = [volume for volume in k8s_volumes if volume.get("name") != "dshm"]
+                print(f"pipeline k8s_volume_mounts: {k8s_volume_mounts}")
+                print(f"pipeline k8s_volumes: {k8s_volumes}")
 
             if 0 == gpu_num:
                 # 没要gpu的容器，就要加上可视gpu为空，不然gpu镜像能看到和使用所有gpu

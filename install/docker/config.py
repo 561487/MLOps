@@ -666,12 +666,13 @@ CRD_INFO={
 }
 
 # 每个task都会携带的任务环境变量，{{}}模板变量会在插入前进行渲染
+# "KFJ_MODEL_REPO_API_URL":"http://kubeflow-dashboard.infra",
 GLOBAL_ENV={
     "KFJ_PIPELINE_ID":"{{pipeline_id}}",
     "KFJ_RUN_ID":"{{uuid.uuid4().hex}}",
     "KFJ_CREATOR":"{{creator}}",
     "KFJ_RUNNER":"{{runner}}",
-    "KFJ_MODEL_REPO_API_URL":"http://kubeflow-dashboard.infra",
+    "KFJ_MODEL_REPO_API_URL":"http://10.121.177.20:18080",
     "KFJ_ARCHIVE_BASE_PATH":"/archives",
     "KFJ_PIPELINE_NAME":"{{pipeline_name}}",
     "KFJ_NAMESPACE":"pipeline",
