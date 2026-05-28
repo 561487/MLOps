@@ -976,7 +976,7 @@ class K8s():
 
                     if "(hostpath)" in volume:
                         hostpath_name = volume.replace('(hostpath)', '').replace(' ', '')
-                        temps = re.split('_|\.|/', hostpath_name)
+                        temps = re.split(r'_|\.|/', hostpath_name)
                         temps = [temp for temp in temps if temp]
                         volumn_name = '-'.join(temps).lower()[-60:].strip('-')  # hostpath_name.replace('_', '-').replace('/', '-').replace('.', '-')
                         k8s_volumes.append(
@@ -2241,12 +2241,32 @@ class K8s():
         )
         container_stream.write_channel(4, json.dumps({"Height": int(rows), "Width": int(cols)}))
         return container_stream
+    # 读取pv
+    def get_pv(self, name):
+        try:
+            pv = self.v1.read_persistent_volume(name=name, _request_timeout=5)
+            return {
+                "name": pv.metadata.name if pv.metadata else name,
+                "status": pv.status.phase if pv.status and pv.status.phase else 'unknown',
+                "claim": pv.spec.claim_ref.name if pv.spec and pv.spec.claim_ref else '',
+                "claim_namespace": pv.spec.claim_ref.namespace if pv.spec and pv.spec.claim_ref else '',
+            }
+        except ApiException as e1:
+            if e1.status != 404:
+                print(e1)
+        except Exception as e:
+            print(e)
+        return {}
+
     # 读取pvc
     def get_pvc(self,name,namespace):
         try:
             pvc = self.v1.read_namespaced_persistent_volume_claim(name=name,namespace=namespace,_request_timeout=5)
             pvc = {
-                "status":pvc.status.phase if pvc.status and pvc.status.phase else 'unknown'
+                "name": pvc.metadata.name if pvc.metadata else name,
+                "namespace": namespace,
+                "status":pvc.status.phase if pvc.status and pvc.status.phase else 'unknown',
+                "volume_name": pvc.spec.volume_name if pvc.spec and pvc.spec.volume_name else '',
             }
             return pvc
         except ApiException as e1:
@@ -2257,6 +2277,34 @@ class K8s():
         except Exception  as e:
             pass
         return {}
+
+    def create_or_patch_pv(self, body):
+        name = body.get('metadata', {}).get('name', '')
+        if not name:
+            raise ValueError('pv name is required')
+        exists = self.get_pv(name)
+        if exists:
+            return exists
+        try:
+            self.v1.create_persistent_volume(body=body, _request_timeout=10)
+        except ApiException as e1:
+            if e1.status != 409:
+                raise
+        return self.get_pv(name)
+
+    def create_or_patch_pvc(self, namespace, body):
+        name = body.get('metadata', {}).get('name', '')
+        if not name:
+            raise ValueError('pvc name is required')
+        exists = self.get_pvc(name=name, namespace=namespace)
+        if exists:
+            return exists
+        try:
+            self.v1.create_namespaced_persistent_volume_claim(namespace=namespace, body=body, _request_timeout=10)
+        except ApiException as e1:
+            if e1.status != 409:
+                raise
+        return self.get_pvc(name=name, namespace=namespace)
 
     # 创建命名空间
     def create_namespace(self,name):

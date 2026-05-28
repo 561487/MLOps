@@ -7,6 +7,7 @@ from . import view_metadata
 from . import view_metadata_metric
 from . import view_dimension
 from . import view_dataset
+from . import view_storage
 from . import view_images
 from . import view_etl_pipeline
 from . import view_notebook
