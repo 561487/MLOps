@@ -66,7 +66,46 @@
       "rec_job_template": "自定义镜像"
     },
     "job_template_env": "NO_RESOURCE_CHECK=true\nTASK_RESOURCE_CPU=1\nTASK_RESOURCE_MEMORY=1G\nTASK_RESOURCE_GPU=0",
-    "job_template_args": {}
+    "job_template_args": {
+      "任务": {
+        "logical_type": {
+          "type": "str",
+          "item_type": "str",
+          "label": "逻辑类型",
+          "require": 1,
+          "choice": ["branch", "loop", "parallel", "merge", "subpipeline", "end"],
+          "range": "",
+          "default": "branch",
+          "placeholder": "",
+          "describe": "逻辑节点类型: branch(分支), loop(循环), parallel(并行), merge(合并), subpipeline(子流程), end(结束)",
+          "editable": 1
+        },
+        "condition": {
+          "type": "str",
+          "item_type": "str",
+          "label": "条件表达式",
+          "require": 0,
+          "choice": [],
+          "range": "",
+          "default": "",
+          "placeholder": "{{tasks.task1.result}} == 'success'",
+          "describe": "分支/循环节点的条件表达式，为空则默认执行",
+          "editable": 1
+        },
+        "subpipeline_name": {
+          "type": "str",
+          "item_type": "str",
+          "label": "子流程名称",
+          "require": 0,
+          "choice": [],
+          "range": "",
+          "default": "",
+          "placeholder": "",
+          "describe": "子流程节点要调用的Pipeline名称",
+          "editable": 1
+        }
+      }
+    }
   },
   "python": {
     "project_name": "基础命令",
@@ -79,7 +118,46 @@
       "index": 3,
       "rec_job_template": "自定义镜像"
     },
-    "job_template_args": {}
+    "job_template_args": {
+      "任务": {
+        "code": {
+          "type": "str",
+          "item_type": "str",
+          "label": "Python代码",
+          "require": 1,
+          "choice": [],
+          "range": "",
+          "default": "# 在此输入Python代码\nprint('hello world')",
+          "placeholder": "",
+          "describe": "要执行的Python代码",
+          "editable": 1
+        },
+        "input_path": {
+          "type": "str",
+          "item_type": "str",
+          "label": "输入数据路径",
+          "require": 0,
+          "choice": [],
+          "range": "",
+          "default": "",
+          "placeholder": "/mnt/data/input.csv",
+          "describe": "从MinIO读取输入数据的路径(可选)",
+          "editable": 1
+        },
+        "output_path": {
+          "type": "str",
+          "item_type": "str",
+          "label": "输出数据路径",
+          "require": 0,
+          "choice": [],
+          "range": "",
+          "default": "",
+          "placeholder": "/mnt/data/output.csv",
+          "describe": "结果写入MinIO的路径(可选)",
+          "editable": 1
+        }
+      }
+    }
   },
   "drop-duplicates": {
     "project_name": "特征处理",
