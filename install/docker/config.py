@@ -801,6 +801,11 @@ NOTEBOOK_EXCLUSIVE = False   # notebook 启动是否独占资源
 SERVICE_EXCLUSIVE = False   # 内部服务 启动是否独占资源
 
 MINIO_HOST = 'minio.kubeflow:9000'
+STORAGE_JUICEFS_STORAGE_CLASS = 'juicefs-sc'
+STORAGE_JUICEFS_SECRET_NAME = 'juicefs-minio-secret'
+STORAGE_JUICEFS_SECRET_NAMESPACE = 'kube-system'
+STORAGE_JUICEFS_BUCKET = 'mlops-storage'
+STORAGE_JUICEFS_BUCKET_PREFIX = 'projects'
 
 # 多行分割内网特定host
 HOSTALIASES='''

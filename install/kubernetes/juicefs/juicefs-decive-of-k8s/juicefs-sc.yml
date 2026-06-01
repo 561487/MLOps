@@ -19,7 +19,7 @@ kind: StorageClass
 metadata:
   name: juicefs-sc
 provisioner: csi.juicefs.com
-reclaimPolicy: Retain
+reclaimPolicy: Delete
 volumeBindingMode: Immediate
 parameters:
   csi.storage.k8s.io/node-publish-secret-name: juicefs-sc-secret

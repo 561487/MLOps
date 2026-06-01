@@ -42,3 +42,4 @@ venv/
 .venv/
 .cursor/
 /install/docker/data-dev/
+.cursorignore

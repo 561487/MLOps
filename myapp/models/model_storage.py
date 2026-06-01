@@ -27,7 +27,7 @@ class Storage(Model, AuditMixinNullable, MyappModelBase):
     cluster = Column(String(100), nullable=False, default='', comment='所属集群')
     namespace = Column(String(200), nullable=False, default='', comment='PVC所在命名空间，多个用逗号分隔')
     mount_path = Column(String(500), nullable=True, default='/mnt/storage', comment='推荐容器挂载路径')
-    capacity = Column(String(50), nullable=False, default='500Gi', comment='存储容量')
+    capacity = Column(String(50), nullable=False, default='5Gi', comment='存储容量')
     access_modes = Column(String(200), nullable=False, default='ReadWriteMany', comment='访问模式，多个用逗号分隔')
     storage_class = Column(String(200), nullable=True, default='', comment='StorageClass，静态NFS PV默认留空')
     pv_name = Column(String(500), nullable=True, default='', comment='K8s PV名称，多个用逗号分隔')
@@ -41,6 +41,7 @@ class Storage(Model, AuditMixinNullable, MyappModelBase):
         **MyappModelBase.label_columns,
         "project": _("所属项目组"),
         "storage_type": _("存储类型"),
+        "storage_type_display": _("存储类型"),
         "cluster": _("集群"),
         "namespace": _("命名空间"),
         "mount_path": _("推荐挂载路径"),
@@ -57,6 +58,12 @@ class Storage(Model, AuditMixinNullable, MyappModelBase):
 
     def __repr__(self):
         return self.name
+
+    @property
+    def storage_type_display(self):
+        if self.storage_type == 'minio_juicefs':
+            return 's3/minio'
+        return self.storage_type
 
     @property
     def config_html(self):

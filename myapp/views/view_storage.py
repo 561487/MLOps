@@ -4,14 +4,14 @@ import re
 import yaml
 from flask import g
 from flask_appbuilder.baseviews import expose_api
-from flask_appbuilder.fieldwidgets import BS3TextFieldWidget, Select2Widget
+from flask_appbuilder.fieldwidgets import BS3TextFieldWidget, Select2ManyWidget, Select2Widget
 from flask_babel import lazy_gettext as _
 from wtforms.ext.sqlalchemy.fields import QuerySelectField
 from wtforms import SelectField, StringField
 from wtforms.validators import DataRequired, Length, Regexp
 
 from myapp import app, appbuilder, db
-from myapp.forms import MySelect2Widget
+from myapp.forms import MySelect2Widget, MySelectMultipleField
 from myapp.models.model_storage import Storage
 from myapp.models.model_team import Project
 from myapp.utils.py.py_k8s import K8s
@@ -22,10 +22,11 @@ from .baseApi import MyappModelRestApi
 
 conf = app.config
 
-DEFAULT_NFS_SERVER = '10.0.0.76'
-DEFAULT_NFS_PATH = '/data/nfs/k8s'
+DEFAULT_NFS_SERVER = '10.121.177.20'
+DEFAULT_NFS_PATH = '/data/nfs/storage'
 STORAGE_TYPE_NFS = 'nfs'
 STORAGE_TYPE_MINIO_JUICEFS = 'minio_juicefs'
+STORAGE_TYPE_S3_MINIO_LABEL = 's3/minio'
 
 
 def default_cluster():
@@ -42,7 +43,11 @@ def default_namespaces():
         conf.get('PIPELINE_NAMESPACE', 'pipeline'),
         conf.get('SERVICE_NAMESPACE', 'service'),
     ]
-    return ','.join(sorted(set([namespace for namespace in namespaces if namespace])))
+    return ','.join(dict.fromkeys([namespace for namespace in namespaces if namespace]))
+
+
+def default_namespace_choices():
+    return [[namespace, namespace] for namespace in default_namespaces().split(',') if namespace]
 
 
 def default_nfs_config():
@@ -63,22 +68,25 @@ class Storage_ModelView_Base():
     order_columns = ['id']
     page_size = 100
 
-    list_columns = ['name', 'storage_type', 'project', 'capacity']
-    show_columns = ['name', 'storage_type', 'project', 'capacity']
-    add_columns = ['name', 'storage_type', 'project', 'capacity']
+    list_columns = ['name', 'storage_type_display', 'project', 'namespace', 'capacity']
+    show_columns = ['name', 'storage_type_display', 'project', 'namespace', 'capacity']
+    add_columns = ['name', 'storage_type', 'project', 'namespace', 'capacity']
     edit_columns = add_columns
-    search_columns = ['name', 'storage_type']
+    search_columns = ['name', 'storage_type', 'namespace']
 
     cols_width = {
         "name": {"type": "ellip1", "width": 160},
         "storage_type": {"type": "ellip1", "width": 100},
         "project": {"type": "ellip1", "width": 160},
+        "namespace": {"type": "ellip2", "width": 220},
         "capacity": {"type": "ellip1", "width": 120},
     }
 
     spec_label_columns = {
         "project": _("所属项目组"),
+        "namespace": _("PVC所在命名空间"),
         "storage_type": _("存储类型"),
+        "storage_type_display": _("存储类型"),
         "mount_path": _("推荐挂载路径"),
         "capacity": _("申请容量"),
         "access_modes": _("访问模式"),
@@ -108,8 +116,8 @@ class Storage_ModelView_Base():
             _('存储类型'),
             widget=Select2Widget(),
             default=STORAGE_TYPE_NFS,
-            choices=[[STORAGE_TYPE_NFS, 'nfs'], [STORAGE_TYPE_MINIO_JUICEFS, 'minio/juicefs']],
-            description=_('minio/juicefs作为一种存储类型，后端后续按MinIO+JuiceFS文件系统方案实现')
+            choices=[[STORAGE_TYPE_NFS, 'nfs'], [STORAGE_TYPE_MINIO_JUICEFS, STORAGE_TYPE_S3_MINIO_LABEL]],
+            description=_('对象存储类型为nfs或s3/minio')
         ),
         "project": QuerySelectField(
             _('所属项目组'),
@@ -118,9 +126,17 @@ class Storage_ModelView_Base():
             widget=MySelect2Widget(new_web=False),
             validators=[DataRequired()]
         ),
+        "namespace": MySelectMultipleField(
+            _('PVC所在命名空间'),
+            default=conf.get('NOTEBOOK_NAMESPACE', 'jupyter'),
+            widget=Select2ManyWidget(),
+            choices=default_namespace_choices(),
+            description=_('选择需要创建PVC的命名空间，可多选'),
+            validators=[DataRequired()]
+        ),
         "capacity": StringField(
             _('申请容量'),
-            default='500Gi',
+            default='5Gi',
             widget=BS3TextFieldWidget(),
             validators=[DataRequired(), Regexp('^[0-9]+(Mi|Gi|Ti)$')]
         ),
@@ -170,6 +186,42 @@ class Storage_ModelView_Base():
         config['nfs'] = nfs_config
         return config
 
+    def _cluster_config(self, storage, key, default=''):
+        clusters = conf.get('CLUSTERS', {})
+        cluster_config = clusters.get(storage.cluster, {}) if clusters else {}
+        return cluster_config.get(key, conf.get(key, default))
+
+    def _safe_bucket_path_part(self, value):
+        value = (value or '').strip().lower()
+        value = re.sub('[^a-z0-9-]+', '-', value).strip('-')
+        return value or 'default'
+
+    def _load_minio_juicefs_config(self, storage):
+        try:
+            config = json.loads(storage.config or '{}')
+        except Exception:
+            config = {}
+        minio_config = config.get(STORAGE_TYPE_MINIO_JUICEFS) or {}
+        project_name = self._safe_bucket_path_part(storage.project.name if storage.project else '')
+        bucket_prefix = self._cluster_config(storage, 'STORAGE_JUICEFS_BUCKET_PREFIX', 'projects')
+        bucket_path = minio_config.get('bucket_path') or '/'.join([
+            self._safe_bucket_path_part(bucket_prefix),
+            project_name,
+            self._safe_bucket_path_part(storage.name),
+        ])
+        minio_config.update({
+            "backend": minio_config.get("backend") or "minio",
+            "filesystem": minio_config.get("filesystem") or "juicefs",
+            "storage_class": minio_config.get("storage_class") or self._cluster_config(storage, 'STORAGE_JUICEFS_STORAGE_CLASS', 'juicefs-sc'),
+            "bucket": minio_config.get("bucket") or self._cluster_config(storage, 'STORAGE_JUICEFS_BUCKET', 'mlops-storage'),
+            "bucket_path": bucket_path,
+            "secret_name": minio_config.get("secret_name") or self._cluster_config(storage, 'STORAGE_JUICEFS_SECRET_NAME', 'juicefs-minio-secret'),
+            "secret_namespace": minio_config.get("secret_namespace") or self._cluster_config(storage, 'STORAGE_JUICEFS_SECRET_NAMESPACE', 'kube-system'),
+            "pvc_annotations": minio_config.get("pvc_annotations") or {},
+            "mount_options": minio_config.get("mount_options") or [],
+        })
+        return minio_config
+
     def _project_from_value(self, value):
         if isinstance(value, Project):
             return value
@@ -187,19 +239,51 @@ class Storage_ModelView_Base():
             project.pipeline_namespace,
             project.service_namespace,
         ]
-        return ','.join(sorted(set([namespace for namespace in namespaces if namespace])))
+        return ','.join(dict.fromkeys([namespace for namespace in namespaces if namespace]))
+
+    def _normalize_namespace_value(self, value):
+        if isinstance(value, list):
+            namespaces = []
+            for item in value:
+                namespaces.extend(self._split_names(item))
+        else:
+            namespaces = self._split_names(value)
+        return ','.join(dict.fromkeys(namespaces))
+
+    def _validate_namespaces(self, value, project):
+        namespace = self._normalize_namespace_value(value)
+        namespaces = self._split_names(namespace)
+        if not namespaces:
+            raise Exception('namespace is required')
+
+        allowed_namespaces = self._split_names(self._project_namespaces(project))
+        invalid_namespaces = [item for item in namespaces if item not in allowed_namespaces]
+        if invalid_namespaces:
+            raise Exception('namespace must be one of: %s' % ','.join(allowed_namespaces))
+        return namespace
 
     def _project_cluster(self, project):
         return project.cluster_name if project else default_cluster()
 
     def _backend_config(self, name, project, storage_type):
         if storage_type == STORAGE_TYPE_MINIO_JUICEFS:
+            bucket_prefix = conf.get('STORAGE_JUICEFS_BUCKET_PREFIX', 'projects')
+            bucket_path = '/'.join([
+                self._safe_bucket_path_part(bucket_prefix),
+                self._safe_bucket_path_part(project.name if project else ''),
+                self._safe_bucket_path_part(name),
+            ])
             return {
                 "minio_juicefs": {
                     "backend": "minio",
                     "filesystem": "juicefs",
-                    "status": "planned",
-                    "path": f"{project.name}/{name}" if project else name,
+                    "storage_class": conf.get('STORAGE_JUICEFS_STORAGE_CLASS', 'juicefs-sc'),
+                    "bucket": conf.get('STORAGE_JUICEFS_BUCKET', 'mlops-storage'),
+                    "bucket_path": bucket_path,
+                    "secret_name": conf.get('STORAGE_JUICEFS_SECRET_NAME', 'juicefs-minio-secret'),
+                    "secret_namespace": conf.get('STORAGE_JUICEFS_SECRET_NAMESPACE', 'kube-system'),
+                    "pvc_annotations": {},
+                    "mount_options": [],
                 }
             }
         return {
@@ -214,20 +298,39 @@ class Storage_ModelView_Base():
         project = storage.project
         storage.label = storage.label or storage.name
         storage.cluster = self._project_cluster(project)
-        storage.namespace = self._project_namespaces(project)
+        storage.namespace = self._validate_namespaces(storage.namespace, project)
         storage.mount_path = f'/mnt/storage/{storage.name}'
         storage.access_modes = 'ReadWriteMany'
-        storage.storage_class = ''
         storage.pvc_name = storage.pvc_name or storage.name
-        storage.config = json.dumps(
-            self._backend_config(storage.name, project, storage.storage_type),
-            indent=4,
-            ensure_ascii=False
-        )
         if storage.storage_type == STORAGE_TYPE_MINIO_JUICEFS:
-            storage.status = storage.status if storage.status not in ['', 'synced'] else 'draft'
+            try:
+                config = json.loads(storage.config or '{}')
+            except Exception:
+                config = {}
+            if STORAGE_TYPE_MINIO_JUICEFS not in config:
+                storage.config = json.dumps(
+                    self._backend_config(storage.name, project, storage.storage_type),
+                    indent=4,
+                    ensure_ascii=False
+                )
+            minio_config = self._load_minio_juicefs_config(storage)
+            storage.storage_class = minio_config.get('storage_class', 'juicefs-sc')
+            storage.config = json.dumps({STORAGE_TYPE_MINIO_JUICEFS: minio_config}, indent=4, ensure_ascii=False)
         elif not storage.status:
+            storage.config = json.dumps(
+                self._backend_config(storage.name, project, storage.storage_type),
+                indent=4,
+                ensure_ascii=False
+            )
+            storage.storage_class = ''
             storage.status = 'draft'
+        else:
+            storage.config = json.dumps(
+                self._backend_config(storage.name, project, storage.storage_type),
+                indent=4,
+                ensure_ascii=False
+            )
+            storage.storage_class = ''
         return storage
 
     def _validate_req(self, req_json):
@@ -240,10 +343,10 @@ class Storage_ModelView_Base():
             raise Exception('name is too long, max 50 characters')
 
         storage_type = (req_json.get('storage_type') or STORAGE_TYPE_NFS).strip().lower()
-        if storage_type == 'minio/juicefs':
+        if storage_type in ['minio/juicefs', STORAGE_TYPE_S3_MINIO_LABEL]:
             storage_type = STORAGE_TYPE_MINIO_JUICEFS
         if storage_type not in [STORAGE_TYPE_NFS, STORAGE_TYPE_MINIO_JUICEFS]:
-            raise Exception('storage_type must be nfs or minio/juicefs')
+            raise Exception('storage_type must be nfs or s3/minio')
 
         project = self._project_from_value(req_json.get('project') or req_json.get('project_id'))
         if not project:
@@ -254,12 +357,14 @@ class Storage_ModelView_Base():
         req_json['project'] = project.id
         req_json['label'] = req_json.get('label') or name
         req_json['cluster'] = self._project_cluster(project)
-        req_json['namespace'] = self._project_namespaces(project)
+        req_json['namespace'] = self._validate_namespaces(req_json.get('namespace'), project)
         req_json['mount_path'] = req_json.get('mount_path') or f'/mnt/storage/{name}'
         req_json['capacity'] = req_json.get('capacity') or '500Gi'
         req_json['access_modes'] = 'ReadWriteMany'
         req_json['storage_class'] = ''
         req_json['config'] = json.dumps(self._backend_config(name, project, storage_type), indent=4, ensure_ascii=False)
+        if storage_type == STORAGE_TYPE_MINIO_JUICEFS:
+            req_json['storage_class'] = conf.get('STORAGE_JUICEFS_STORAGE_CLASS', 'juicefs-sc')
         req_json['status'] = req_json.get('status') or 'draft'
         return req_json
 
@@ -304,7 +409,7 @@ class Storage_ModelView_Base():
     def post_add(self, item):
         self._fill_generated_fields(item)
         db.session.commit()
-        if item.storage_type == STORAGE_TYPE_NFS:
+        if item.storage_type in [STORAGE_TYPE_NFS, STORAGE_TYPE_MINIO_JUICEFS]:
             try:
                 self._sync_storage(item)
             except Exception:
@@ -321,6 +426,9 @@ class Storage_ModelView_Base():
 
     check_delete_permission = check_edit_permission
 
+    def pre_delete(self, item):
+        self._delete_storage_resources(item)
+
     def _build_nfs_resources(self, storage):
         storage = self._fill_generated_fields(storage)
         config = self._load_config(storage.config)
@@ -330,13 +438,13 @@ class Storage_ModelView_Base():
             pv_name = self._pv_name(storage, namespace)
             pvc_name = storage.pvc_name or storage.name
             labels = {
-                "cube-studio/storage-name": storage.name,
-                "cube-studio/storage-type": storage.storage_type,
+                "mlops/storage-name": storage.name,
+                "mlops/storage-type": storage.storage_type,
             }
             pv_spec = {
                 "capacity": {"storage": storage.capacity or '500Gi'},
                 "accessModes": self._access_modes(storage),
-                "persistentVolumeReclaimPolicy": "Retain",
+                "persistentVolumeReclaimPolicy": "Delete",
                 "storageClassName": storage.storage_class or "",
                 "nfs": {
                     "server": nfs_config["server"],
@@ -381,6 +489,55 @@ class Storage_ModelView_Base():
             })
         return resources
 
+    def _build_minio_juicefs_resources(self, storage):
+        storage = self._fill_generated_fields(storage)
+        minio_config = self._load_minio_juicefs_config(storage)
+        storage_class = minio_config.get('storage_class') or 'juicefs-sc'
+        resources = []
+        for namespace in self._namespaces(storage):
+            pvc_name = storage.pvc_name or storage.name
+            labels = {
+                "mlops/storage-name": storage.name,
+                "mlops/storage-type": storage.storage_type,
+                "mlops/storage-backend": "minio",
+            }
+            metadata = {
+                "name": pvc_name,
+                "namespace": namespace,
+                "labels": labels,
+            }
+            annotations = minio_config.get('pvc_annotations') or {}
+            if minio_config.get('bucket_path'):
+                annotations.setdefault('juicefs.com/path', minio_config['bucket_path'])
+            if annotations:
+                metadata["annotations"] = annotations
+            pvc = {
+                "apiVersion": "v1",
+                "kind": "PersistentVolumeClaim",
+                "metadata": metadata,
+                "spec": {
+                    "accessModes": self._access_modes(storage),
+                    "resources": {
+                        "requests": {
+                            "storage": storage.capacity or '500Gi'
+                        }
+                    },
+                    "storageClassName": storage_class,
+                }
+            }
+            resources.append({
+                "namespace": namespace,
+                "pvc": pvc,
+            })
+        return resources
+
+    def _build_resources(self, storage):
+        if storage.storage_type == STORAGE_TYPE_NFS:
+            return self._build_nfs_resources(storage)
+        if storage.storage_type == STORAGE_TYPE_MINIO_JUICEFS:
+            return self._build_minio_juicefs_resources(storage)
+        raise Exception('unsupported storage_type')
+
     def _get_item(self, storage_id):
         storage = self.datamodel.get(storage_id)
         if not storage:
@@ -392,9 +549,7 @@ class Storage_ModelView_Base():
         kubeconfig = clusters.get(storage.cluster, {}).get('KUBECONFIG', '') if clusters else ''
         return K8s(kubeconfig, cluster_name=storage.cluster)
 
-    def _sync_storage(self, storage):
-        if storage.storage_type != STORAGE_TYPE_NFS:
-            raise Exception('minio/juicefs后续将按MinIO+JuiceFS文件系统方案实现，当前不执行PV/PVC同步')
+    def _sync_nfs_storage(self, storage):
         k8s_client = self._k8s_client(storage)
         resources = self._build_nfs_resources(storage)
         result = []
@@ -412,32 +567,100 @@ class Storage_ModelView_Base():
         db.session.commit()
         return result
 
-    @expose_api(description="检查NFS PV/PVC状态", url="/check/<storage_id>", methods=["GET"])
+    def _sync_minio_juicefs_storage(self, storage):
+        k8s_client = self._k8s_client(storage)
+        resources = self._build_minio_juicefs_resources(storage)
+        result = []
+        pv_names = []
+        minio_config = self._load_minio_juicefs_config(storage)
+        for resource in resources:
+            pvc_status = k8s_client.create_or_patch_pvc(resource['namespace'], resource['pvc'])
+            if pvc_status.get('volume_name'):
+                pv_names.append(pvc_status['volume_name'])
+            result.append({
+                "namespace": resource['namespace'],
+                "pvc": pvc_status,
+            })
+        storage.status = 'synced'
+        storage.pv_name = ','.join(sorted(set(pv_names)))
+        storage.pvc_name = storage.pvc_name or storage.name
+        storage.storage_class = minio_config.get('storage_class') or 'juicefs-sc'
+        storage.config = json.dumps({STORAGE_TYPE_MINIO_JUICEFS: minio_config}, indent=4, ensure_ascii=False)
+        db.session.commit()
+        return result
+
+    def _sync_storage(self, storage):
+        if storage.storage_type == STORAGE_TYPE_NFS:
+            return self._sync_nfs_storage(storage)
+        if storage.storage_type == STORAGE_TYPE_MINIO_JUICEFS:
+            return self._sync_minio_juicefs_storage(storage)
+        raise Exception('unsupported storage_type')
+
+    def _delete_storage_resources(self, storage):
+        if storage.storage_type not in [STORAGE_TYPE_NFS, STORAGE_TYPE_MINIO_JUICEFS]:
+            return []
+
+        k8s_client = self._k8s_client(storage)
+        resources = self._build_resources(storage)
+        result = []
+        pv_names = set(self._split_names(storage.pv_name))
+
+        for resource in resources:
+            pvc = resource.get('pvc') or {}
+            pvc_name = pvc.get('metadata', {}).get('name') or storage.pvc_name or storage.name
+            namespace = resource.get('namespace')
+            if pvc_name and namespace:
+                pvc_status = k8s_client.get_pvc(name=pvc_name, namespace=namespace)
+                if pvc_status.get('volume_name'):
+                    pv_names.add(pvc_status['volume_name'])
+                result.append({
+                    "namespace": namespace,
+                    "pvc": k8s_client.delete_pvc(namespace=namespace, name=pvc_name),
+                })
+
+            pv = resource.get('pv') or {}
+            pv_name = pv.get('metadata', {}).get('name')
+            if pv_name:
+                pv_names.add(pv_name)
+
+        for pv_name in sorted(pv_names):
+            result.append({
+                "pv": k8s_client.delete_pv(pv_name),
+            })
+
+        return result
+
+    @expose_api(description="检查存储资源状态", url="/check/<storage_id>", methods=["GET"])
     def check(self, storage_id):
         try:
             self._assert_admin()
             storage = self._get_item(storage_id)
             k8s_client = self._k8s_client(storage)
             result = []
-            for resource in self._build_nfs_resources(storage):
+            for resource in self._build_resources(storage):
+                pv_status = None
+                if resource.get('pv'):
+                    pv_status = k8s_client.get_pv(resource['pv']['metadata']['name'])
+                pvc_status = k8s_client.get_pvc(resource['pvc']['metadata']['name'], resource['namespace'])
                 result.append({
                     "namespace": resource['namespace'],
-                    "pv": k8s_client.get_pv(resource['pv']['metadata']['name']),
-                    "pvc": k8s_client.get_pvc(resource['pvc']['metadata']['name'], resource['namespace']),
+                    "pv": pv_status,
+                    "pvc": pvc_status,
                 })
             return self.response(200, status=0, message='success', result=result)
         except Exception as e:
             return self.response_error(500, message=str(e))
 
-    @expose_api(description="查看NFS PV/PVC YAML", url="/manifest/<storage_id>", methods=["GET"])
+    @expose_api(description="查看存储资源YAML", url="/manifest/<storage_id>", methods=["GET"])
     def manifest(self, storage_id):
         try:
             self._assert_admin()
             storage = self._get_item(storage_id)
-            resources = self._build_nfs_resources(storage)
+            resources = self._build_resources(storage)
             manifests = []
             for resource in resources:
-                manifests.append(resource['pv'])
+                if resource.get('pv'):
+                    manifests.append(resource['pv'])
                 manifests.append(resource['pvc'])
             yaml_text = yaml.safe_dump_all(manifests, allow_unicode=True, sort_keys=False)
             return self.response(200, status=0, message='success', result={

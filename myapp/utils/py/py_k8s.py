@@ -2262,11 +2262,23 @@ class K8s():
     def get_pvc(self,name,namespace):
         try:
             pvc = self.v1.read_namespaced_persistent_volume_claim(name=name,namespace=namespace,_request_timeout=5)
+            conditions = []
+            for condition in (pvc.status.conditions if pvc.status and pvc.status.conditions else []):
+                conditions.append({
+                    "type": condition.type,
+                    "status": condition.status,
+                    "reason": condition.reason,
+                    "message": condition.message,
+                })
             pvc = {
                 "name": pvc.metadata.name if pvc.metadata else name,
                 "namespace": namespace,
                 "status":pvc.status.phase if pvc.status and pvc.status.phase else 'unknown',
                 "volume_name": pvc.spec.volume_name if pvc.spec and pvc.spec.volume_name else '',
+                "storage_class": pvc.spec.storage_class_name if pvc.spec and pvc.spec.storage_class_name else '',
+                "capacity": pvc.status.capacity.get('storage', '') if pvc.status and pvc.status.capacity else '',
+                "access_modes": pvc.spec.access_modes if pvc.spec and pvc.spec.access_modes else [],
+                "conditions": conditions,
             }
             return pvc
         except ApiException as e1:
@@ -2305,6 +2317,37 @@ class K8s():
             if e1.status != 409:
                 raise
         return self.get_pvc(name=name, namespace=namespace)
+
+    def delete_pvc(self, namespace, name):
+        if not name:
+            raise ValueError('pvc name is required')
+        try:
+            self.v1.delete_namespaced_persistent_volume_claim(
+                namespace=namespace,
+                name=name,
+                body=client.V1DeleteOptions(),
+                _request_timeout=10
+            )
+            return {"name": name, "namespace": namespace, "status": "deleted"}
+        except ApiException as e1:
+            if e1.status == 404:
+                return {"name": name, "namespace": namespace, "status": "not_found"}
+            raise
+
+    def delete_pv(self, name):
+        if not name:
+            raise ValueError('pv name is required')
+        try:
+            self.v1.delete_persistent_volume(
+                name=name,
+                body=client.V1DeleteOptions(),
+                _request_timeout=10
+            )
+            return {"name": name, "status": "deleted"}
+        except ApiException as e1:
+            if e1.status == 404:
+                return {"name": name, "status": "not_found"}
+            raise
 
     # 创建命名空间
     def create_namespace(self,name):
