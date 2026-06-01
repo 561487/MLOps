@@ -115,7 +115,7 @@ class Storage_ModelView_Base():
         "storage_type": SelectField(
             _('存储类型'),
             widget=Select2Widget(),
-            default=STORAGE_TYPE_NFS,
+            default=STORAGE_TYPE_S3_MINIO_LABEL,
             choices=[[STORAGE_TYPE_NFS, 'nfs'], [STORAGE_TYPE_MINIO_JUICEFS, STORAGE_TYPE_S3_MINIO_LABEL]],
             description=_('对象存储类型为nfs或s3/minio')
         ),
@@ -213,7 +213,7 @@ class Storage_ModelView_Base():
             "backend": minio_config.get("backend") or "minio",
             "filesystem": minio_config.get("filesystem") or "juicefs",
             "storage_class": minio_config.get("storage_class") or self._cluster_config(storage, 'STORAGE_JUICEFS_STORAGE_CLASS', 'juicefs-sc'),
-            "bucket": minio_config.get("bucket") or self._cluster_config(storage, 'STORAGE_JUICEFS_BUCKET', 'mlops-storage'),
+            "bucket": minio_config.get("bucket") or self._cluster_config(storage, 'STORAGE_JUICEFS_BUCKET', 'juicefs'),
             "bucket_path": bucket_path,
             "secret_name": minio_config.get("secret_name") or self._cluster_config(storage, 'STORAGE_JUICEFS_SECRET_NAME', 'juicefs-minio-secret'),
             "secret_namespace": minio_config.get("secret_namespace") or self._cluster_config(storage, 'STORAGE_JUICEFS_SECRET_NAMESPACE', 'kube-system'),
@@ -278,7 +278,7 @@ class Storage_ModelView_Base():
                     "backend": "minio",
                     "filesystem": "juicefs",
                     "storage_class": conf.get('STORAGE_JUICEFS_STORAGE_CLASS', 'juicefs-sc'),
-                    "bucket": conf.get('STORAGE_JUICEFS_BUCKET', 'mlops-storage'),
+                    "bucket": conf.get('STORAGE_JUICEFS_BUCKET', 'juicefs'),
                     "bucket_path": bucket_path,
                     "secret_name": conf.get('STORAGE_JUICEFS_SECRET_NAME', 'juicefs-minio-secret'),
                     "secret_namespace": conf.get('STORAGE_JUICEFS_SECRET_NAMESPACE', 'kube-system'),
