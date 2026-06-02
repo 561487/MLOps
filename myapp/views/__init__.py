@@ -29,6 +29,7 @@ from . import view_user_role
 from . import view_sqllab
 from . import view_aihub
 from . import view_total_resource
+from . import view_node
 from . import view_chat
 
 

@@ -469,6 +469,9 @@ class K8s():
                         resource = self.vgpu_resource[gpu_mfrs]
                         ai_resource[gpu_mfrs] = int(node.status.allocatable.get(resource, '0'))
 
+                    shared_resource_name = conf.get('GPU_SHARED_RESOURCE_NAME', 'nvidia.com/gpu.shared')
+                    ai_resource['gpu_shared'] = int(node.status.allocatable.get(shared_resource_name, '0'))
+
                     # print(node.status.conditions)
                     adresses = node.status.addresses
                     back_node['cpu'] = int(self.to_cpu(node.status.allocatable.get('cpu', '0')))
@@ -530,6 +533,23 @@ class K8s():
         except Exception as e:
             print(e)
             return None
+
+    def patch_node_labels(self, node_name, labels):
+        try:
+            if not node_name:
+                raise ValueError('node_name is required')
+            body = {
+                "metadata": {
+                    "labels": labels
+                }
+            }
+            self.v1.patch_node(node_name, body)
+            from myapp import cache
+            cache.delete(f'all_nodes_{self.cluster_name}')
+            return True
+        except Exception as e:
+            print(e)
+            return False
 
     # 根据各种crd自定义的status结构，判断最终评定的status
     # @pysnooper.snoop()
