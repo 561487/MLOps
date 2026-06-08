@@ -42,6 +42,211 @@ model_map = {
     "workflows": Workflow,
 }
 
+
+def _parse_k8s_time(value):
+    if not value:
+        return None
+    if isinstance(value, datetime.datetime):
+        return value.replace(tzinfo=None)
+    try:
+        return datetime.datetime.strptime(str(value).replace('T', ' ').replace('Z', '').split('.')[0], '%Y-%m-%d %H:%M:%S')
+    except Exception:
+        return None
+
+
+def _pod_finished_time(pod):
+    status_more = pod.get('status_more') or {}
+    container_statuses = status_more.get('container_statuses') or []
+    finish_times = []
+    for container_status in container_statuses:
+        state = container_status.get('state') or {}
+        terminated = state.get('terminated') or {}
+        finish_time = _parse_k8s_time(terminated.get('finished_at'))
+        if finish_time:
+            finish_times.append(finish_time)
+    return max(finish_times) if finish_times else None
+
+
+def _bill_price(cpu=0, memory=0, gpu=0, vgpu=0, duration_hours=0):
+    prices = conf.get('RESOURCE_BILL_PRICE', {}) or {}
+    return round(float(duration_hours) * (
+        float(cpu or 0) * float(prices.get('cpu', 0)) +
+        float(memory or 0) * float(prices.get('memory', 0)) +
+        float(gpu or 0) * float(prices.get('gpu', 0)) +
+        float(vgpu or 0) * float(prices.get('vgpu', 0))
+    ), 4)
+
+
+def _pod_project(namespace_project, pod):
+    annotations = pod.get('annotations') or {}
+    labels = pod.get('labels') or {}
+    return annotations.get('project') or labels.get('project') or namespace_project.get(pod.get('namespace', ''), '')
+
+
+def _namespace_project_map(dbsession):
+    from myapp.models.model_team import Project
+    namespace_project = {}
+    for project in dbsession.query(Project).all():
+        for namespace in [
+            project.notebook_namespace,
+            project.pipeline_namespace,
+            project.service_namespace,
+            project.automl_namespace,
+        ]:
+            if namespace:
+                namespace_project[namespace] = project.name
+    return namespace_project
+
+
+@celery_app.task(name="task.collect_pod_charge", bind=True)
+def collect_pod_charge(task):
+    logging.info('============= begin run collect_pod_charge task')
+    from myapp.models.model_bill import PodChargeRecord
+
+    clusters = conf.get('CLUSTERS', {})
+    with session_scope(nullpool=True) as dbsession:
+        namespace_project = _namespace_project_map(dbsession)
+        namespaces = [namespace for namespace in security_manager.get_all_namespace(dbsession) if namespace]
+
+        for cluster_name in clusters:
+            cluster = clusters[cluster_name]
+            k8s_client = K8s(cluster.get('KUBECONFIG', ''))
+            for namespace in namespaces:
+                try:
+                    pods = k8s_client.get_pods(namespace=namespace)
+                    for pod in pods:
+                        username = pod.get('username', '')
+                        start_time = pod.get('start_time')
+                        pod_name = pod.get('name', '')
+                        if not username or not start_time or not pod_name:
+                            continue
+
+                        status = pod.get('status', '')
+                        end_time = datetime.datetime.now()
+                        if status in ['Succeeded', 'Failed']:
+                            end_time = _pod_finished_time(pod) or end_time
+                        if end_time < start_time:
+                            end_time = start_time
+
+                        duration_hours = round((end_time - start_time).total_seconds() / 3600, 4)
+                        cpu = float(pod.get('cpu', 0) or 0)
+                        memory = float(pod.get('memory', 0) or 0)
+                        gpu = float(pod.get('gpu', 0) or 0)
+                        vgpu = float(pod.get('vgpu', 0) or 0)
+                        price = _bill_price(cpu=cpu, memory=memory, gpu=gpu, vgpu=vgpu, duration_hours=duration_hours)
+                        labels = pod.get('labels') or {}
+                        annotations = pod.get('annotations') or {}
+                        node_selector = pod.get('node_selector') or {}
+                        try:
+                            events = k8s_client.get_pod_event(namespace=namespace, pod_name=pod_name)
+                        except Exception:
+                            events = []
+
+                        record = (
+                            dbsession.query(PodChargeRecord)
+                            .filter(PodChargeRecord.cluster == cluster_name)
+                            .filter(PodChargeRecord.namespace == namespace)
+                            .filter(PodChargeRecord.pod_name == pod_name)
+                            .filter(PodChargeRecord.start_time == start_time)
+                            .first()
+                        )
+                        if not record:
+                            record = PodChargeRecord(
+                                cluster=cluster_name,
+                                namespace=namespace,
+                                pod_name=pod_name,
+                                start_time=start_time,
+                            )
+                            dbsession.add(record)
+
+                        record.username = username
+                        record.project = _pod_project(namespace_project, {**pod, "namespace": namespace})
+                        record.resource_group = node_selector.get('org') or labels.get('org', '')
+                        record.pod_type = labels.get('pod-type', '')
+                        record.node = pod.get('host_ip') or pod.get('node_name') or ''
+                        record.cpu = cpu
+                        record.memory = memory
+                        record.gpu = gpu
+                        record.vgpu = vgpu
+                        record.end_time = end_time
+                        record.duration_hours = duration_hours
+                        record.status = status
+                        record.price = price
+                        record.labels = json.dumps(labels, ensure_ascii=False)
+                        record.annotations = json.dumps(node_selector or annotations, ensure_ascii=False)
+                        record.events = json.dumps(events, ensure_ascii=False, default=str)
+                        record.raw_pod = json.dumps(pod, ensure_ascii=False, default=str)
+                    dbsession.commit()
+                except Exception as e:
+                    dbsession.rollback()
+                    logging.error(e)
+                    logging.error('Traceback: %s', traceback.format_exc())
+
+
+def _bill_overlap(record, day_start, day_end):
+    start_at = max(record.start_time, day_start)
+    end_at = min(record.end_time or day_end, day_end)
+    duration_hours = round(max((end_at - start_at).total_seconds(), 0) / 3600, 4)
+    price = _bill_price(
+        cpu=record.cpu,
+        memory=record.memory,
+        gpu=record.gpu,
+        vgpu=record.vgpu,
+        duration_hours=duration_hours,
+    )
+    return duration_hours, price
+
+
+@celery_app.task(name="task.generate_daily_bill", bind=True)
+def generate_daily_bill(task, bill_date=None):
+    logging.info('============= begin run generate_daily_bill task')
+    from myapp.models.model_bill import BillRecord, PodChargeRecord
+
+    if bill_date:
+        target_date = datetime.datetime.strptime(str(bill_date), '%Y-%m-%d').date()
+    else:
+        target_date = (datetime.datetime.now() - datetime.timedelta(days=1)).date()
+    day_start = datetime.datetime.combine(target_date, datetime.time.min)
+    day_end = datetime.datetime.combine(target_date, datetime.time.max)
+
+    with session_scope(nullpool=True) as dbsession:
+        try:
+            records = (
+                dbsession.query(PodChargeRecord)
+                .filter(PodChargeRecord.start_time <= day_end)
+                .filter(PodChargeRecord.end_time >= day_start)
+                .all()
+            )
+            user_amount = {}
+            for record in records:
+                if not record.username:
+                    continue
+                duration_hours, price = _bill_overlap(record, day_start, day_end)
+                if duration_hours <= 0:
+                    continue
+                user_amount[record.username] = round(user_amount.get(record.username, 0) + price, 4)
+
+            for username in user_amount:
+                bill_id = 'pod-%s-%s' % (target_date.strftime('%Y%m%d'), username)
+                bill = dbsession.query(BillRecord).filter(BillRecord.bill_id == bill_id).first()
+                if not bill:
+                    bill = BillRecord(
+                        bill_type='pod',
+                        bill_date=target_date,
+                        bill_id=bill_id,
+                        username=username,
+                    )
+                    dbsession.add(bill)
+                bill.amount = user_amount[username]
+                bill.status = bill.status or 'unpaid'
+                bill.discount_price = bill.discount_price or 0
+                bill.balance_pay = bill.balance_pay or 0
+            dbsession.commit()
+        except Exception as e:
+            dbsession.rollback()
+            logging.error(e)
+            logging.error('Traceback: %s', traceback.format_exc())
+
 # @pysnooper.snoop()
 def delete_old_crd(object_info):
     timeout = int(object_info.get('timeout', 60 * 60 * 24 * 3))

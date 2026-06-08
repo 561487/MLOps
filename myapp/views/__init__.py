@@ -31,5 +31,6 @@ from . import view_aihub
 from . import view_total_resource
 from . import view_node
 from . import view_chat
+from . import view_bill
 
 

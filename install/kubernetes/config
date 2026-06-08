@@ -42,7 +42,7 @@ clusters:
 users:
 - name: "k8s-node5"
   user:
-    token: "kubeconfig-user-458n8j7ddz:ff7bwtqg6wzvs6v95vpx58knf84vd6j5lnng7ct5ctstltt4lzhf9j"
+    token: "kubeconfig-user-458n8gwfkw:gbdtjt4vjdm2fhpqbq6c6zgc4qjr6zczs7sp89r5w2skhzfbpz4cgc"
 
 
 contexts:

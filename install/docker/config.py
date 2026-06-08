@@ -42,6 +42,14 @@ SECRET_KEY = "\2\1thisismyscretkey\1\2\e\y\y\h"  # noqa
 
 # csv导出文件编码
 CSV_EXPORT = {"encoding": "utf_8_sig"}
+
+# 按量计费单价，单位为 元/小时。按实际部署价格调整。
+RESOURCE_BILL_PRICE = {
+    "cpu": 1,
+    "memory": 1,
+    "gpu": 2,
+    "vgpu": 1.5,
+}
 # Flask-WTF flag for CSRF
 # 跨域配置
 WTF_CSRF_ENABLED = False
@@ -457,6 +465,20 @@ class CeleryConfig(object):
             'max_retries': 0,
             "reject_on_worker_lost": False
         },
+        'task.collect_pod_charge': {
+            'rate_limit': '1/m',
+            'soft_time_limit': 600,
+            "expires": 600,
+            'max_retries': 0,
+            "reject_on_worker_lost": False
+        },
+        'task.generate_daily_bill': {
+            'rate_limit': '1/h',
+            'soft_time_limit': 600,
+            "expires": 3600,
+            'max_retries': 0,
+            "reject_on_worker_lost": False
+        },
         # 检查运行定时pipeline
         'task.make_timerun_config': {
             'rate_limit': '1/m',
@@ -531,6 +553,14 @@ class CeleryConfig(object):
             'task': 'task.make_timerun_config',  # 定时产生定时任务的yaml信息
             'schedule': crontab(minute='*/5'),
         },
+        'task_collect_pod_charge': {
+            'task': 'task.collect_pod_charge',  # 定时采集Pod计费明细
+            'schedule': crontab(minute='0', hour='*'),
+        },
+        'task_generate_daily_bill': {
+            'task': 'task.generate_daily_bill',  # 每日生成用户账单
+            'schedule': crontab(minute='10', hour='0'),
+        },
         'task_delete_old_data': {
             'task': 'task.delete_old_data',   # 定时删除旧数据
             'schedule': crontab(minute='1', hour='1'),
@@ -568,7 +598,7 @@ class CeleryConfig(object):
         },
         "task_check_pod_terminating": {
             "task": "task.check_pod_terminating",
-            'schedule': crontab(minute='*/10'),
+            'schedule': crontab(minute='0', hour='*'),
         }
     }
 
