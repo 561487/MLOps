@@ -938,7 +938,7 @@ CLUSTERS={
         "NAME":"dev",
         "KUBECONFIG":'/home/myapp/kubeconfig/dev-kubeconfig',
         "SERVICE_DOMAIN": 'service.local.com',
-        # "HOST": "192.168.0.100"   # 本地调试的时候这里更换为k8s的istio ingressgateway的ip并解开注释
+        "HOST": "10.121.177.20"   # 本地调试的时候这里更换为k8s的istio ingressgateway的ip并解开注释
     }
 }
 
