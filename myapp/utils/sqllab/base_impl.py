@@ -50,8 +50,8 @@ def handle_task(qid, username=""):
 
             if not username:
                 raise RuntimeError(__("无法识别账号"))
-            if not 'limit' in q.qsql:
-                raise RuntimeError(__("查询sql必须包含limit"))
+            if ('limit' not in q.qsql) and ('LIMIT' not in q.qsql):
+                raise RuntimeError(__("查询sql必须包含limit或LIMIT"))
 
             q.start_time = str(datetime.datetime.now())
 
