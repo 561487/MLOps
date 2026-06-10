@@ -2,7 +2,7 @@ import json
 import re
 
 import yaml
-from flask import g
+from flask import g, request
 from flask_appbuilder.baseviews import expose_api
 from flask_appbuilder.fieldwidgets import BS3TextFieldWidget, Select2ManyWidget, Select2Widget
 from flask_babel import lazy_gettext as _
@@ -14,6 +14,7 @@ from myapp import app, appbuilder, db
 from myapp.forms import MySelect2Widget, MySelectMultipleField
 from myapp.models.model_storage import Storage
 from myapp.models.model_team import Project
+from myapp.utils.storage_volume import available_volume_items, user_can_access_project
 from myapp.utils.py.py_k8s import K8s
 from myapp.views.baseSQLA import MyappSQLAInterface as SQLAInterface
 from myapp.views.view_team import Project_Join_Filter, filter_join_org_project
@@ -544,6 +545,18 @@ class Storage_ModelView_Base():
             raise Exception('storage not found')
         return storage
 
+    def _project_from_args(self):
+        project_id = request.args.get('project_id') or request.args.get('project')
+        project_name = request.args.get('project_name') or request.args.get('project')
+        project = None
+        if project_id and str(project_id).isdigit():
+            project = db.session.query(Project).filter_by(id=int(project_id)).filter_by(type='org').first()
+        elif project_name:
+            project = db.session.query(Project).filter_by(name=project_name).filter_by(type='org').first()
+        if project and not user_can_access_project(g.user, project):
+            raise Exception('no permission')
+        return project
+
     def _k8s_client(self, storage):
         clusters = conf.get('CLUSTERS', {})
         kubeconfig = clusters.get(storage.cluster, {}).get('KUBECONFIG', '') if clusters else ''
@@ -678,6 +691,26 @@ class Storage_ModelView_Base():
             return self.response(200, status=0, message='success', result={
                 "mount_expr": storage.mount_expr,
                 "volume_mount": storage.mount_expr,
+            })
+        except Exception as e:
+            return self.response_error(500, message=str(e))
+
+    @expose_api(description="获取项目可选挂载卷", url="/available_volumes", methods=["GET"])
+    def available_volumes(self):
+        try:
+            project = self._project_from_args()
+            namespace = request.args.get('namespace') or ''
+            current_volume_mount = request.args.get('volume_mount') or ''
+            volumes = available_volume_items(
+                g.user,
+                project=project,
+                namespace=namespace,
+                current_volume_mount=current_volume_mount,
+                include_system=True,
+            )
+            return self.response(200, status=0, message='success', result={
+                "project": project.name if project else '',
+                "volumes": volumes,
             })
         except Exception as e:
             return self.response_error(500, message=str(e))

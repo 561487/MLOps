@@ -20,7 +20,8 @@ from wtforms.ext.sqlalchemy.fields import QuerySelectField
 from wtforms.validators import DataRequired, Length, Regexp
 from wtforms import SelectField, StringField
 from flask_appbuilder.fieldwidgets import BS3TextFieldWidget, Select2Widget
-from myapp.forms import MySelect2Widget, MyBS3TextFieldWidget
+from myapp.forms import MySelect2Widget, MyBS3TextFieldWidget, MySelectMultipleField
+from myapp.utils.storage_volume import available_volume_choices, filter_selected_volume_mount, split_volume_mount
 from flask import Markup
 from myapp.utils.py.py_k8s import K8s
 from flask import (
@@ -139,12 +140,14 @@ class Notebook_ModelView_Base():
             widget=Select2Widget(),
             choices=[['Always', 'Always'], ['IfNotPresent', 'IfNotPresent']]
         )
-        self.add_form_extra_fields['volume_mount'] = StringField(
-            _('挂载'),
-            default=notebook.project.volume_mount if notebook else '',
-            description= _('外部挂载，格式:<br>$pvc_name1(pvc):/$container_path1,$hostpath1(hostpath):/$container_path2<br>注意pvc会自动挂载对应目录下的个人username子目录') if g.user.is_admin() else _('外部挂载，格式: $ip/$path(nfs):/nfs，逗号分隔多个挂载'),
-            widget=BS3TextFieldWidget(),
-            validators=[Regexp('^[\x00-\x7F]*$')]
+        current_volume_mount = notebook.volume_mount if notebook else ''
+        project = notebook.project if notebook else None
+        self.add_form_extra_fields['volume_mount'] = MySelectMultipleField(
+            _('挂载卷'),
+            default=current_volume_mount,
+            description=_('选择项目默认挂载卷或已同步的存储资源，保存后会自动生成 volume_mount 表达式；reset notebook 后生效'),
+            widget=MySelect2Widget(multiple=True),
+            choices=available_volume_choices(g.user, project=project, current_volume_mount=current_volume_mount),
         )
         self.add_form_extra_fields['working_dir'] = StringField(
             _('工作目录'),
@@ -176,24 +179,37 @@ class Notebook_ModelView_Base():
 
         columns = ['name', 'describe', 'images', 'resource_memory', 'resource_cpu', 'resource_gpu']
 
-        self.add_columns = ['project'] + columns  # 添加的时候没有挂载配置，使用项目中的挂载配置
-
-        # 修改的时候管理员可以在上面添加一些特殊的挂载配置，适应一些特殊情况
-        if not conf.get('ENABLE_USER_VOLUME',False) and not g.user.is_admin():
-            self.add_columns = ['project'] + columns
-            self.edit_columns = ['project'] + columns
-        else:
-            self.add_columns = ['project'] + columns
-            self.edit_columns = ['project'] + columns + ['volume_mount']
+        self.add_columns = ['project'] + columns + ['volume_mount']
+        self.edit_columns = ['project'] + columns + ['volume_mount']
 
         self.edit_form_extra_fields = self.add_form_extra_fields
         self.default_filter = {
             "created_by": g.user.id
         }
 
+    def set_columns_related(self, exist_add_args, response_add_columns):
+        if 'volume_mount' not in response_add_columns:
+            return
+        project_value = exist_add_args.get('project') or exist_add_args.get('project_id') or {}
+        if isinstance(project_value, dict):
+            project_value = project_value.get('id') or project_value.get('value')
+        project = db.session.query(Project).filter_by(id=int(project_value)).first() if str(project_value).isdigit() else None
+        current_volume_mount = exist_add_args.get('volume_mount') or (project.volume_mount if project else '')
+        choices = available_volume_choices(g.user, project=project, current_volume_mount=current_volume_mount)
+        response_add_columns['volume_mount'].update({
+            "label": _('挂载卷'),
+            "description": _('选择项目默认挂载卷或已同步的存储资源，保存后会自动生成 volume_mount 表达式；reset notebook 后生效'),
+            "type": "Select",
+            "ui-type": "select2",
+            "default": split_volume_mount(current_volume_mount),
+            "choices": choices,
+            "values": [{"id": choice[0], "value": choice[1]} for choice in choices],
+        })
+
     def pre_add(self, item):
         item.name = item.name.replace("_", "-")[0:54].lower()
         item.resource_gpu = item.resource_gpu.upper() if item.resource_gpu else '0'
+        selected_volume_mount = item.volume_mount
 
         # 不需要用户自己填写node selector
         # if core.get_gpu(item.resource_gpu)[0]:
@@ -215,24 +231,9 @@ class Notebook_ModelView_Base():
         else:
             item.ide_type = 'jupyter'
 
-        if not item.id:
-            item.volume_mount = item.project.volume_mount
-        else:
-            if conf.get('ENABLE_USER_VOLUME',False) and not g.user.is_admin():
-                volume_mounts_temp = re.split(',|;', item.volume_mount)
-                volume_mount_arr=[]
-                for volume_mount in volume_mounts_temp:
-                    match = re.search(r'\((.*?)\)', volume_mount)
-                    if match:
-                        volume_type = match.group(1)
-                        re_str = conf.get('ENABLE_USER_VOLUME_CONFIG', {}).get(volume_type, '')
-                        if re_str:
-                            if re.match(re_str, volume_mount):
-                                volume_mount_arr.append(volume_mount)
-
-                item.volume_mount = ','.join(volume_mount_arr).strip(',')
-            # 合并项目组的挂载
-            item.volume_mount = core.merge_volume_mount(item.project.volume_mount,item.volume_mount)
+        if selected_volume_mount and not g.user.is_admin():
+            selected_volume_mount = filter_selected_volume_mount(g.user, item.project, selected_volume_mount)
+        item.volume_mount = core.merge_volume_mount(item.project.volume_mount, selected_volume_mount)
 
 
 

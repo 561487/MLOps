@@ -20,8 +20,9 @@ from wtforms.validators import DataRequired, Length, Regexp
 from myapp.exceptions import MyappException
 from wtforms import BooleanField, IntegerField, StringField, SelectField, FloatField, DateField, DateTimeField, SelectMultipleField
 
-from flask_appbuilder.fieldwidgets import BS3TextFieldWidget, BS3PasswordFieldWidget, DatePickerWidget, DateTimePickerWidget, Select2ManyWidget, Select2Widget
-from myapp.forms import MyBS3TextAreaFieldWidget, MyLineSeparatedListField, MyJSONField, MyBS3TextFieldWidget
+from flask_appbuilder.fieldwidgets import BS3TextFieldWidget, BS3PasswordFieldWidget, DatePickerWidget, DateTimePickerWidget, Select2Widget
+from myapp.forms import MyBS3TextAreaFieldWidget, MyLineSeparatedListField, MyJSONField, MyBS3TextFieldWidget, MySelect2Widget, MySelectMultipleField
+from myapp.utils.storage_volume import available_volume_choices, filter_selected_volume_mount, split_volume_mount
 from flask_wtf.file import FileField
 from .baseApi import (
     MyappModelRestApi
@@ -110,7 +111,7 @@ class Task_ModelView_Base():
         ),
         "volume_mount": StringField(
             label= _('挂载'),
-            description= _('外部挂载，格式:<br>$pvc_name1(pvc):/$container_path1,$hostpath1(hostpath):/$container_path2<br>注意pvc会自动挂载对应目录下的个人username子目录'),
+            description= _('外部挂载，格式:<br>$pvc_name1(pvc):/$container_path1,$pvc_name2(pvc-share):/$container_path2,$storage_pvc_name(storage):/$container_path3,$hostpath1(hostpath):/$container_path4,$configmap(configmap):/$container_path5,$secret(secret):/$container_path6,$memory_size(memory):/$container_path7<br>注意pvc会自动挂载对应目录下的个人username子目录'),
             widget=BS3TextFieldWidget(),
             default='kubeflow-user-workspace(pvc):/mnt',
             validators=[Regexp('^[\x00-\x7F]*$')]
@@ -182,6 +183,56 @@ class Task_ModelView_Base():
         if 'job_describe' in form._fields:
             del form._fields['job_describe']  # 不处理这个字段
 
+    def _set_volume_mount_select_field(self, project=None, current_volume_mount=''):
+        self.add_form_extra_fields['volume_mount'] = MySelectMultipleField(
+            label=_('挂载卷'),
+            description=_('选择项目默认挂载卷或已同步的存储资源，保存后会自动生成 volume_mount 表达式'),
+            default=current_volume_mount,
+            widget=MySelect2Widget(multiple=True),
+            choices=available_volume_choices(
+                g.user,
+                project=project,
+                namespace=conf.get('PIPELINE_NAMESPACE', 'pipeline'),
+                current_volume_mount=current_volume_mount
+            ),
+        )
+        self.edit_form_extra_fields = self.add_form_extra_fields
+
+    def _set_volume_mount_text_field(self):
+        self.add_form_extra_fields['volume_mount'] = StringField(
+            label=_('挂载'),
+            description=_('外部挂载，格式:<br>$pvc_name1(pvc):/$container_path1,$pvc_name2(pvc-share):/$container_path2,$storage_pvc_name(storage):/$container_path3,$hostpath1(hostpath):/$container_path4,$configmap(configmap):/$container_path5,$secret(secret):/$container_path6,$memory_size(memory):/$container_path7<br>注意pvc会自动挂载对应目录下的个人username子目录'),
+            widget=BS3TextFieldWidget(),
+            default='kubeflow-user-workspace(pvc):/mnt',
+            validators=[Regexp('^[\x00-\x7F]*$')]
+        )
+        self.edit_form_extra_fields = self.add_form_extra_fields
+
+    def set_columns_related(self, exist_add_args, response_add_columns):
+        if 'volume_mount' not in response_add_columns:
+            return
+        pipeline_value = exist_add_args.get('pipeline') or exist_add_args.get('pipeline_id') or {}
+        if isinstance(pipeline_value, dict):
+            pipeline_value = pipeline_value.get('id') or pipeline_value.get('value')
+        pipeline = db.session.query(Pipeline).filter_by(id=int(pipeline_value)).first() if str(pipeline_value).isdigit() else None
+        project = pipeline.project if pipeline else None
+        current_volume_mount = exist_add_args.get('volume_mount') or (project.volume_mount if project else '')
+        choices = available_volume_choices(
+            g.user,
+            project=project,
+            namespace=conf.get('PIPELINE_NAMESPACE', 'pipeline'),
+            current_volume_mount=current_volume_mount
+        )
+        response_add_columns['volume_mount'].update({
+            "label": _('挂载卷'),
+            "description": _('选择项目默认挂载卷或已同步的存储资源，保存后会自动生成 volume_mount 表达式'),
+            "type": "Select",
+            "ui-type": "select2",
+            "default": split_volume_mount(current_volume_mount),
+            "choices": choices,
+            "values": [{"id": choice[0], "value": choice[1]} for choice in choices],
+        })
+
     # 检测是否具有编辑权限，只有creator和admin可以编辑
     def check_edit_permission(self, item):
         if g.user and g.user.is_admin():
@@ -197,13 +248,16 @@ class Task_ModelView_Base():
 
     def pre_add_web(self, task=None):
 
-        # 修改的时候管理员可以在上面添加一些特殊的挂载配置，适应一些特殊情况
         if g.user.is_admin():
+            project = task.pipeline.project if task and task.pipeline else None
+            self._set_volume_mount_select_field(project, task.volume_mount if task else '')
             if 'volume_mount' not in self.add_columns:
                 self.add_columns = self.add_columns + ['volume_mount']
         else:
-            if 'volume_mount' in self.add_columns:
-                self.add_columns.remove('volume_mount')
+            project = task.pipeline.project if task and task.pipeline else None
+            self._set_volume_mount_select_field(project, task.volume_mount if task else '')
+            if 'volume_mount' not in self.add_columns:
+                self.add_columns = self.add_columns + ['volume_mount']
 
         self.edit_columns = self.add_columns.copy()
         self.edit_columns.remove('job_template')
@@ -268,13 +322,30 @@ class Task_ModelView_Base():
         item.resource_gpu = item.resource_gpu.upper() if item.resource_gpu else '0'
         if 'G' not in item.resource_memory and 'M' not in item.resource_memory:
             item.resource_memory = item.resource_memory+"G"
-        item.volume_mount = item.pipeline.project.volume_mount  # 默认使用项目的配置
+        selected_volume_mount = item.volume_mount
+        try:
+            pipeline_parameter = json.loads(item.pipeline.parameter or '{}')
+        except Exception:
+            pipeline_parameter = {}
+        item.volume_mount = core.merge_volume_mount(
+            item.pipeline.project.volume_mount,
+            pipeline_parameter.get('volume_mount', '')
+        )  # 默认使用项目和流水线的配置
 
         if item.job_template.volume_mount and item.job_template.volume_mount not in item.volume_mount:
             if item.volume_mount:
                 item.volume_mount += "," + item.job_template.volume_mount
             else:
                 item.volume_mount = item.job_template.volume_mount
+        if selected_volume_mount:
+            if not g.user.is_admin():
+                selected_volume_mount = filter_selected_volume_mount(
+                    g.user,
+                    item.pipeline.project,
+                    selected_volume_mount,
+                    namespace=conf.get('PIPELINE_NAMESPACE', 'pipeline')
+                )
+            item.volume_mount = core.merge_volume_mount(item.volume_mount, selected_volume_mount)
         item.resource_memory = core.check_resource_memory(item.resource_memory)
         item.resource_cpu = core.check_resource_cpu(item.resource_cpu)
         if not item.args:
@@ -315,6 +386,25 @@ class Task_ModelView_Base():
         if item.job_template is None:
             raise MyappException(__("Job Template 为必选"))
 
+        selected_volume_mount = item.volume_mount
+        if selected_volume_mount and not g.user.is_admin():
+            selected_volume_mount = filter_selected_volume_mount(
+                g.user,
+                item.pipeline.project,
+                selected_volume_mount,
+                namespace=conf.get('PIPELINE_NAMESPACE', 'pipeline')
+            )
+
+        try:
+            pipeline_parameter = json.loads(item.pipeline.parameter or '{}')
+        except Exception:
+            pipeline_parameter = {}
+        item.volume_mount = core.merge_volume_mount(
+            item.pipeline.project.volume_mount,
+            pipeline_parameter.get('volume_mount', ''),
+            selected_volume_mount
+        )
+
         # # 切换了项目组，要把项目组的挂载加进去
         all_project_volumes = []
         if item.volume_mount:
@@ -332,22 +422,12 @@ class Task_ModelView_Base():
             item.volume_mount = self.src_item_json.get('volume_mount', '')
 
         if item.volume_mount:
-            if conf.get('ENABLE_USER_VOLUME',False) and not g.user.is_admin():
-                volume_mounts_temp = re.split(',|;', item.volume_mount)
-                volume_mount_arr=[]
-                for volume_mount in volume_mounts_temp:
-                    match = re.search(r'\((.*?)\)', volume_mount)
-                    if match:
-                        volume_type = match.group(1)
-                        re_str = conf.get('ENABLE_USER_VOLUME_CONFIG', {}).get(volume_type, '')
-                        if re_str:
-                            if re.match(re_str, volume_mount):
-                                volume_mount_arr.append(volume_mount)
-
-                item.volume_mount = ','.join(volume_mount_arr).strip(',')
-
             # 合并项目组的挂载
-            item.volume_mount = core.merge_volume_mount(item.pipeline.project.volume_mount,item.volume_mount)
+            item.volume_mount = core.merge_volume_mount(
+                item.pipeline.project.volume_mount,
+                pipeline_parameter.get('volume_mount', ''),
+                item.volume_mount
+            )
 
 
         if item.outputs:
