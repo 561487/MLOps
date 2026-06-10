@@ -71,8 +71,8 @@ status_color = {
 class Workflow_ModelView_Base():
     label_title = _('运行实例')
     datamodel = SQLAInterface(Workflow)
-    list_columns = ['project', 'pipeline_url', 'cluster', 'create_time', 'change_time', 'elapsed_time', 'final_status', 'status', 'username', 'log', 'stop']
-    fixed_columns = ['log', 'stop']
+    list_columns = ['project', 'pipeline_url', 'cluster', 'create_time', 'change_time', 'elapsed_time', 'final_status', 'status', 'username', 'log', 'stop', 'suspend', 'resume']
+    fixed_columns = ['log', 'stop', 'suspend', 'resume']
     search_columns = ['status', 'labels', 'name', 'cluster', 'annotations', 'spec', 'status_more', 'username', 'create_time']
     cols_width = {
         "project": {"type": "ellip2", "width": 120},
@@ -183,6 +183,55 @@ class Workflow_ModelView_Base():
             flash(__('no permission'), 'warning')
         return redirect(request.referrer)
 
+    @event_logger.log_this
+    @expose_api(description="暂停workflow",url="/suspend/<crd_id>")
+    def suspend(self, crd_id):
+        workflow = db.session.query(self.datamodel.obj).filter_by(id=crd_id).first()
+        if not workflow:
+            flash(__('workflow不存在'), 'warning')
+            return redirect(request.referrer)
+        if workflow.username != g.user.username and not g.user.is_admin():
+            flash(__('no permission'), 'warning')
+            return redirect(request.referrer)
+        try:
+            k8s_client = py_k8s.K8s(workflow.pipeline.project.cluster.get('KUBECONFIG', ''))
+            success = k8s_client.suspend_workflow(namespace=workflow.namespace, workflow_name=workflow.name)
+            if success:
+                workflow.status = 'Suspended'
+                workflow.change_time = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                db.session.commit()
+                flash(__('workflow已暂停'), 'success')
+            else:
+                flash(__('暂停失败，请检查workflow状态'), 'warning')
+        except Exception as e:
+            traceback.print_exc()
+            flash(__('暂停异常: %s' % str(e)), 'warning')
+        return redirect(request.referrer)
+
+    @event_logger.log_this
+    @expose_api(description="恢复workflow",url="/resume/<crd_id>")
+    def resume(self, crd_id):
+        workflow = db.session.query(self.datamodel.obj).filter_by(id=crd_id).first()
+        if not workflow:
+            flash(__('workflow不存在'), 'warning')
+            return redirect(request.referrer)
+        if workflow.username != g.user.username and not g.user.is_admin():
+            flash(__('no permission'), 'warning')
+            return redirect(request.referrer)
+        try:
+            k8s_client = py_k8s.K8s(workflow.pipeline.project.cluster.get('KUBECONFIG', ''))
+            success = k8s_client.resume_workflow(namespace=workflow.namespace, workflow_name=workflow.name)
+            if success:
+                workflow.status = 'Running'
+                workflow.change_time = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                db.session.commit()
+                flash(__('workflow已恢复'), 'success')
+            else:
+                flash(__('恢复失败，请检查workflow状态'), 'warning')
+        except Exception as e:
+            traceback.print_exc()
+            flash(__('恢复异常: %s' % str(e)), 'warning')
+        return redirect(request.referrer)
 
     def get_dag(self, cluster_name, namespace, workflow_name, node_name=''):
 
