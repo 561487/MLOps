@@ -17,8 +17,7 @@
           "item_type": "str",
           "label": "镜像",
           "require": 1,
-          "choice": [
-          ],
+          "choice": [],
           "range": "",
           "default": "ccr.ccs.tencentyun.com/cube-studio/ubuntu-gpu:cuda11.8.0-cudnn8-python3.9",
           "placeholder": "",
@@ -30,8 +29,7 @@
           "item_type": "str",
           "label": "启动目录",
           "require": 1,
-          "choice": [
-          ],
+          "choice": [],
           "range": "",
           "default": "/mnt/{{creator}}/",
           "placeholder": "",
@@ -43,8 +41,7 @@
           "item_type": "str",
           "label": "启动命令",
           "require": 1,
-          "choice": [
-          ],
+          "choice": [],
           "range": "",
           "default": "echo 'test'",
           "placeholder": "",
@@ -73,7 +70,14 @@
           "item_type": "str",
           "label": "逻辑类型",
           "require": 1,
-          "choice": ["branch", "loop", "parallel", "merge", "subpipeline", "end"],
+          "choice": [
+            "branch",
+            "loop",
+            "parallel",
+            "merge",
+            "subpipeline",
+            "end"
+          ],
           "range": "",
           "default": "branch",
           "placeholder": "",
@@ -175,8 +179,7 @@
       "rec_job_template": "自定义镜像",
       "help_url": "/job-template/job/data-process"
     },
-    "job_template_args": {
-    }
+    "job_template_args": {}
   },
   "drop-missing": {
     "project_name": "特征处理",
@@ -194,8 +197,7 @@
       "rec_job_template": "自定义镜像",
       "help_url": "/job-template/job/data-process"
     },
-    "job_template_args": {
-    }
+    "job_template_args": {}
   },
   "drop-stablize": {
     "project_name": "特征处理",
@@ -213,8 +215,7 @@
       "rec_job_template": "自定义镜像",
       "help_url": "/job-template/job/data-process"
     },
-    "job_template_args": {
-    }
+    "job_template_args": {}
   },
   "fill-missing": {
     "project_name": "特征处理",
@@ -232,8 +233,7 @@
       "rec_job_template": "自定义镜像",
       "help_url": "/job-template/job/data-process"
     },
-    "job_template_args": {
-    }
+    "job_template_args": {}
   },
   "one-hot": {
     "project_name": "特征处理",
@@ -252,8 +252,7 @@
       "rec_job_template": "自定义镜像",
       "help_url": "/job-template/job/data-process"
     },
-    "job_template_args": {
-    }
+    "job_template_args": {}
   },
   "calculate-metric": {
     "project_name": "特征处理",
@@ -271,8 +270,7 @@
       "rec_job_template": "自定义镜像",
       "help_url": "/job-template/job/data-process"
     },
-    "job_template_args": {
-    }
+    "job_template_args": {}
   },
   "outlier-detection": {
     "project_name": "特征处理",
@@ -290,8 +288,7 @@
       "rec_job_template": "自定义镜像",
       "help_url": "/job-template/job/data-process"
     },
-    "job_template_args": {
-    }
+    "job_template_args": {}
   },
   "pca": {
     "project_name": "特征处理",
@@ -310,8 +307,7 @@
       "rec_job_template": "自定义镜像",
       "help_url": "/job-template/job/data-process"
     },
-    "job_template_args": {
-    }
+    "job_template_args": {}
   },
   "calculate-correlation": {
     "project_name": "特征处理",
@@ -329,8 +325,7 @@
       "rec_job_template": "自定义镜像",
       "help_url": "/job-template/job/feature-process"
     },
-    "job_template_args": {
-    }
+    "job_template_args": {}
   },
   "feature-combine": {
     "project_name": "特征处理",
@@ -348,8 +343,7 @@
       "rec_job_template": "自定义镜像",
       "help_url": "/job-template/job/feature-combine"
     },
-    "job_template_args": {
-    }
+    "job_template_args": {}
   },
   "feature-importance": {
     "project_name": "特征处理",
@@ -367,8 +361,7 @@
       "rec_job_template": "自定义镜像",
       "help_url": "/job-template/job/feature-importance"
     },
-    "job_template_args": {
-    }
+    "job_template_args": {}
   },
   "hadamard-multiply": {
     "project_name": "特征处理",
@@ -386,8 +379,7 @@
       "rec_job_template": "自定义镜像",
       "help_url": "/job-template/job/hadamard-multiply"
     },
-    "job_template_args": {
-    }
+    "job_template_args": {}
   },
   "union-join-data": {
     "project_name": "特征处理",
@@ -405,8 +397,7 @@
       "rec_job_template": "自定义镜像",
       "help_url": "/job-template/job/union-join-data"
     },
-    "job_template_args": {
-    }
+    "job_template_args": {}
   },
   "run-sql": {
     "project_name": "特征处理",
@@ -424,8 +415,7 @@
       "rec_job_template": "自定义镜像",
       "help_url": "/job-template/job/feature-process-all"
     },
-    "job_template_args": {
-    }
+    "job_template_args": {}
   },
   "sort": {
     "project_name": "特征处理",
@@ -443,8 +433,7 @@
       "rec_job_template": "自定义镜像",
       "help_url": "/job-template/job/feature-process-all"
     },
-    "job_template_args": {
-    }
+    "job_template_args": {}
   },
   "index-process": {
     "project_name": "特征处理",
@@ -462,8 +451,7 @@
       "rec_job_template": "自定义镜像",
       "help_url": "/job-template/job/feature-process-all"
     },
-    "job_template_args": {
-    }
+    "job_template_args": {}
   },
   "objective-process": {
     "project_name": "特征处理",
@@ -481,8 +469,7 @@
       "rec_job_template": "自定义镜像",
       "help_url": "/job-template/job/feature-process-all"
     },
-    "job_template_args": {
-    }
+    "job_template_args": {}
   },
   "data-tranform": {
     "project_name": "特征处理",
@@ -500,8 +487,7 @@
       "rec_job_template": "自定义镜像",
       "help_url": "/job-template/job/feature-process-all"
     },
-    "job_template_args": {
-    }
+    "job_template_args": {}
   },
   "data-split": {
     "project_name": "特征处理",
@@ -519,8 +505,7 @@
       "rec_job_template": "自定义镜像",
       "help_url": "/job-template/job/feature-process-all"
     },
-    "job_template_args": {
-    }
+    "job_template_args": {}
   },
   "dimension-reduction": {
     "project_name": "特征处理",
@@ -538,8 +523,7 @@
       "rec_job_template": "自定义镜像",
       "help_url": "/job-template/job/feature-process-all"
     },
-    "job_template_args": {
-    }
+    "job_template_args": {}
   },
   "sample": {
     "project_name": "特征处理",
@@ -557,8 +541,7 @@
       "rec_job_template": "自定义镜像",
       "help_url": "/job-template/job/feature-process-all"
     },
-    "job_template_args": {
-    }
+    "job_template_args": {}
   },
   "standardize-normalize": {
     "project_name": "特征处理",
@@ -576,8 +559,7 @@
       "rec_job_template": "自定义镜像",
       "help_url": "/job-template/job/feature-process-all"
     },
-    "job_template_args": {
-    }
+    "job_template_args": {}
   },
   "discretization": {
     "project_name": "特征处理",
@@ -595,8 +577,7 @@
       "rec_job_template": "自定义镜像",
       "help_url": "/job-template/job/feature-process-all"
     },
-    "job_template_args": {
-    }
+    "job_template_args": {}
   },
   "datax": {
     "project_name": "数据导入导出",
@@ -621,8 +602,7 @@
           "item_type": "str",
           "label": "job.json文件地址，<a target='_blank' href='https://github.com/alibaba/DataX?tab=readme-ov-file#support-data-channels'>书写格式参考</a>",
           "require": 1,
-          "choice": [
-          ],
+          "choice": [],
           "range": "",
           "default": "/mnt/{{creator}}/pipeline/example/ml/mysql-csv.json",
           "placeholder": "",
@@ -874,8 +854,7 @@
           "item_type": "str",
           "label": "镜像",
           "require": 1,
-          "choice": [
-          ],
+          "choice": [],
           "range": "",
           "default": "ccr.ccs.tencentyun.com/cube-studio/ubuntu-gpu:cuda11.8.0-cudnn8-python3.9",
           "placeholder": "",
@@ -887,8 +866,7 @@
           "item_type": "str",
           "label": "启动目录",
           "require": 1,
-          "choice": [
-          ],
+          "choice": [],
           "range": "",
           "default": "/mnt/{{creator}}/pipeline/example/volcano/",
           "placeholder": "",
@@ -900,8 +878,7 @@
           "item_type": "str",
           "label": "启动命令",
           "require": 1,
-          "choice": [
-          ],
+          "choice": [],
           "range": "",
           "default": "python demo.py",
           "placeholder": "",
@@ -913,8 +890,7 @@
           "item_type": "str",
           "label": "机器个数",
           "require": 1,
-          "choice": [
-          ],
+          "choice": [],
           "range": "",
           "default": "3",
           "placeholder": "",
@@ -1029,8 +1005,7 @@
           "item_type": "str",
           "label": "训练集地址",
           "require": 0,
-          "choice": [
-          ],
+          "choice": [],
           "range": "",
           "default": "/mnt/{{creator}}/pipeline/example/sklearn/ml-label.csv",
           "placeholder": "",
@@ -1054,8 +1029,7 @@
           "item_type": "str",
           "label": "label列",
           "require": 0,
-          "choice": [
-          ],
+          "choice": [],
           "range": "",
           "default": "y",
           "placeholder": "",
@@ -1092,8 +1066,7 @@
           "item_type": "str",
           "label": "模型参数",
           "require": 0,
-          "choice": [
-          ],
+          "choice": [],
           "range": "",
           "default": {
             "max_depth": 5,
@@ -1110,8 +1083,7 @@
           "item_type": "str",
           "label": "模型地址",
           "require": 1,
-          "choice": [
-          ],
+          "choice": [],
           "range": "",
           "default": "/mnt/{{creator}}/pipeline/example/sklearn/model.joblib",
           "placeholder": "",
@@ -1125,8 +1097,7 @@
           "item_type": "str",
           "label": "预测数据集地址",
           "require": 0,
-          "choice": [
-          ],
+          "choice": [],
           "range": "",
           "default": "/mnt/{{creator}}/pipeline/example/sklearn/ml-nolabel.csv",
           "placeholder": "",
@@ -1138,8 +1109,7 @@
           "item_type": "str",
           "label": "保存地址",
           "require": 0,
-          "choice": [
-          ],
+          "choice": [],
           "range": "",
           "default": "/mnt/{{creator}}/pipeline/example/sklearn/result.csv",
           "placeholder": "",
@@ -1153,8 +1123,7 @@
           "item_type": "str",
           "label": "worker数量",
           "require": 1,
-          "choice": [
-          ],
+          "choice": [],
           "range": "",
           "default": "2",
           "placeholder": "",
@@ -1167,8 +1136,7 @@
           "item_type": "str",
           "label": "初始化脚本",
           "require": 1,
-          "choice": [
-          ],
+          "choice": [],
           "range": "3",
           "default": "/mnt/{{creator}}/pipeline/example/sklearn/init.sh",
           "placeholder": "",
@@ -1194,8 +1162,7 @@
       "rec_job_template": "自定义镜像",
       "help_url": "/job-template/job/adaboost"
     },
-    "job_template_args": {
-    }
+    "job_template_args": {}
   },
   "xgb": {
     "project_name": "机器学习算法",
@@ -1213,8 +1180,7 @@
       "rec_job_template": "自定义镜像",
       "help_url": "/job-template/job/xgb"
     },
-    "job_template_args": {
-    }
+    "job_template_args": {}
   },
   "bayesian": {
     "project_name": "机器学习算法",
@@ -1232,8 +1198,7 @@
       "rec_job_template": "自定义镜像",
       "help_url": "/job-template/job/bayesian"
     },
-    "job_template_args": {
-    }
+    "job_template_args": {}
   },
   "decision-tree": {
     "project_name": "机器学习算法",
@@ -1251,8 +1216,7 @@
       "rec_job_template": "自定义镜像",
       "help_url": "/job-template/job/decision-tree"
     },
-    "job_template_args": {
-    }
+    "job_template_args": {}
   },
   "gbdt": {
     "project_name": "机器学习算法",
@@ -1270,8 +1234,7 @@
       "rec_job_template": "自定义镜像",
       "help_url": "/job-template/job/gbdt"
     },
-    "job_template_args": {
-    }
+    "job_template_args": {}
   },
   "hyperparam-search-ray": {
     "project_name": "机器学习算法",
@@ -1289,8 +1252,7 @@
       "rec_job_template": "自定义镜像",
       "help_url": "/job-template/job/hyperparameter-search-ray"
     },
-    "job_template_args": {
-    }
+    "job_template_args": {}
   },
   "hyperparam-search-nni": {
     "project_name": "机器学习算法",
@@ -1310,8 +1272,7 @@
       "help_url": "/job-template/job/hyperparameter-search-nni",
       "HostNetwork": true
     },
-    "job_template_args": {
-    }
+    "job_template_args": {}
   },
   "kmean": {
     "project_name": "机器学习算法",
@@ -1329,8 +1290,7 @@
       "rec_job_template": "自定义镜像",
       "help_url": "/job-template/job/kmean"
     },
-    "job_template_args": {
-    }
+    "job_template_args": {}
   },
   "knn": {
     "project_name": "机器学习算法",
@@ -1348,8 +1308,7 @@
       "rec_job_template": "自定义镜像",
       "help_url": "/job-template/job/knn"
     },
-    "job_template_args": {
-    }
+    "job_template_args": {}
   },
   "lightgbm": {
     "project_name": "机器学习算法",
@@ -1367,8 +1326,7 @@
       "rec_job_template": "自定义镜像",
       "help_url": "/job-template/job/lightgbm"
     },
-    "job_template_args": {
-    }
+    "job_template_args": {}
   },
   "lr": {
     "project_name": "机器学习算法",
@@ -1386,8 +1344,7 @@
       "rec_job_template": "自定义镜像",
       "help_url": "/job-template/job/lr"
     },
-    "job_template_args": {
-    }
+    "job_template_args": {}
   },
   "random-forest": {
     "project_name": "机器学习算法",
@@ -1405,8 +1362,7 @@
       "rec_job_template": "自定义镜像",
       "help_url": "/job-template/job/random-forest"
     },
-    "job_template_args": {
-    }
+    "job_template_args": {}
   },
   "random-forest-regression": {
     "project_name": "机器学习算法",
@@ -1424,8 +1380,7 @@
       "rec_job_template": "自定义镜像",
       "help_url": "/job-template/job/rf-regression"
     },
-    "job_template_args": {
-    }
+    "job_template_args": {}
   },
   "arima": {
     "project_name": "机器学习算法",
@@ -1443,8 +1398,7 @@
       "rec_job_template": "自定义镜像",
       "help_url": "/job-template/job/arima"
     },
-    "job_template_args": {
-    }
+    "job_template_args": {}
   },
   "ar": {
     "project_name": "机器学习算法",
@@ -1462,8 +1416,7 @@
       "rec_job_template": "自定义镜像",
       "help_url": "/job-template/job/ar"
     },
-    "job_template_args": {
-    }
+    "job_template_args": {}
   },
   "tfjob": {
     "project_name": "深度学习",
@@ -1558,8 +1511,7 @@
           "item_type": "str",
           "label": "镜像",
           "require": 1,
-          "choice": [
-          ],
+          "choice": [],
           "range": "",
           "default": "ccr.ccs.tencentyun.com/cube-studio/ubuntu-gpu:cuda11.8.0-cudnn8-python3.9",
           "placeholder": "",
@@ -1571,8 +1523,7 @@
           "item_type": "str",
           "label": "启动目录",
           "require": 1,
-          "choice": [
-          ],
+          "choice": [],
           "range": "",
           "default": "/mnt/{{creator}}/pipeline/example/pytorch",
           "placeholder": "",
@@ -1584,8 +1535,7 @@
           "item_type": "str",
           "label": "启动命令",
           "require": 1,
-          "choice": [
-          ],
+          "choice": [],
           "range": "",
           "default": "bash start.sh",
           "placeholder": "启动命令，例如 python3 xxx.py",
@@ -1597,8 +1547,7 @@
           "item_type": "str",
           "label": "worker数量",
           "require": 1,
-          "choice": [
-          ],
+          "choice": [],
           "range": "",
           "default": "3",
           "placeholder": "分布式训练worker的数目",
@@ -1625,8 +1574,7 @@
       "rec_job_template": "自定义镜像",
       "help_url": "/job-template/job/paddle"
     },
-    "job_template_args": {
-    }
+    "job_template_args": {}
   },
   "mindspore": {
     "project_name": "深度学习",
@@ -1643,8 +1591,7 @@
       "index": 5,
       "help_url": "/job-template/job/mindspore"
     },
-    "job_template_args": {
-    }
+    "job_template_args": {}
   },
   "mxnet": {
     "project_name": "深度学习",
@@ -1662,8 +1609,7 @@
       "rec_job_template": "自定义镜像",
       "help_url": "/job-template/job/mxnet"
     },
-    "job_template_args": {
-    }
+    "job_template_args": {}
   },
   "horovod": {
     "project_name": "分布式加速",
@@ -1681,8 +1627,7 @@
       "rec_job_template": "自定义镜像",
       "help_url": "/job-template/job/horovod"
     },
-    "job_template_args": {
-    }
+    "job_template_args": {}
   },
   "megatron": {
     "project_name": "分布式加速",
@@ -1700,8 +1645,7 @@
       "rec_job_template": "自定义镜像",
       "help_url": "/job-template/job/megatron"
     },
-    "job_template_args": {
-    }
+    "job_template_args": {}
   },
   "deepspeed": {
     "project_name": "分布式加速",
@@ -1719,8 +1663,7 @@
       "rec_job_template": "自定义镜像",
       "help_url": "/job-template/job/deepspeed"
     },
-    "job_template_args": {
-    }
+    "job_template_args": {}
   },
   "colossalai": {
     "project_name": "分布式加速",
@@ -1738,8 +1681,7 @@
       "rec_job_template": "自定义镜像",
       "help_url": "/job-template/job/colossalai"
     },
-    "job_template_args": {
-    }
+    "job_template_args": {}
   },
   "mpi": {
     "project_name": "分布式加速",
@@ -1757,8 +1699,7 @@
       "rec_job_template": "自定义镜像",
       "help_url": "/job-template/job/mpi"
     },
-    "job_template_args": {
-    }
+    "job_template_args": {}
   },
   "model-evaluation": {
     "project_name": "模型处理",
@@ -1776,8 +1717,7 @@
       "rec_job_template": "自定义镜像",
       "help_url": "/job-template/job/model_evaluation"
     },
-    "job_template_args": {
-    }
+    "job_template_args": {}
   },
   "model-convert": {
     "project_name": "模型处理",
@@ -1795,8 +1735,7 @@
       "rec_job_template": "自定义镜像",
       "help_url": "/job-template/job/model_convert"
     },
-    "job_template_args": {
-    }
+    "job_template_args": {}
   },
   "opencompass": {
     "project_name": "模型处理",
@@ -1814,8 +1753,7 @@
       "rec_job_template": "自定义镜像",
       "help_url": "/job-template/job/opencompass"
     },
-    "job_template_args": {
-    }
+    "job_template_args": {}
   },
   "model-quantization": {
     "project_name": "模型处理",
@@ -1833,8 +1771,7 @@
       "rec_job_template": "自定义镜像",
       "help_url": "/job-template/job/model-quantization"
     },
-    "job_template_args": {
-    }
+    "job_template_args": {}
   },
   "model-distillation": {
     "project_name": "模型处理",
@@ -1852,8 +1789,7 @@
       "rec_job_template": "自定义镜像",
       "help_url": "/job-template/job/model-distillation"
     },
-    "job_template_args": {
-    }
+    "job_template_args": {}
   },
   "model-prune": {
     "project_name": "模型处理",
@@ -1871,8 +1807,7 @@
       "rec_job_template": "自定义镜像",
       "help_url": "/job-template/job/model-distillation"
     },
-    "job_template_args": {
-    }
+    "job_template_args": {}
   },
   "model-register": {
     "project_name": "模型服务化",
@@ -2027,8 +1962,7 @@
           "item_type": "str",
           "label": "镜像",
           "require": 1,
-          "choice": [
-          ],
+          "choice": [],
           "range": "",
           "default": "ccr.ccs.tencentyun.com/cube-studio/ubuntu-gpu:cuda11.8.0-cudnn8-python3.9",
           "placeholder": "",
@@ -2040,8 +1974,7 @@
           "item_type": "str",
           "label": "启动目录",
           "require": 1,
-          "choice": [
-          ],
+          "choice": [],
           "range": "",
           "default": "/mnt/{{creator}}/pipeline/example/offline-inference/",
           "placeholder": "",
@@ -2053,8 +1986,7 @@
           "item_type": "str",
           "label": "启动命令",
           "require": 1,
-          "choice": [
-          ],
+          "choice": [],
           "range": "",
           "default": "bash start.sh",
           "placeholder": "",
@@ -2066,8 +1998,7 @@
           "item_type": "str",
           "label": "worker数量",
           "require": 1,
-          "choice": [
-          ],
+          "choice": [],
           "range": "",
           "default": "3",
           "placeholder": "",
@@ -2370,8 +2301,7 @@
           "item_type": "str",
           "label": "worker数量",
           "require": 1,
-          "choice": [
-          ],
+          "choice": [],
           "range": "",
           "default": "3",
           "placeholder": "分布式任务的worker数目",
@@ -2398,8 +2328,7 @@
           "item_type": "str",
           "label": "配置文件地址",
           "require": 1,
-          "choice": [
-          ],
+          "choice": [],
           "range": "",
           "default": "/mnt/{{creator}}/pipeline/example/media/video_url.txt",
           "placeholder": "",
@@ -2431,8 +2360,7 @@
           "item_type": "str",
           "label": "worker数量",
           "require": 1,
-          "choice": [
-          ],
+          "choice": [],
           "range": "",
           "default": "3",
           "placeholder": "",
@@ -2445,8 +2373,7 @@
           "item_type": "str",
           "label": "配置文件地址",
           "require": 1,
-          "choice": [
-          ],
+          "choice": [],
           "range": "",
           "default": "/mnt/{{creator}}/pipeline/example/media/video_image.txt",
           "placeholder": "配置文件地址，每行格式：<br>$local_video_path $des_img_dir $frame_rate",
@@ -2478,8 +2405,7 @@
           "item_type": "str",
           "label": "worker数量",
           "require": 1,
-          "choice": [
-          ],
+          "choice": [],
           "range": "",
           "default": "3",
           "placeholder": "",
@@ -2492,8 +2418,7 @@
           "item_type": "str",
           "label": "配置文件地址",
           "require": 1,
-          "choice": [
-          ],
+          "choice": [],
           "range": "",
           "default": "/mnt/{{creator}}/pipeline/example/media/video_audio.txt",
           "placeholder": "",
@@ -2629,8 +2554,7 @@
       "rec_job_template": "自定义镜像",
       "help_url": "/job-template/job/llama_factory"
     },
-    "job_template_args": {
-    }
+    "job_template_args": {}
   },
   "deepseek": {
     "project_name": "大模型",
@@ -2650,8 +2574,7 @@
       "rec_job_template": "自定义镜像",
       "help_url": "/job-template/job/llama_factory"
     },
-    "job_template_args": {
-    }
+    "job_template_args": {}
   },
   "llama3": {
     "project_name": "大模型",
@@ -2669,8 +2592,7 @@
     "job_template_expand": {
       "index": 5
     },
-    "job_template_args": {
-    }
+    "job_template_args": {}
   },
   "baichuan2": {
     "project_name": "大模型",
@@ -2690,8 +2612,7 @@
       "rec_job_template": "自定义镜像",
       "help_url": "/job-template/job/baichuan2"
     },
-    "job_template_args": {
-    }
+    "job_template_args": {}
   },
   "qwen3": {
     "project_name": "大模型",
@@ -2711,8 +2632,7 @@
       "rec_job_template": "自定义镜像",
       "help_url": "/job-template/job/llama_factory"
     },
-    "job_template_args": {
-    }
+    "job_template_args": {}
   },
   "llama-factory-sft": {
     "project_name": "大模型",
@@ -2720,7 +2640,9 @@
     "gitpath": "/job-template/job/llama-factory",
     "image_describe": "llama-factory",
     "job_template_name": "llama-factory-sft",
-    "job_template_old_names": ["llama-factory"],
+    "job_template_old_names": [
+      "llama-factory"
+    ],
     "job_template_describe": "llama-factory大模型sft微调(企业版)",
     "job_template_version": "Release",
     "job_template_workdir": "/app",
@@ -2734,8 +2656,7 @@
       "help_url": "/job-template/job/llama-factory",
       "enterprise": true
     },
-    "job_template_args": {
-    }
+    "job_template_args": {}
   },
   "llama-factory-rm": {
     "project_name": "大模型",
@@ -2756,8 +2677,7 @@
       "help_url": "/job-template/job/llama-factory",
       "enterprise": true
     },
-    "job_template_args": {
-    }
+    "job_template_args": {}
   },
   "llama-factory-ppo": {
     "project_name": "大模型",
@@ -2778,8 +2698,7 @@
       "help_url": "/job-template/job/llama-factory",
       "enterprise": true
     },
-    "job_template_args": {
-    }
+    "job_template_args": {}
   },
   "paddleocr-vl": {
     "project_name": "文本处理",
@@ -2800,8 +2719,7 @@
       "help_url": "/job-template/job/paddleocr-vl",
       "enterprise": true
     },
-    "job_template_args": {
-    }
+    "job_template_args": {}
   },
   "nlp-clean-data": {
     "project_name": "文本处理",
@@ -2821,8 +2739,7 @@
       "rec_job_template": "自定义镜像",
       "help_url": "/job-template/job/nlp-process"
     },
-    "job_template_args": {
-    }
+    "job_template_args": {}
   },
   "nlp-filter-data": {
     "project_name": "文本处理",
@@ -2842,8 +2759,7 @@
       "rec_job_template": "自定义镜像",
       "help_url": "/job-template/job/nlp-process"
     },
-    "job_template_args": {
-    }
+    "job_template_args": {}
   },
   "nlp-replace-private-data": {
     "project_name": "文本处理",
@@ -2863,8 +2779,7 @@
       "rec_job_template": "自定义镜像",
       "help_url": "/job-template/job/nlp-process"
     },
-    "job_template_args": {
-    }
+    "job_template_args": {}
   },
   "nlp-analyze-data": {
     "project_name": "文本处理",
@@ -2885,8 +2800,7 @@
       "help_url": "/job-template/job/nlp-process",
       "enterprise": true
     },
-    "job_template_args":{
-    }
+    "job_template_args": {}
   },
   "question-generation": {
     "project_name": "文本处理",
@@ -2906,8 +2820,7 @@
       "rec_job_template": "自定义镜像",
       "help_url": "/job-template/job/nlp-process"
     },
-    "job_template_args": {
-    }
+    "job_template_args": {}
   },
   "question-answer-generation": {
     "project_name": "文本处理",
@@ -2927,8 +2840,7 @@
       "rec_job_template": "自定义镜像",
       "help_url": "/job-template/job/nlp-process"
     },
-    "job_template_args": {
-    }
+    "job_template_args": {}
   },
   "question-answer-extension": {
     "project_name": "文本处理",
@@ -2948,19 +2860,18 @@
       "rec_job_template": "自定义镜像",
       "help_url": "/job-template/job/nlp-process"
     },
-    "job_template_args": {
-    }
+    "job_template_args": {}
   },
   "vision-quality-assessment": {
     "project_name": "图像处理",
-    "image_name": "python:3.9",
+    "image_name": "10.121.177.20:8082/mlops/vision-process:20260610",
     "gitpath": "/job-template/job/vision-process",
     "image_describe": "视觉算法类的数据处理",
     "job_template_name": "vision-quality-assessment",
-    "job_template_describe": "图片质量评估(企业版)",
+    "job_template_describe": "图片质量评估",
     "job_template_version": "Release",
     "job_template_workdir": "",
-    "job_template_command": "python image-data-check.py",
+    "job_template_command": "python launcher.py --deal_type quality_assessment",
     "job_template_volume": "",
     "job_template_account": "",
     "job_template_env": "",
@@ -2970,15 +2881,151 @@
       "help_url": "/job-template/job/vision-process"
     },
     "job_template_args": {
+      "输入输出": {
+        "--input_path": {
+          "type": "str",
+          "item_type": "str",
+          "label": "图片目录路径",
+          "require": 1,
+          "choice": [],
+          "range": "",
+          "default": "",
+          "placeholder": "/mnt/admin/dataset/images",
+          "describe": "输入图片目录或单张图片路径，Pipeline 中可填写上游组件输出目录",
+          "editable": 1
+        },
+        "--output_path": {
+          "type": "str",
+          "item_type": "str",
+          "label": "输出目录",
+          "require": 1,
+          "choice": [],
+          "range": "",
+          "default": "",
+          "placeholder": "/mnt/admin/pipeline/vision-output",
+          "describe": "处理结果输出目录，处理后的图片默认写入 output_path/images",
+          "editable": 1
+        },
+        "--recursive": {
+          "type": "bool",
+          "item_type": "bool",
+          "label": "递归处理子目录",
+          "require": 0,
+          "choice": [],
+          "range": "",
+          "default": "true",
+          "placeholder": "",
+          "describe": "是否递归遍历输入目录下的子目录",
+          "editable": 1
+        },
+        "--fail_fast": {
+          "type": "bool",
+          "item_type": "bool",
+          "label": "遇到坏图立即失败",
+          "require": 0,
+          "choice": [],
+          "range": "",
+          "default": "false",
+          "placeholder": "",
+          "describe": "开启后遇到无法读取的图片立即终止任务；关闭后记录到报告并继续处理",
+          "editable": 1
+        }
+      },
+      "处理参数": {
+        "--min_width": {
+          "type": "int",
+          "item_type": "int",
+          "label": "最小宽度",
+          "require": 0,
+          "choice": [],
+          "range": "1,100000",
+          "default": "32",
+          "placeholder": "32",
+          "describe": "低于该宽度的图片标记为不合格",
+          "editable": 1
+        },
+        "--min_height": {
+          "type": "int",
+          "item_type": "int",
+          "label": "最小高度",
+          "require": 0,
+          "choice": [],
+          "range": "1,100000",
+          "default": "32",
+          "placeholder": "32",
+          "describe": "低于该高度的图片标记为不合格",
+          "editable": 1
+        },
+        "--min_file_size": {
+          "type": "int",
+          "item_type": "int",
+          "label": "最小文件大小",
+          "require": 0,
+          "choice": [],
+          "range": "0,1000000000",
+          "default": "1024",
+          "placeholder": "1024",
+          "describe": "低于该字节数的图片标记为不合格",
+          "editable": 1
+        },
+        "--blur_threshold": {
+          "type": "float",
+          "item_type": "float",
+          "label": "模糊阈值",
+          "require": 0,
+          "choice": [],
+          "range": "0,100000",
+          "default": "100",
+          "placeholder": "100",
+          "describe": "Laplacian 方差低于该值时标记为疑似模糊",
+          "editable": 1
+        },
+        "--brightness_min": {
+          "type": "float",
+          "item_type": "float",
+          "label": "最低亮度",
+          "require": 0,
+          "choice": [],
+          "range": "0,255",
+          "default": "10",
+          "placeholder": "10",
+          "describe": "平均亮度低于该值时标记为过暗",
+          "editable": 1
+        },
+        "--brightness_max": {
+          "type": "float",
+          "item_type": "float",
+          "label": "最高亮度",
+          "require": 0,
+          "choice": [],
+          "range": "0,255",
+          "default": "245",
+          "placeholder": "245",
+          "describe": "平均亮度高于该值时标记为过亮",
+          "editable": 1
+        },
+        "--copy_valid": {
+          "type": "bool",
+          "item_type": "bool",
+          "label": "复制合格图片",
+          "require": 0,
+          "choice": [],
+          "range": "",
+          "default": "false",
+          "placeholder": "",
+          "describe": "开启后将合格图片复制到 output_path/images 供下游组件使用",
+          "editable": 1
+        }
+      }
     }
   },
   "vision-image-blur": {
     "project_name": "图像处理",
-    "image_name": "python:3.9",
+    "image_name": "10.121.177.20:8082/mlops/vision-process:20260610",
     "gitpath": "/job-template/job/vision-process",
     "image_describe": "视觉算法类的数据处理",
     "job_template_name": "vision-image-blur",
-    "job_template_describe": "图片去噪声(企业版)",
+    "job_template_describe": "图片去噪声",
     "job_template_version": "Release",
     "job_template_workdir": "",
     "job_template_command": "python launcher.py --deal_type blur",
@@ -2991,15 +3038,95 @@
       "help_url": "/job-template/job/vision-process"
     },
     "job_template_args": {
+      "输入输出": {
+        "--input_path": {
+          "type": "str",
+          "item_type": "str",
+          "label": "图片目录路径",
+          "require": 1,
+          "choice": [],
+          "range": "",
+          "default": "",
+          "placeholder": "/mnt/admin/dataset/images",
+          "describe": "输入图片目录或单张图片路径，Pipeline 中可填写上游组件输出目录",
+          "editable": 1
+        },
+        "--output_path": {
+          "type": "str",
+          "item_type": "str",
+          "label": "输出目录",
+          "require": 1,
+          "choice": [],
+          "range": "",
+          "default": "",
+          "placeholder": "/mnt/admin/pipeline/vision-output",
+          "describe": "处理结果输出目录，处理后的图片默认写入 output_path/images",
+          "editable": 1
+        },
+        "--recursive": {
+          "type": "bool",
+          "item_type": "bool",
+          "label": "递归处理子目录",
+          "require": 0,
+          "choice": [],
+          "range": "",
+          "default": "true",
+          "placeholder": "",
+          "describe": "是否递归遍历输入目录下的子目录",
+          "editable": 1
+        },
+        "--fail_fast": {
+          "type": "bool",
+          "item_type": "bool",
+          "label": "遇到坏图立即失败",
+          "require": 0,
+          "choice": [],
+          "range": "",
+          "default": "false",
+          "placeholder": "",
+          "describe": "开启后遇到无法读取的图片立即终止任务；关闭后记录到报告并继续处理",
+          "editable": 1
+        }
+      },
+      "处理参数": {
+        "--method": {
+          "type": "str",
+          "item_type": "str",
+          "label": "去噪方法",
+          "require": 0,
+          "choice": [
+            "gaussian",
+            "median",
+            "bilateral"
+          ],
+          "range": "",
+          "default": "gaussian",
+          "placeholder": "gaussian",
+          "describe": "支持 gaussian、median、bilateral",
+          "editable": 1
+        },
+        "--kernel_size": {
+          "type": "int",
+          "item_type": "int",
+          "label": "卷积核大小",
+          "require": 0,
+          "choice": [],
+          "range": "1,99",
+          "default": "3",
+          "placeholder": "3",
+          "describe": "去噪卷积核大小，偶数会自动调整为奇数",
+          "editable": 1
+        }
+      }
     }
   },
   "vision-image-resize": {
     "project_name": "图像处理",
-    "image_name": "python:3.9",
+    "image_name": "10.121.177.20:8082/mlops/vision-process:20260610",
     "gitpath": "/job-template/job/vision-process",
     "image_describe": "视觉算法类的数据处理",
     "job_template_name": "vision-image-resize",
-    "job_template_describe": "图片缩放(企业版)",
+    "job_template_describe": "图片缩放",
     "job_template_version": "Release",
     "job_template_workdir": "",
     "job_template_command": "python launcher.py --deal_type resize",
@@ -3012,15 +3139,115 @@
       "help_url": "/job-template/job/vision-process"
     },
     "job_template_args": {
+      "输入输出": {
+        "--input_path": {
+          "type": "str",
+          "item_type": "str",
+          "label": "图片目录路径",
+          "require": 1,
+          "choice": [],
+          "range": "",
+          "default": "",
+          "placeholder": "/mnt/admin/dataset/images",
+          "describe": "输入图片目录或单张图片路径，Pipeline 中可填写上游组件输出目录",
+          "editable": 1
+        },
+        "--output_path": {
+          "type": "str",
+          "item_type": "str",
+          "label": "输出目录",
+          "require": 1,
+          "choice": [],
+          "range": "",
+          "default": "",
+          "placeholder": "/mnt/admin/pipeline/vision-output",
+          "describe": "处理结果输出目录，处理后的图片默认写入 output_path/images",
+          "editable": 1
+        },
+        "--recursive": {
+          "type": "bool",
+          "item_type": "bool",
+          "label": "递归处理子目录",
+          "require": 0,
+          "choice": [],
+          "range": "",
+          "default": "true",
+          "placeholder": "",
+          "describe": "是否递归遍历输入目录下的子目录",
+          "editable": 1
+        },
+        "--fail_fast": {
+          "type": "bool",
+          "item_type": "bool",
+          "label": "遇到坏图立即失败",
+          "require": 0,
+          "choice": [],
+          "range": "",
+          "default": "false",
+          "placeholder": "",
+          "describe": "开启后遇到无法读取的图片立即终止任务；关闭后记录到报告并继续处理",
+          "editable": 1
+        }
+      },
+      "处理参数": {
+        "--width": {
+          "type": "int",
+          "item_type": "int",
+          "label": "目标宽度",
+          "require": 1,
+          "choice": [],
+          "range": "1,10000",
+          "default": "640",
+          "placeholder": "640",
+          "describe": "输出图片宽度",
+          "editable": 1
+        },
+        "--height": {
+          "type": "int",
+          "item_type": "int",
+          "label": "目标高度",
+          "require": 1,
+          "choice": [],
+          "range": "1,10000",
+          "default": "640",
+          "placeholder": "640",
+          "describe": "输出图片高度",
+          "editable": 1
+        },
+        "--keep_ratio": {
+          "type": "bool",
+          "item_type": "bool",
+          "label": "保持宽高比",
+          "require": 0,
+          "choice": [],
+          "range": "",
+          "default": "true",
+          "placeholder": "",
+          "describe": "保持原图宽高比，不足部分使用 pad_color 填充",
+          "editable": 1
+        },
+        "--pad_color": {
+          "type": "str",
+          "item_type": "str",
+          "label": "填充颜色",
+          "require": 0,
+          "choice": [],
+          "range": "",
+          "default": "114,114,114",
+          "placeholder": "114,114,114",
+          "describe": "保持宽高比时的 RGB 填充颜色",
+          "editable": 1
+        }
+      }
     }
   },
   "vision-image-normalize": {
     "project_name": "图像处理",
-    "image_name": "python:3.9",
+    "image_name": "10.121.177.20:8082/mlops/vision-process:20260610",
     "gitpath": "/job-template/job/vision-process",
     "image_describe": "视觉算法类的数据处理",
     "job_template_name": "vision-image-normalize",
-    "job_template_describe": "图片标准化(企业版)",
+    "job_template_describe": "图片标准化",
     "job_template_version": "Release",
     "job_template_workdir": "",
     "job_template_command": "python launcher.py --deal_type normalize",
@@ -3033,15 +3260,122 @@
       "help_url": "/job-template/job/vision-process"
     },
     "job_template_args": {
+      "输入输出": {
+        "--input_path": {
+          "type": "str",
+          "item_type": "str",
+          "label": "图片目录路径",
+          "require": 1,
+          "choice": [],
+          "range": "",
+          "default": "",
+          "placeholder": "/mnt/admin/dataset/images",
+          "describe": "输入图片目录或单张图片路径，Pipeline 中可填写上游组件输出目录",
+          "editable": 1
+        },
+        "--output_path": {
+          "type": "str",
+          "item_type": "str",
+          "label": "输出目录",
+          "require": 1,
+          "choice": [],
+          "range": "",
+          "default": "",
+          "placeholder": "/mnt/admin/pipeline/vision-output",
+          "describe": "处理结果输出目录，处理后的图片默认写入 output_path/images",
+          "editable": 1
+        },
+        "--recursive": {
+          "type": "bool",
+          "item_type": "bool",
+          "label": "递归处理子目录",
+          "require": 0,
+          "choice": [],
+          "range": "",
+          "default": "true",
+          "placeholder": "",
+          "describe": "是否递归遍历输入目录下的子目录",
+          "editable": 1
+        },
+        "--fail_fast": {
+          "type": "bool",
+          "item_type": "bool",
+          "label": "遇到坏图立即失败",
+          "require": 0,
+          "choice": [],
+          "range": "",
+          "default": "false",
+          "placeholder": "",
+          "describe": "开启后遇到无法读取的图片立即终止任务；关闭后记录到报告并继续处理",
+          "editable": 1
+        }
+      },
+      "处理参数": {
+        "--mode": {
+          "type": "str",
+          "item_type": "str",
+          "label": "标准化模式",
+          "require": 0,
+          "choice": [
+            "minmax",
+            "imagenet",
+            "none"
+          ],
+          "range": "",
+          "default": "minmax",
+          "placeholder": "minmax",
+          "describe": "支持 minmax、imagenet、none",
+          "editable": 1
+        },
+        "--mean": {
+          "type": "str",
+          "item_type": "str",
+          "label": "均值",
+          "require": 0,
+          "choice": [],
+          "range": "",
+          "default": "0.485,0.456,0.406",
+          "placeholder": "0.485,0.456,0.406",
+          "describe": "imagenet 模式下使用的通道均值",
+          "editable": 1
+        },
+        "--std": {
+          "type": "str",
+          "item_type": "str",
+          "label": "标准差",
+          "require": 0,
+          "choice": [],
+          "range": "",
+          "default": "0.229,0.224,0.225",
+          "placeholder": "0.229,0.224,0.225",
+          "describe": "imagenet 模式下使用的通道标准差",
+          "editable": 1
+        },
+        "--save_format": {
+          "type": "str",
+          "item_type": "str",
+          "label": "保存格式",
+          "require": 0,
+          "choice": [
+            "image",
+            "npy"
+          ],
+          "range": "",
+          "default": "image",
+          "placeholder": "image",
+          "describe": "输出为普通图片或 npy 数组",
+          "editable": 1
+        }
+      }
     }
   },
   "vision-image-cropping": {
     "project_name": "图像处理",
-    "image_name": "python:3.9",
+    "image_name": "10.121.177.20:8082/mlops/vision-process:20260610",
     "gitpath": "/job-template/job/vision-process",
     "image_describe": "视觉算法类的数据处理",
     "job_template_name": "vision-image-cropping",
-    "job_template_describe": "图片裁剪(企业版)",
+    "job_template_describe": "图片裁剪",
     "job_template_version": "Release",
     "job_template_workdir": "",
     "job_template_command": "python launcher.py --deal_type cropping",
@@ -3054,15 +3388,119 @@
       "help_url": "/job-template/job/vision-process"
     },
     "job_template_args": {
+      "输入输出": {
+        "--input_path": {
+          "type": "str",
+          "item_type": "str",
+          "label": "图片目录路径",
+          "require": 1,
+          "choice": [],
+          "range": "",
+          "default": "",
+          "placeholder": "/mnt/admin/dataset/images",
+          "describe": "输入图片目录或单张图片路径，Pipeline 中可填写上游组件输出目录",
+          "editable": 1
+        },
+        "--output_path": {
+          "type": "str",
+          "item_type": "str",
+          "label": "输出目录",
+          "require": 1,
+          "choice": [],
+          "range": "",
+          "default": "",
+          "placeholder": "/mnt/admin/pipeline/vision-output",
+          "describe": "处理结果输出目录，处理后的图片默认写入 output_path/images",
+          "editable": 1
+        },
+        "--recursive": {
+          "type": "bool",
+          "item_type": "bool",
+          "label": "递归处理子目录",
+          "require": 0,
+          "choice": [],
+          "range": "",
+          "default": "true",
+          "placeholder": "",
+          "describe": "是否递归遍历输入目录下的子目录",
+          "editable": 1
+        },
+        "--fail_fast": {
+          "type": "bool",
+          "item_type": "bool",
+          "label": "遇到坏图立即失败",
+          "require": 0,
+          "choice": [],
+          "range": "",
+          "default": "false",
+          "placeholder": "",
+          "describe": "开启后遇到无法读取的图片立即终止任务；关闭后记录到报告并继续处理",
+          "editable": 1
+        }
+      },
+      "处理参数": {
+        "--mode": {
+          "type": "str",
+          "item_type": "str",
+          "label": "裁剪模式",
+          "require": 0,
+          "choice": [
+            "center",
+            "box",
+            "ratio"
+          ],
+          "range": "",
+          "default": "center",
+          "placeholder": "center",
+          "describe": "支持 center、box、ratio",
+          "editable": 1
+        },
+        "--width": {
+          "type": "int",
+          "item_type": "int",
+          "label": "裁剪宽度",
+          "require": 0,
+          "choice": [],
+          "range": "1,10000",
+          "default": "512",
+          "placeholder": "512",
+          "describe": "center 模式下的裁剪宽度",
+          "editable": 1
+        },
+        "--height": {
+          "type": "int",
+          "item_type": "int",
+          "label": "裁剪高度",
+          "require": 0,
+          "choice": [],
+          "range": "1,10000",
+          "default": "512",
+          "placeholder": "512",
+          "describe": "center 模式下的裁剪高度",
+          "editable": 1
+        },
+        "--box": {
+          "type": "str",
+          "item_type": "str",
+          "label": "裁剪框",
+          "require": 0,
+          "choice": [],
+          "range": "",
+          "default": "",
+          "placeholder": "0,0,512,512",
+          "describe": "box 模式为 x1,y1,x2,y2；ratio 模式为 0 到 1 的相对坐标",
+          "editable": 1
+        }
+      }
     }
   },
   "vision-image-equalize": {
     "project_name": "图像处理",
-    "image_name": "python:3.9",
+    "image_name": "10.121.177.20:8082/mlops/vision-process:20260610",
     "gitpath": "/job-template/job/vision-process",
     "image_describe": "视觉算法类的数据处理",
     "job_template_name": "vision-image-equalize",
-    "job_template_describe": "图片均衡化，增强对比度(企业版)",
+    "job_template_describe": "图片均衡化，增强对比度",
     "job_template_version": "Release",
     "job_template_workdir": "",
     "job_template_command": "python launcher.py --deal_type equalize",
@@ -3075,15 +3513,106 @@
       "help_url": "/job-template/job/vision-process"
     },
     "job_template_args": {
+      "输入输出": {
+        "--input_path": {
+          "type": "str",
+          "item_type": "str",
+          "label": "图片目录路径",
+          "require": 1,
+          "choice": [],
+          "range": "",
+          "default": "",
+          "placeholder": "/mnt/admin/dataset/images",
+          "describe": "输入图片目录或单张图片路径，Pipeline 中可填写上游组件输出目录",
+          "editable": 1
+        },
+        "--output_path": {
+          "type": "str",
+          "item_type": "str",
+          "label": "输出目录",
+          "require": 1,
+          "choice": [],
+          "range": "",
+          "default": "",
+          "placeholder": "/mnt/admin/pipeline/vision-output",
+          "describe": "处理结果输出目录，处理后的图片默认写入 output_path/images",
+          "editable": 1
+        },
+        "--recursive": {
+          "type": "bool",
+          "item_type": "bool",
+          "label": "递归处理子目录",
+          "require": 0,
+          "choice": [],
+          "range": "",
+          "default": "true",
+          "placeholder": "",
+          "describe": "是否递归遍历输入目录下的子目录",
+          "editable": 1
+        },
+        "--fail_fast": {
+          "type": "bool",
+          "item_type": "bool",
+          "label": "遇到坏图立即失败",
+          "require": 0,
+          "choice": [],
+          "range": "",
+          "default": "false",
+          "placeholder": "",
+          "describe": "开启后遇到无法读取的图片立即终止任务；关闭后记录到报告并继续处理",
+          "editable": 1
+        }
+      },
+      "处理参数": {
+        "--method": {
+          "type": "str",
+          "item_type": "str",
+          "label": "均衡化方法",
+          "require": 0,
+          "choice": [
+            "clahe",
+            "global"
+          ],
+          "range": "",
+          "default": "clahe",
+          "placeholder": "clahe",
+          "describe": "支持 clahe、global",
+          "editable": 1
+        },
+        "--clip_limit": {
+          "type": "float",
+          "item_type": "float",
+          "label": "CLAHE 裁剪阈值",
+          "require": 0,
+          "choice": [],
+          "range": "0,100",
+          "default": "2.0",
+          "placeholder": "2.0",
+          "describe": "CLAHE 对比度裁剪阈值",
+          "editable": 1
+        },
+        "--tile_grid_size": {
+          "type": "str",
+          "item_type": "str",
+          "label": "网格大小",
+          "require": 0,
+          "choice": [],
+          "range": "",
+          "default": "8,8",
+          "placeholder": "8,8",
+          "describe": "CLAHE 网格大小，格式为 宽,高",
+          "editable": 1
+        }
+      }
     }
   },
   "vision-image-cvtcolor": {
     "project_name": "图像处理",
-    "image_name": "python:3.9",
+    "image_name": "10.121.177.20:8082/mlops/vision-process:20260610",
     "gitpath": "/job-template/job/vision-process",
     "image_describe": "视觉算法类的数据处理",
     "job_template_name": "vision-image-cvtcolor",
-    "job_template_describe": "图片的空间转换(企业版)",
+    "job_template_describe": "图片的空间转换",
     "job_template_version": "Release",
     "job_template_workdir": "",
     "job_template_command": "python launcher.py --deal_type cvtcolor",
@@ -3096,15 +3625,103 @@
       "help_url": "/job-template/job/vision-process"
     },
     "job_template_args": {
+      "输入输出": {
+        "--input_path": {
+          "type": "str",
+          "item_type": "str",
+          "label": "图片目录路径",
+          "require": 1,
+          "choice": [],
+          "range": "",
+          "default": "",
+          "placeholder": "/mnt/admin/dataset/images",
+          "describe": "输入图片目录或单张图片路径，Pipeline 中可填写上游组件输出目录",
+          "editable": 1
+        },
+        "--output_path": {
+          "type": "str",
+          "item_type": "str",
+          "label": "输出目录",
+          "require": 1,
+          "choice": [],
+          "range": "",
+          "default": "",
+          "placeholder": "/mnt/admin/pipeline/vision-output",
+          "describe": "处理结果输出目录，处理后的图片默认写入 output_path/images",
+          "editable": 1
+        },
+        "--recursive": {
+          "type": "bool",
+          "item_type": "bool",
+          "label": "递归处理子目录",
+          "require": 0,
+          "choice": [],
+          "range": "",
+          "default": "true",
+          "placeholder": "",
+          "describe": "是否递归遍历输入目录下的子目录",
+          "editable": 1
+        },
+        "--fail_fast": {
+          "type": "bool",
+          "item_type": "bool",
+          "label": "遇到坏图立即失败",
+          "require": 0,
+          "choice": [],
+          "range": "",
+          "default": "false",
+          "placeholder": "",
+          "describe": "开启后遇到无法读取的图片立即终止任务；关闭后记录到报告并继续处理",
+          "editable": 1
+        }
+      },
+      "处理参数": {
+        "--from_color": {
+          "type": "str",
+          "item_type": "str",
+          "label": "源颜色空间",
+          "require": 0,
+          "choice": [
+            "BGR",
+            "RGB",
+            "GRAY",
+            "HSV",
+            "LAB"
+          ],
+          "range": "",
+          "default": "BGR",
+          "placeholder": "BGR",
+          "describe": "输入图片颜色空间",
+          "editable": 1
+        },
+        "--to_color": {
+          "type": "str",
+          "item_type": "str",
+          "label": "目标颜色空间",
+          "require": 0,
+          "choice": [
+            "BGR",
+            "RGB",
+            "GRAY",
+            "HSV",
+            "LAB"
+          ],
+          "range": "",
+          "default": "GRAY",
+          "placeholder": "GRAY",
+          "describe": "输出图片颜色空间",
+          "editable": 1
+        }
+      }
     }
   },
   "vision-image-augmentation": {
     "project_name": "图像处理",
-    "image_name": "python:3.9",
+    "image_name": "10.121.177.20:8082/mlops/vision-process:20260610",
     "gitpath": "/job-template/job/vision-process",
     "image_describe": "视觉算法类的数据处理",
     "job_template_name": "vision-image-augmentation",
-    "job_template_describe": "图片变换，图像增强(企业版)",
+    "job_template_describe": "图片变换，图像增强",
     "job_template_version": "Release",
     "job_template_workdir": "",
     "job_template_command": "python launcher.py --deal_type augmentation",
@@ -3117,6 +3734,88 @@
       "help_url": "/job-template/job/vision-process"
     },
     "job_template_args": {
+      "输入输出": {
+        "--input_path": {
+          "type": "str",
+          "item_type": "str",
+          "label": "图片目录路径",
+          "require": 1,
+          "choice": [],
+          "range": "",
+          "default": "",
+          "placeholder": "/mnt/admin/dataset/images",
+          "describe": "输入图片目录或单张图片路径，Pipeline 中可填写上游组件输出目录",
+          "editable": 1
+        },
+        "--output_path": {
+          "type": "str",
+          "item_type": "str",
+          "label": "输出目录",
+          "require": 1,
+          "choice": [],
+          "range": "",
+          "default": "",
+          "placeholder": "/mnt/admin/pipeline/vision-output",
+          "describe": "处理结果输出目录，处理后的图片默认写入 output_path/images",
+          "editable": 1
+        },
+        "--recursive": {
+          "type": "bool",
+          "item_type": "bool",
+          "label": "递归处理子目录",
+          "require": 0,
+          "choice": [],
+          "range": "",
+          "default": "true",
+          "placeholder": "",
+          "describe": "是否递归遍历输入目录下的子目录",
+          "editable": 1
+        },
+        "--fail_fast": {
+          "type": "bool",
+          "item_type": "bool",
+          "label": "遇到坏图立即失败",
+          "require": 0,
+          "choice": [],
+          "range": "",
+          "default": "false",
+          "placeholder": "",
+          "describe": "开启后遇到无法读取的图片立即终止任务；关闭后记录到报告并继续处理",
+          "editable": 1
+        }
+      },
+      "处理参数": {
+        "--num_outputs": {
+          "type": "int",
+          "item_type": "int",
+          "label": "每张图输出数量",
+          "require": 0,
+          "choice": [],
+          "range": "1,100",
+          "default": "1",
+          "placeholder": "1",
+          "describe": "每张输入图片生成的增强图片数量",
+          "editable": 1
+        },
+        "--transforms": {
+          "type": "json",
+          "item_type": "str",
+          "label": "增强配置",
+          "require": 0,
+          "choice": [],
+          "range": "",
+          "default": [
+            {
+              "type": "flip",
+              "direction": "horizontal",
+              "p": 0.5
+            }
+          ],
+          "placeholder": "",
+          "describe": "增强算子列表，支持 flip、rotate、brightness_contrast、noise",
+          "editable": 1
+        }
+      }
     }
   },
   "audio-augment": {
@@ -3135,8 +3834,7 @@
       "rec_job_template": "自定义镜像",
       "help_url": "/job-template/job/voice-process"
     },
-    "job_template_args": {
-    }
+    "job_template_args": {}
   },
   "audio-clean": {
     "project_name": "音频处理",
@@ -3154,8 +3852,7 @@
       "rec_job_template": "自定义镜像",
       "help_url": "/job-template/job/voice-process"
     },
-    "job_template_args": {
-    }
+    "job_template_args": {}
   },
   "audio-quality-assessment": {
     "project_name": "音频处理",
@@ -3173,7 +3870,6 @@
       "rec_job_template": "自定义镜像",
       "help_url": "/job-template/job/voice-process"
     },
-    "job_template_args": {
-    }
+    "job_template_args": {}
   }
 }
