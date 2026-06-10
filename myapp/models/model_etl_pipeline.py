@@ -1,6 +1,9 @@
 from flask_appbuilder import Model
 from sqlalchemy.orm import relationship
 from sqlalchemy import Text
+import datetime
+import json
+import urllib.parse
 
 from myapp.models.helpers import AuditMixinNullable
 from flask_babel import gettext as __
@@ -75,6 +78,61 @@ class ETL_Task(Model,ImportMixin,AuditMixinNullable,MyappModelBase):
     def __repr__(self):
         return self.name
 
+
+class ETL_Task_Instance(Model, ImportMixin, AuditMixinNullable, MyappModelBase):
+    __tablename__ = 'etl_task_instance'
+    id = Column(Integer, primary_key=True, comment='id主键')
+    run_id = Column(String(100), nullable=False, comment='运行id')
+    etl_pipeline_id = Column(Integer, ForeignKey('etl_pipeline.id'), nullable=False, comment='任务流id')
+    etl_pipeline = relationship("ETL_Pipeline", foreign_keys=[etl_pipeline_id], lazy='selectin')
+    etl_task_id = Column(Integer, ForeignKey('etl_task.id'), nullable=True, comment='任务id')
+    etl_task = relationship("ETL_Task", foreign_keys=[etl_task_id], lazy='selectin')
+    workflow = Column(String(100), nullable=False, comment='调度引擎')
+    status = Column(String(50), nullable=False, default='Submitted', comment='状态')
+    scheduler_url = Column(String(500), nullable=True, comment='调度实例地址')
+    log_url = Column(String(500), nullable=True, comment='日志地址')
+    expand = Column(Text(65536), default='{}', comment='扩展参数')
+
+    def __repr__(self):
+        return self.run_id
+
+    @property
+    def pipeline_url(self):
+        if self.etl_pipeline:
+            return Markup(
+                f'<a target=_blank href="/etl_pipeline_modelview/api/web/{self.etl_pipeline.id}">{self.etl_pipeline.describe}</a>'
+            )
+        return Markup('-')
+
+    @property
+    def task_url(self):
+        if self.etl_task:
+            filter_value = urllib.parse.quote(
+                json.dumps([{"key": "id", "value": self.etl_task.id}], ensure_ascii=False)
+            )
+            url = conf.get('MODEL_URLS', {}).get('etl_task', '') + '?filter=' + filter_value
+            return Markup(f'<a target=_blank href="{url}">{self.etl_task.describe or self.etl_task.name}</a>')
+        return Markup('-')
+
+    @property
+    def elapsed_time(self):
+        if not self.created_on:
+            return 'unknown'
+        finish_time = self.changed_on or datetime.datetime.now()
+        elapsed = (finish_time - self.created_on).total_seconds() / 60 / 60
+        return str(round(elapsed, 2)) + "h"
+
+    @property
+    def trace(self):
+        if self.scheduler_url:
+            return Markup(f'<a target=_blank href="{self.scheduler_url}">{__("跟踪")}</a>')
+        return Markup('-')
+
+    @property
+    def log(self):
+        if self.log_url:
+            return Markup(f'<a target=_blank href="{self.log_url}">{__("日志")}</a>')
+        return Markup('-')
 
 
 

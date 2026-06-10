@@ -9,7 +9,7 @@ import urllib.parse
 from sqlalchemy.exc import InvalidRequestError
 import importlib
 import logging
-from myapp.models.model_etl_pipeline import ETL_Pipeline, ETL_Task
+from myapp.models.model_etl_pipeline import ETL_Pipeline, ETL_Task, ETL_Task_Instance
 from myapp.views.view_team import Project_Join_Filter
 from flask_appbuilder.actions import action
 from flask import jsonify
@@ -52,7 +52,7 @@ class ETL_Task_ModelView_Base():
     base_order = ("changed_on", "desc")
     # order_columns = ['id','changed_on']
     order_columns = ['id']
-    search_columns = ['name', 'template', 'etl_task_id', 'created_by']
+    search_columns = ['id', 'name', 'template', 'etl_task_id', 'created_by']
     list_columns = ['template', 'name', 'describe', 'etl_task_id', 'creator']
     cols_width = {
         "template": {"type": "ellip2", "width": 200},
@@ -84,6 +84,58 @@ class ETL_Task_ModelView_Api(ETL_Task_ModelView_Base, MyappModelRestApi):
 
 
 appbuilder.add_api(ETL_Task_ModelView_Api)
+
+
+class ETL_Task_Instance_Filter(MyappFilter):
+    def apply(self, query, func):
+        if g.user.is_admin():
+            return query
+
+        join_projects_id = security_manager.get_join_projects_id(db.session)
+        etl_pipeline_ids = db.session.query(ETL_Pipeline.id).filter(ETL_Pipeline.project_id.in_(join_projects_id))
+        return query.filter(self.model.etl_pipeline_id.in_(etl_pipeline_ids))
+
+
+class ETL_Task_Instance_ModelView_Base():
+    label_title = _('任务实例')
+    datamodel = SQLAInterface(ETL_Task_Instance)
+
+    base_permissions = ['can_show', 'can_list', 'can_delete']
+    base_order = ("created_on", "desc")
+    order_columns = ['id']
+    list_columns = ['pipeline_url', 'task_url', 'run_id', 'workflow', 'status', 'creator', 'elapsed_time', 'created_on', 'changed_on', 'trace', 'log']
+    fixed_columns = ['trace', 'log']
+    search_columns = ['run_id', 'status', 'workflow', 'etl_pipeline', 'etl_task', 'created_by', 'created_on']
+    show_columns = ['etl_pipeline', 'etl_task', 'run_id', 'workflow', 'status', 'scheduler_url', 'log_url', 'expand', 'created_by', 'changed_by', 'created_on', 'changed_on']
+    base_filters = [["id", ETL_Task_Instance_Filter, lambda: []]]
+    cols_width = {
+        "pipeline_url": {"type": "ellip2", "width": 260},
+        "task_url": {"type": "ellip2", "width": 220},
+        "run_id": {"type": "ellip2", "width": 260},
+        "workflow": {"type": "ellip1", "width": 100},
+        "status": {"type": "ellip1", "width": 100},
+        "creator": {"type": "ellip1", "width": 100},
+        "elapsed_time": {"type": "ellip1", "width": 70},
+        "created_on": {"type": "ellip2", "width": 180},
+        "changed_on": {"type": "ellip2", "width": 180},
+        "trace": {"type": "ellip1", "width": 70},
+        "log": {"type": "ellip1", "width": 70},
+    }
+    spec_label_columns = {
+        "pipeline_url": _("任务流"),
+        "task_url": _("任务"),
+        "run_id": "run-id",
+        "creator": _("提交人"),
+        "trace": _("跟踪"),
+    }
+
+
+class ETL_Task_Instance_ModelView_Api(ETL_Task_Instance_ModelView_Base, MyappModelRestApi):
+    datamodel = SQLAInterface(ETL_Task_Instance)
+    route_base = '/etl_task_instance_modelview/api'
+
+
+appbuilder.add_api(ETL_Task_Instance_ModelView_Api)
 
 
 class ETL_Pipeline_Filter(MyappFilter):
@@ -269,6 +321,50 @@ class ETL_Pipeline_ModelView_Base():
         pass
         pass
 
+    def build_instance_filter_url(self, model_url, key, value):
+        filter_value = urllib.parse.quote(json.dumps([{"key": key, "value": int(value)}], ensure_ascii=False))
+        return model_url + '?filter=' + filter_value
+
+    def create_task_instances(self, pipeline, etl_pipeline, redirect_url):
+        run_id = "etl-%s-%s-%s" % (
+            pipeline.name.replace('_', '-').lower()[:30],
+            datetime.datetime.now().strftime('%Y%m%d%H%M%S'),
+            uuid.uuid4().hex[:6]
+        )
+        scheduler_url = redirect_url or ''
+        log_url = ''
+        try:
+            jump_buttons = etl_pipeline.pipeline_jump_button()
+            if jump_buttons:
+                scheduler_url = jump_buttons[0].get('action_url', scheduler_url)
+                if len(jump_buttons) > 1:
+                    log_url = jump_buttons[1].get('action_url', '')
+        except Exception as e:
+            logging.warning(e)
+
+        tasks = db.session.query(ETL_Task).filter_by(etl_pipeline_id=pipeline.id).all()
+        if not tasks:
+            tasks = [None]
+        now = datetime.datetime.now()
+        for task in tasks:
+            instance = ETL_Task_Instance(
+                run_id=run_id,
+                etl_pipeline_id=pipeline.id,
+                etl_task_id=task.id if task else None,
+                workflow=pipeline.workflow,
+                status='Submitted',
+                scheduler_url=scheduler_url,
+                log_url=log_url,
+                expand=json.dumps({"redirect_url": redirect_url}, ensure_ascii=False),
+                created_on=now,
+                changed_on=now,
+                created_by_fk=g.user.id if g and g.user else None,
+                changed_by_fk=g.user.id if g and g.user else None,
+            )
+            db.session.add(instance)
+        db.session.commit()
+        return run_id
+
     # 获取pipeline配置信息，包括快捷菜单，运行按钮，公共配置参数，任务流dag_json
     @expose_api(description="获取pipeline配置信息，包括快捷菜单，运行按钮，公共配置参数，任务流dag_json",url="/config/<etl_pipeline_id>", methods=("GET", 'POST'))
     def pipeline_config(self, etl_pipeline_id):
@@ -329,19 +425,19 @@ class ETL_Pipeline_ModelView_Base():
         for task_name in back_dag_json:
             task = back_dag_json[task_name]
             back_dag_json[task_name]["task_jump_button"] = []
-            etl_task_id = task.get('etl_task_id', '')
-            if etl_task_id:
+            task_id = task.get('task_id', '')
+            if task_id:
                 back_dag_json[task_name]["task_jump_button"].append(
                     {
                         "name": __("任务查看"),
-                        "action_url": conf.get('MODEL_URLS', {}).get('etl_task') + '?taskId=' + etl_task_id,
+                        "action_url": self.build_instance_filter_url(conf.get('MODEL_URLS', {}).get('etl_task'), "id", task_id),
                         "icon_svg": '<svg t="1660558833880" class="icon" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="2441" width="200" height="200"><path d="M831.825474 63.940169H191.939717C121.2479 63.940169 63.940169 121.2479 63.940169 191.939717v639.885757C63.940169 902.517291 121.2479 959.825022 191.939717 959.825022h639.885757c70.691817 0 127.999548-57.307731 127.999548-127.999548V191.939717C959.825022 121.2479 902.517291 63.940169 831.825474 63.940169zM895.884854 831.998871A63.835408 63.835408 0 0 1 831.912173 895.884854H192.087827c-17.112123 0-33.270563-6.574639-45.372232-18.67631S127.880338 849.110994 127.880338 831.998871V192.001129A64.236389 64.236389 0 0 1 192.087827 127.880338h639.824346A64.037705 64.037705 0 0 1 895.884854 192.001129v639.997742z" fill="#225ed2" p-id="2442"></path><path d="M791.998335 351.851551h-255.999097a31.970084 31.970084 0 0 0 0 63.940169h255.999097a31.970084 31.970084 0 0 0 0-63.940169zM791.998335 607.973471h-255.999097a31.970084 31.970084 0 0 0 0 63.940169h255.999097a31.970084 31.970084 0 0 0 0-63.940169zM344.001722 527.997686c-61.855792 0-111.985607 50.144265-111.985607 111.985606s50.144265 111.985607 111.985607 111.985607 111.985607-50.144265 111.985606-111.985607-50.129815-111.985607-111.985606-111.985606z m33.982213 145.982269a48.045438 48.045438 0 1 1 14.088511-33.982213 47.745605 47.745605 0 0 1-14.088511 33.985826zM417.395643 297.394035L311.999125 402.78694 270.6078 361.392003a31.970084 31.970084 0 1 0-45.213286 45.213285l63.997968 64.001581a31.970084 31.970084 0 0 0 45.213286 0l127.999548-127.999549a31.970084 31.970084 0 0 0-45.209673-45.213285z" fill="#225ed2" p-id="2443"></path></svg>'
                     }
                 )
                 back_dag_json[task_name]["task_jump_button"].append(
                     {
                         "name": __("任务实例"),
-                        "action_url": conf.get('MODEL_URLS', {}).get('etl_task_instance') + "?taskId=" + etl_task_id,
+                        "action_url": self.build_instance_filter_url(conf.get('MODEL_URLS', {}).get('etl_task_instance'), "etl_task", task_id),
                         "icon_svg": '<svg t="1660554835088" class="icon" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="2435" width="200" height="200"><path d="M112.64 95.36a32 32 0 0 0-32 32v332.16a32 32 0 0 0 32 32h332.16a32 32 0 0 0 32-32V128a32 32 0 0 0-32-32z m300.16 332.16H144.64V159.36h268.16zM938.88 293.76a197.76 197.76 0 1 0-197.76 197.76 198.4 198.4 0 0 0 197.76-197.76z m-332.16 0a133.76 133.76 0 1 1 133.76 133.76 134.4 134.4 0 0 1-133.76-133.76zM99.84 928.64h365.44a32 32 0 0 0 27.52-48L310.4 563.84a33.28 33.28 0 0 0-55.68 0l-182.4 316.8a32 32 0 0 0 27.52 48z m182.4-284.16l128 220.16h-256zM832 552.96h-177.28a32 32 0 0 0-27.52 16l-89.6 155.52a32 32 0 0 0 0 32l89.6 155.52a32 32 0 0 0 27.52 16H832a32 32 0 0 0 27.52-16l89.6-155.52a32 32 0 0 0 0-32l-89.6-155.52a32 32 0 0 0-27.52-16z m-18.56 311.04h-140.16L601.6 741.12l71.68-123.52h142.72l71.68 123.52z" fill="#225ed2" p-id="2436"></path></svg>'
                     }
                 )
@@ -417,6 +513,7 @@ class ETL_Pipeline_ModelView_Base():
         url = '/etl_pipeline_modelview/api/web/' + etl_pipeline_id
         try:
             pipeline = db.session.query(ETL_Pipeline).filter_by(id=etl_pipeline_id).first()
+            self.fix_pipeline_task(pipeline)
             params = importlib.import_module('myapp.views.view_etl_pipeline_' + pipeline.workflow)
             etl_pipeline = getattr(params, pipeline.workflow.upper() + '_ETL_PIPELINE')(pipeline)
             dag_json, redirect_url = etl_pipeline.submit_pipeline()
@@ -426,6 +523,7 @@ class ETL_Pipeline_ModelView_Base():
                 pipeline.dag_json = dag_json
                 db.session.commit()
 
+            self.create_task_instances(pipeline, etl_pipeline, redirect_url)
             if redirect_url:
                 return redirect(redirect_url)
         except Exception as e:
