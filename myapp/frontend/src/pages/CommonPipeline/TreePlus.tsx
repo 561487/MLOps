@@ -45,7 +45,6 @@ export default function TreePlus(props: IProps) {
 		if (resizeIframe.contentWindow) {
 			resizeIframe.contentWindow.onresize = () => {
 				setTimeout(() => {
-					// console.log(relationDiagramRef.current);
 					relationDiagramRef.current?.reSize();
 				}, 1000);
 			};
@@ -57,12 +56,16 @@ export default function TreePlus(props: IProps) {
 			const backurl = getParam('backurl') || ''
 			fetchBloodRelationData(backurl)
 
-			// 3秒轮询刷新布局信息（状态、进度、按钮）
-			const layoutUrl = backurl.replace('/web/dag/', '/web/layout/')
+			// 3秒轮询刷新DAG图和布局（节点颜色、状态、进度、按钮）
 			const timer = setInterval(() => {
-				if (layoutUrl) {
-					axios.get(layoutUrl).then(res => {
-						const layout = res.data.result || {}
+				if (backurl) {
+					axios.get(backurl).then(res => {
+						const dag = res.data.result.dag || []
+						const layout = res.data.result.layout || {}
+						if (dag.length && relationDiagramRef.current) {
+							treeDataRef.current = dag
+							relationDiagramRef.current.initData(dag)
+						}
 						setLayoutConfig(layout)
 					}).catch(() => {})
 				}
@@ -74,15 +77,12 @@ export default function TreePlus(props: IProps) {
 	}, [relationDiagram]);
 
 	const handleClickNode = (node: any) => {
-		// console.log(node)
 		const currentNode = relationDiagram && relationDiagram.dataMap && relationDiagram.dataMap.get(node.key)
-		// console.log('currentNode', currentNode);
 
 		setNodeDetail([])
 		setLoadingDetail(true)
 		setVisableDrawer(true)
 		getNodeInfoCommon(currentNode?.detail_url || '').then(res => {
-			// console.log(res.data.result.detail);
 			const detail = res.data.result.detail
 			setNodeDetail(detail)
 			setLoadingDetail(false)
@@ -117,7 +117,6 @@ export default function TreePlus(props: IProps) {
 						setLayoutConfig(layout)
 					})
 					.catch((err) => {
-						// console.log(err);
 						setIsNoData(true)
 					})
 					.finally(() => {
@@ -178,13 +177,18 @@ export default function TreePlus(props: IProps) {
 							{
 								layoutConfig?.right_button.map(button => {
 									return <div onClick={() => {
-										// API操作按钮（停止/暂停/恢复）用AJAX不刷新页面
 										if (button.url.includes('/api/')) {
 											axios.get(button.url).then(() => {
-												const layoutUrl = (getParam('backurl') || '').replace('/web/dag/', '/web/layout/')
-												if (layoutUrl) {
-													axios.get(layoutUrl).then(res => {
-														setLayoutConfig(res.data.result || {})
+												const backurl = getParam('backurl') || ''
+												if (backurl) {
+													axios.get(backurl).then(res => {
+														const dag = res.data.result.dag || []
+														const layout = res.data.result.layout || {}
+														if (dag.length && relationDiagramRef.current) {
+															treeDataRef.current = dag
+															relationDiagramRef.current.initData(dag)
+														}
+														setLayoutConfig(layout)
 													})
 												}
 											})
