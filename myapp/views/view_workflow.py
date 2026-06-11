@@ -577,14 +577,15 @@ class Workflow_ModelView_Base():
         if pipeline:
             all_tasks = pipeline.get_tasks()
             if all_tasks:
-                # 收集 dag_config 中所有已存在的 task_name
-                existing_tasks = set()
-                def collect_task_names(nodes_list):
+                # 收集 dag_config 中所有已存在的 task_id（数据库ID）
+                existing_task_ids = set()
+                def collect_task_ids(nodes_list):
                     for n in nodes_list:
-                        if n.get('task_name'):
-                            existing_tasks.add(n['task_name'])
-                        collect_task_names(n.get('children', []))
-                collect_task_names(dag_config)
+                        tid = n.get('task_id', '')
+                        if tid:
+                            existing_task_ids.add(tid)
+                        collect_task_ids(n.get('children', []))
+                collect_task_ids(dag_config)
 
                 # 找到第一个有子节点的 DAG 节点，将占位节点加在其中
                 parent_node = None
@@ -599,13 +600,11 @@ class Workflow_ModelView_Base():
                 parent_node = find_parent(dag_config)
 
                 # 按 pipeline 顺序添加缺失的任务到父节点的 children 中
-                pending_color = '#999999'
-                pending_icon = '<svg t="1700000000000" class="icon" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" width="20" height="20"><path d="M512 512m-512 0a512 512 0 1 0 1024 0 512 512 0 1 0-1024 0Z" fill="#999999" p-id="1"></path></svg>'
                 target_list = parent_node['children'] if parent_node else dag_config
                 for task in all_tasks:
-                    if task.name not in existing_tasks:
+                    if str(task.id) not in existing_task_ids:
                         placeholder = {
-                            "node_type": "Pending",
+                            "node_type": "Pod",
                             "nid": f"pending_{task.name}",
                             "pid": parent_node.get('nid', '') if parent_node else '',
                             "title": task.label,
@@ -615,11 +614,11 @@ class Workflow_ModelView_Base():
                             "detail_url": '',
                             "name": task.name,
                             "outputs": {},
-                            "icon": pending_icon,
-                            "status": {"label": "Pending", "icon": pending_icon},
+                            "icon": default_status_icon,
+                            "status": {"label": "Pending", "icon": default_status_icon},
                             "message": '',
                             "node_shape": "rectangle",
-                            "color": pending_color,
+                            "color": default_status_color,
                             "task_name": task.name,
                             "task_id": str(task.id),
                             "task_label": task.label,
