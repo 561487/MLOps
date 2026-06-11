@@ -309,11 +309,16 @@ class Workflow_ModelView_Base():
         layout_config.update(labels)
         # 先查找 Pipeline，用于计算进度
         pipeline = None
-        if int(layout_config.get("pipeline-id", '0')):
-            pipeline = db.session.query(Pipeline).filter_by(id=int(layout_config.get("pipeline-id", '0'))).first()
-            if pipeline:
-                layout_config['pipeline-name'] = pipeline.name
-                layout_config['pipeline-describe'] = pipeline.describe
+        pid = layout_config.get("pipeline-id", '0')
+        print(f"[DEBUG] pipeline-id from labels: {pid}")
+        try:
+            if int(pid):
+                pipeline = db.session.query(Pipeline).filter_by(id=int(pid)).first()
+                if pipeline:
+                    layout_config['pipeline-name'] = pipeline.name
+                    layout_config['pipeline-describe'] = pipeline.describe
+        except Exception as e:
+            print(f"[DEBUG] pipeline query error: {e}")
 
         # 计算进度：用Pipeline总任务数作为分母，已完成Pod数作为分子
         nodes = status_more.get('nodes', {})
@@ -321,7 +326,13 @@ class Workflow_ModelView_Base():
         for node in nodes.values():
             if node.get('type') == 'Pod' and node.get('phase') == 'Succeeded':
                 succeeded_pods += 1
-        total_tasks = len(pipeline.get_tasks()) if pipeline else 0
+        if pipeline:
+            tasks = pipeline.get_tasks()
+            total_tasks = len(tasks)
+            print(f"[DEBUG] pipeline found, tasks count: {total_tasks}")
+        else:
+            total_tasks = 0
+            print(f"[DEBUG] pipeline is None")
         if total_tasks > 0:
             layout_config['progress'] = f'{succeeded_pods}/{total_tasks}'
         else:
