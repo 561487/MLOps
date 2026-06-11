@@ -58,9 +58,9 @@ export default function TreePlus(props: IProps) {
 			const backurl = getParam('backurl') || ''
 			fetchBloodRelationData(backurl)
 
-			// 1秒轮询刷新布局（状态、进度、按钮），进度变化时同步更新DAG节点
+			// 1秒轮询刷新布局（状态、进度、按钮）
 			const layoutUrl = backurl.replace('/web/dag/', '/web/layout/')
-			const timer = setInterval(() => {
+			const layoutTimer = setInterval(() => {
 				if (layoutUrl) {
 					axios.get(layoutUrl).then(res => {
 						const layout = res.data.result || {}
@@ -72,24 +72,38 @@ export default function TreePlus(props: IProps) {
 							const newProgress = layout.progress || ''
 							if (newProgress !== progressRef.current && backurl) {
 								progressRef.current = newProgress
-								axios.get(backurl).then(dagRes => {
-									const dag = dagRes.data.result.dag || []
-									const rd = relationDiagramRef.current
-									if (dag.length && rd) {
-										treeDataRef.current = dag
-										rd.initData(dag)
-									}
-								})
+								refreshDagNodes(backurl)
 							}
 						}
 					}).catch(() => {})
 				}
 			}, 1000)
 
-			return () => clearInterval(timer)
+			// 10秒强制刷新DAG节点（捕获进度不变但节点状态变化的场景）
+			const dagTimer = setInterval(() => {
+				if (backurl) {
+					refreshDagNodes(backurl)
+				}
+			}, 10000)
+
+			return () => {
+				clearInterval(layoutTimer)
+				clearInterval(dagTimer)
+			}
 		}
 
 	}, [relationDiagram]);
+
+	const refreshDagNodes = (backurl: string) => {
+		axios.get(backurl).then(dagRes => {
+			const dag = dagRes.data.result.dag || []
+			const rd = relationDiagramRef.current
+			if (dag.length && rd) {
+				treeDataRef.current = dag
+				rd.initData(dag)
+			}
+		})
+	}
 
 	const handleClickNode = (node: any) => {
 		const currentNode = relationDiagram && relationDiagram.dataMap && relationDiagram.dataMap.get(node.key)
