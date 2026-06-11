@@ -262,7 +262,15 @@ class Workflow_ModelView_Base():
                 db.session.commit()
                 workflow_model = workflow
             elif workflow_model and workflow_obj:
-                workflow_model.status = workflow_obj['status']
+                # 如果用户在页面上主动暂停了，不要被K8s状态覆盖
+                if workflow_model.status == 'Suspended':
+                    # 除非 K8s 显示任务已经完成
+                    if workflow_obj['status'] not in ['Succeeded', 'Failed', 'Error']:
+                        pass  # 保持 Suspended
+                    else:
+                        workflow_model.status = workflow_obj['status']
+                else:
+                    workflow_model.status = workflow_obj['status']
                 workflow_model.status_more = workflow_obj['status_more']
                 db.session.commit()
 
