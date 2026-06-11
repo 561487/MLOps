@@ -307,6 +307,14 @@ class Workflow_ModelView_Base():
         else:
             layout_config["status"] = workflow_obj['status']
         layout_config.update(labels)
+        # 先查找 Pipeline，用于计算进度
+        pipeline = None
+        if int(layout_config.get("pipeline-id", '0')):
+            pipeline = db.session.query(Pipeline).filter_by(id=int(layout_config.get("pipeline-id", '0'))).first()
+            if pipeline:
+                layout_config['pipeline-name'] = pipeline.name
+                layout_config['pipeline-describe'] = pipeline.describe
+
         # 计算进度：用Pipeline总任务数作为分母，已完成Pod数作为分子
         nodes = status_more.get('nodes', {})
         succeeded_pods = 0
@@ -322,13 +330,6 @@ class Workflow_ModelView_Base():
         layout_config['finish_time'] = k8s_client.to_local_time(status_more.get('finishedAt',''))
         if layout_config['finish_time'] and layout_config['finish_time']<layout_config["start_time"]:
             layout_config['finish_time'],layout_config['start_time'] = layout_config['start_time'],layout_config['finish_time']
-
-        pipeline = None
-        if int(layout_config.get("pipeline-id", '0')):
-            pipeline = db.session.query(Pipeline).filter_by(id=int(layout_config.get("pipeline-id", '0'))).first()
-            if pipeline:
-                layout_config['pipeline-name'] = pipeline.name
-                layout_config['pipeline-describe'] = pipeline.describe
 
         layout_config['crd_json'] = {
             "apiVersion": "argoproj.io/v1alpha1",
