@@ -301,7 +301,11 @@ class Workflow_ModelView_Base():
 
         layout_config["create_time"] = workflow_obj['create_time']
         layout_config['search'] = ''
-        layout_config["status"] = workflow_obj['status']
+        # 如果用户主动暂停了，显示 DB 状态而不是 K8s 状态
+        if workflow_model and workflow_model.status == 'Suspended':
+            layout_config["status"] = 'Suspended'
+        else:
+            layout_config["status"] = workflow_obj['status']
         layout_config.update(labels)
         layout_config['progress'] = status_more.get('progress', '0/0')
         layout_config["start_time"] = k8s_client.to_local_time(status_more.get('startedAt',''))
