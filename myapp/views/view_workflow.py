@@ -577,15 +577,19 @@ class Workflow_ModelView_Base():
         if pipeline:
             all_tasks = pipeline.get_tasks()
             if all_tasks:
-                # 收集 dag_config 中所有已存在的 task_id（数据库ID）
+                # 收集 dag_config 中已存在的 task_id 和 task_name（双重匹配）
                 existing_task_ids = set()
-                def collect_task_ids(nodes_list):
+                existing_task_names = set()
+                def collect_existing(nodes_list):
                     for n in nodes_list:
                         tid = n.get('task_id', '')
                         if tid:
                             existing_task_ids.add(tid)
-                        collect_task_ids(n.get('children', []))
-                collect_task_ids(dag_config)
+                        tname = n.get('task_name', '')
+                        if tname:
+                            existing_task_names.add(tname)
+                        collect_existing(n.get('children', []))
+                collect_existing(dag_config)
 
                 # 找到第一个有子节点的 DAG 节点，将占位节点加在其中
                 parent_node = None
@@ -602,7 +606,7 @@ class Workflow_ModelView_Base():
                 # 按 pipeline 顺序添加缺失的任务到父节点的 children 中
                 target_list = parent_node['children'] if parent_node else dag_config
                 for task in all_tasks:
-                    if str(task.id) not in existing_task_ids:
+                    if str(task.id) not in existing_task_ids and task.name not in existing_task_names:
                         placeholder = {
                             "node_type": "Pod",
                             "nid": f"pending_{task.name}",
