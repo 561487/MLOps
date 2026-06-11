@@ -3,6 +3,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { getNodeInfoCommon, getNodeRelationCommon } from '../../api/commonPipeline';
 import Loading from '../../components/Loading/Loading';
 import { getParam } from '../../util';
+import axios from 'axios';
 import NodeDetail from './NodeDetail';
 import RelationDiagram from './TreePlusDiagram';
 import { ILayoutConfig, INodeDetailItem, INodeItem } from './TreePlusInterface';
@@ -55,6 +56,19 @@ export default function TreePlus(props: IProps) {
 		if (relationDiagram) {
 			const backurl = getParam('backurl') || ''
 			fetchBloodRelationData(backurl)
+
+			// 5秒轮询刷新布局信息（状态、进度、按钮）
+        	const layoutUrl = backurl.replace('/web/dag/', '/web/layout/')
+        	const timer = setInterval(() => {
+            	if (layoutUrl) {
+                	axios.get(layoutUrl).then(res => {
+                    	const layout = res.data.result || {}
+                    	setLayoutConfig(layout)
+                	}).catch(() => {})
+            	}
+        	}, 3000)
+
+        	return () => clearInterval(timer)  // 组件卸载时清除定时器
 		}
 
 	}, [relationDiagram]);
@@ -164,7 +178,20 @@ export default function TreePlus(props: IProps) {
 							{
 								layoutConfig?.right_button.map(button => {
 									return <div onClick={() => {
-										window.open(button.url, "blank")
+										// API 操作类按钮（停止/暂停/恢复）用 AJAX 不刷新页面
+        								if (button.url.includes('/api/')) {
+            								axios.get(button.url).then(() => {
+                								// 成功后刷新 layout
+                								const layoutUrl = (getParam('backurl') || '').replace('/web/dag/', '/web/layout/')
+                								if (layoutUrl) {
+                    								axios.get(layoutUrl).then(res => {
+                        								setLayoutConfig(res.data.result || {})
+                    								})
+                								}
+            								})
+        								} else {
+            								window.open(button.url, "blank")
+        								}
 									}} className="c-text-w ml8 btn-ghost d-il">{button.label}</div>
 								})
 							}
