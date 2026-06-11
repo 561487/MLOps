@@ -307,23 +307,28 @@ class Workflow_ModelView_Base():
         else:
             layout_config["status"] = workflow_obj['status']
         layout_config.update(labels)
-        # 从节点自己计算进度（已完成/总数），不使用Argo的报告
+        # 计算进度：用Pipeline总任务数作为分母，已完成Pod数作为分子
         nodes = status_more.get('nodes', {})
-        total_pods = 0
         succeeded_pods = 0
         for node in nodes.values():
-            if node.get('type') == 'Pod':
-                total_pods += 1
-                if node.get('phase') == 'Succeeded':
-                    succeeded_pods += 1
-        if total_pods > 0:
-            layout_config['progress'] = f'{succeeded_pods}/{total_pods}'
+            if node.get('type') == 'Pod' and node.get('phase') == 'Succeeded':
+                succeeded_pods += 1
+        total_tasks = len(pipeline.get_tasks()) if pipeline else 0
+        if total_tasks > 0:
+            layout_config['progress'] = f'{succeeded_pods}/{total_tasks}'
         else:
             layout_config['progress'] = status_more.get('progress', '0/0')
         layout_config["start_time"] = k8s_client.to_local_time(status_more.get('startedAt',''))
         layout_config['finish_time'] = k8s_client.to_local_time(status_more.get('finishedAt',''))
         if layout_config['finish_time'] and layout_config['finish_time']<layout_config["start_time"]:
             layout_config['finish_time'],layout_config['start_time'] = layout_config['start_time'],layout_config['finish_time']
+
+        pipeline = None
+        if int(layout_config.get("pipeline-id", '0')):
+            pipeline = db.session.query(Pipeline).filter_by(id=int(layout_config.get("pipeline-id", '0'))).first()
+            if pipeline:
+                layout_config['pipeline-name'] = pipeline.name
+                layout_config['pipeline-describe'] = pipeline.describe
 
         layout_config['crd_json'] = {
             "apiVersion": "argoproj.io/v1alpha1",
@@ -337,13 +342,6 @@ class Workflow_ModelView_Base():
             "spec": spec,
             "status": status_more
         }
-
-        pipeline = None
-        if int(layout_config.get("pipeline-id", '0')):
-            pipeline = db.session.query(Pipeline).filter_by(id=int(layout_config.get("pipeline-id", '0'))).first()
-            if pipeline:
-                layout_config['pipeline-name'] = pipeline.name
-                layout_config['pipeline-describe'] = pipeline.describe
 
         dag_default_status_icon = '<svg t="1673492959659" class="icon" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="7570" width="200" height="200"><path d="M512 51.2c254.08 0 460.8 206.72 460.8 460.8s-206.72 460.8-460.8 460.8S51.2 766.08 51.2 512 257.92 51.2 512 51.2M512 0C229.248 0 0 229.248 0 512s229.248 512 512 512 512-229.248 512-512S794.752 0 512 0L512 0z" fill="#D1D3D4" p-id="7571"></path><path d="M470.976 642.624C470.72 633.6 470.656 626.88 470.656 622.4c0-26.496 3.776-49.344 11.264-68.608 5.504-14.528 14.4-29.12 26.624-43.904 9.024-10.752 25.216-26.432 48.576-47.04s38.592-37.056 45.568-49.344 10.496-25.6 10.496-40.128c0-26.24-10.24-49.344-30.72-69.184S536.768 274.368 507.008 274.368c-28.736 0-52.736 9.024-72 27.008S403.136 347.52 397.12 385.728L327.744 377.472c6.272-51.264 24.832-90.496 55.68-117.76S455.104 218.88 505.856 218.88c53.76 0 96.64 14.656 128.64 43.904s48 64.64 48 106.112c0 24-5.632 46.144-16.896 66.368s-33.28 44.864-65.984 73.856C577.6 528.64 563.264 542.976 556.48 552.256S544.768 572.096 541.504 584.128s-5.12 31.488-5.632 58.496L470.976 642.624zM466.88 777.984l0-76.864 76.864 0 0 76.864L466.88 777.984z" fill="#D1D3D4" p-id="7572"></path></svg>'
         dag_status_icon = {
