@@ -307,7 +307,19 @@ class Workflow_ModelView_Base():
         else:
             layout_config["status"] = workflow_obj['status']
         layout_config.update(labels)
-        layout_config['progress'] = status_more.get('progress', '0/0')
+        # 从节点自己计算进度（已完成/总数），不使用Argo的报告
+        nodes = status_more.get('nodes', {})
+        total_pods = 0
+        succeeded_pods = 0
+        for node in nodes.values():
+            if node.get('type') == 'Pod':
+                total_pods += 1
+                if node.get('phase') == 'Succeeded':
+                    succeeded_pods += 1
+        if total_pods > 0:
+            layout_config['progress'] = f'{succeeded_pods}/{total_pods}'
+        else:
+            layout_config['progress'] = status_more.get('progress', '0/0')
         layout_config["start_time"] = k8s_client.to_local_time(status_more.get('startedAt',''))
         layout_config['finish_time'] = k8s_client.to_local_time(status_more.get('finishedAt',''))
         if layout_config['finish_time'] and layout_config['finish_time']<layout_config["start_time"]:

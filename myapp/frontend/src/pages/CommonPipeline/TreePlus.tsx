@@ -25,6 +25,7 @@ export default function TreePlus(props: IProps) {
 	const { t, i18n } = useTranslation();
 
 	const treeDataRef = useRef<INodeItem[]>()
+	const layoutConfigRef = useRef<string>('')
 
 	const [relationDiagram, _setRelationDiagram] = useState<RelationDiagram>();
 	const relationDiagramRef = useRef(relationDiagram);
@@ -56,20 +57,21 @@ export default function TreePlus(props: IProps) {
 			const backurl = getParam('backurl') || ''
 			fetchBloodRelationData(backurl)
 
-			// 3秒轮询刷新DAG图和布局（节点颜色、状态、进度、按钮）
+			// 1秒轮询刷新布局信息（状态、进度、按钮），不刷新DAG图避免闪烁
+			const layoutUrl = backurl.replace('/web/dag/', '/web/layout/')
 			const timer = setInterval(() => {
-				if (backurl) {
-					axios.get(backurl).then(res => {
-						const dag = res.data.result.dag || []
-						const layout = res.data.result.layout || {}
-						if (dag.length && relationDiagramRef.current) {
-							treeDataRef.current = dag
-							relationDiagramRef.current.initData(dag)
+				if (layoutUrl) {
+					axios.get(layoutUrl).then(res => {
+						const layout = res.data.result || {}
+						const layoutStr = JSON.stringify(layout)
+						// 数据没变化不更新，避免React重渲染闪烁
+						if (layoutStr !== layoutConfigRef.current) {
+							layoutConfigRef.current = layoutStr
+							setLayoutConfig(layout)
 						}
-						setLayoutConfig(layout)
 					}).catch(() => {})
 				}
-			}, 3000)
+			}, 1000)
 
 			return () => clearInterval(timer)
 		}
@@ -89,6 +91,21 @@ export default function TreePlus(props: IProps) {
 		}).catch(() => {
 			setLoadingDetail(false)
 		})
+	}
+
+	const refreshDagAndLayout = () => {
+		const backurl = getParam('backurl') || ''
+		if (backurl) {
+			axios.get(backurl).then(res => {
+				const dag = res.data.result.dag || []
+				const layout = res.data.result.layout || {}
+				if (dag.length && relationDiagramRef.current) {
+					treeDataRef.current = dag
+					relationDiagramRef.current.initData(dag)
+				}
+				setLayoutConfig(layout)
+			})
+		}
 	}
 
 	const fetchBloodRelationData = (url: string) => {
@@ -179,18 +196,7 @@ export default function TreePlus(props: IProps) {
 									return <div onClick={() => {
 										if (button.url.includes('/api/')) {
 											axios.get(button.url).then(() => {
-												const backurl = getParam('backurl') || ''
-												if (backurl) {
-													axios.get(backurl).then(res => {
-														const dag = res.data.result.dag || []
-														const layout = res.data.result.layout || {}
-														if (dag.length && relationDiagramRef.current) {
-															treeDataRef.current = dag
-															relationDiagramRef.current.initData(dag)
-														}
-														setLayoutConfig(layout)
-													})
-												}
+												refreshDagAndLayout()
 											})
 										} else {
 											window.open(button.url, "blank")
