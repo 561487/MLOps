@@ -2536,12 +2536,12 @@ class K8s():
         """暂停 Argo Workflow"""
         crd_info = conf.get('CRD_INFO', {}).get('workflow', {})
         try:
-            self.patch_crd(
+            result = self.patch_crd(
                 group=crd_info['group'], version=crd_info['version'],
                 plural=crd_info['plural'], namespace=namespace, name=workflow_name,
                 body={"spec": {"suspend": True}}
             )
-            return True
+            return result is not None
         except Exception as e:
             print(f"suspend workflow error: {e}")
             return False
@@ -2549,6 +2549,16 @@ class K8s():
     def resume_workflow(self, namespace, workflow_name):
         """恢复 Argo Workflow"""
         crd_info = conf.get('CRD_INFO', {}).get('workflow', {})
+        try:
+            result = self.patch_crd(
+                group=crd_info['group'], version=crd_info['version'],
+                plural=crd_info['plural'], namespace=namespace, name=workflow_name,
+                body={"spec": {"suspend": False}}
+            )
+            return result is not None
+        except Exception as e:
+            print(f"resume workflow error: {e}")
+            return False
         try:
             self.patch_crd(
                 group=crd_info['group'], version=crd_info['version'],
