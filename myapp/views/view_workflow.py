@@ -572,6 +572,71 @@ class Workflow_ModelView_Base():
                 traceback.print_exc()
 
         fill_child(self, dag_config, workflow_name)
+
+        # 补充尚未创建的占位节点（灰色 Pending）
+        if pipeline:
+            all_tasks = pipeline.get_tasks()
+            if all_tasks:
+                # 收集 dag_config 中所有已存在的 task_name
+                existing_tasks = set()
+                def collect_task_names(nodes_list):
+                    for n in nodes_list:
+                        if n.get('task_name'):
+                            existing_tasks.add(n['task_name'])
+                        collect_task_names(n.get('children', []))
+                collect_task_names(dag_config)
+
+                # 找到第一个有子节点的 DAG 节点，将占位节点加在其中
+                parent_node = None
+                def find_parent(nodes_list):
+                    for n in nodes_list:
+                        if 'children' in n:
+                            return n
+                        res = find_parent(n.get('children', []))
+                        if res:
+                            return res
+                    return None
+                parent_node = find_parent(dag_config)
+
+                # 按 pipeline 顺序添加缺失的任务到父节点的 children 中
+                pending_color = '#999999'
+                pending_icon = '<svg t="1700000000000" class="icon" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" width="20" height="20"><path d="M512 512m-512 0a512 512 0 1 0 1024 0 512 512 0 1 0-1024 0Z" fill="#999999" p-id="1"></path></svg>'
+                target_list = parent_node['children'] if parent_node else dag_config
+                for task in all_tasks:
+                    if task.name not in existing_tasks:
+                        placeholder = {
+                            "node_type": "Pending",
+                            "nid": f"pending_{task.name}",
+                            "pid": parent_node.get('nid', '') if parent_node else '',
+                            "title": task.label,
+                            "pod": '',
+                            "start_time": '',
+                            "finish_time": '',
+                            "detail_url": '',
+                            "name": task.name,
+                            "outputs": {},
+                            "icon": pending_icon,
+                            "status": {"label": "Pending", "icon": pending_icon},
+                            "message": '',
+                            "node_shape": "rectangle",
+                            "color": pending_color,
+                            "task_name": task.name,
+                            "task_id": str(task.id),
+                            "task_label": task.label,
+                            "volumeMounts": [],
+                            "volumes": [],
+                            "node_selector": '',
+                            "s3_key": '',
+                            "metric_key": '',
+                            "output_key": '',
+                            "retry": 0,
+                            "resource_cpu": '0',
+                            "resource_memory": '0',
+                            "resource_gpu": '0',
+                            "children": []
+                        }
+                        target_list.append(placeholder)
+
         return layout_config, dag_config, self.node_detail_config, workflow_obj
 
     @expose_api(description="workflow的执行进度",url="/web/log/<cluster_name>/<namespace>/<workflow_name>/<pod_name>", methods=["GET", ])
