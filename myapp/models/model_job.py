@@ -716,18 +716,18 @@ class Crd:
         return Markup(f'<a href="../stop/{self.id}">停止</a>')
 
     @property
-      def suspend(self):
-          """暂停按钮：Running/Pending 状态显示"""
-          if not self.status or self.status.lower() not in ['running', 'pending']:
-              return ''
-          return Markup(f'<a href="../suspend/{self.id}">暂停</a>')
+    def suspend(self):
+        """暂停按钮：Running/Pending 状态显示"""
+        if not self.status or self.status.lower() not in ['running', 'pending']:
+            return ''
+        return Markup(f'<a href="../suspend/{self.id}">暂停</a>')
 
-      @property
-      def resume(self):
-          """恢复按钮：Suspended 状态显示"""
-          if self.status and self.status.lower() == 'suspended':
-              return Markup(f'<a href="../resume/{self.id}">恢复</a>')
-          return ''
+    @property
+    def resume(self):
+        """恢复按钮：Suspended 状态显示"""
+        if self.status and self.status.lower() == 'suspended':
+            return Markup(f'<a href="../resume/{self.id}">恢复</a>')
+        return ''
 
 class Workflow(Model,Crd,MyappModelBase):
     __tablename__ = 'workflow'

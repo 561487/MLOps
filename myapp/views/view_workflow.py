@@ -260,6 +260,7 @@ class Workflow_ModelView_Base():
                                     )
                 db.session.add(workflow)
                 db.session.commit()
+                workflow_model = workflow
             elif workflow_model and workflow_obj:
                 workflow_model.status = workflow_obj['status']
                 workflow_model.status_more = workflow_obj['status_more']
@@ -339,6 +340,22 @@ class Workflow_ModelView_Base():
                     "url": f"/workflow_modelview/api/stop/{workflow_model.id}"
                 }
             )
+            # 暂停按钮：Running/Pending 状态显示
+            if workflow_model.status and workflow_model.status.lower() in ['running', 'pending']:
+                layout_config["right_button"].append(
+                    {
+                        "label": __("暂停"),
+                        "url": f"/workflow_modelview/api/suspend/{workflow_model.id}"
+                    }
+                )
+            # 恢复按钮：Suspended 状态显示
+            if workflow_model.status and workflow_model.status.lower() == 'suspended':
+                layout_config["right_button"].append(
+                    {
+                        "label": __("恢复"),
+                        "url": f"/workflow_modelview/api/resume/{workflow_model.id}"
+                    }
+                )
         if pipeline:
             layout_config['right_button'].append(
                 {

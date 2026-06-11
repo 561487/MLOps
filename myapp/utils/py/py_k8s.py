@@ -2521,6 +2521,44 @@ class K8s():
         except Exception as e:
             print(e)
 
+    def patch_crd(self, group, version, plural, namespace, name, body):
+        """PATCH 自定义资源"""
+        try:
+            crd_object = self.CustomObjectsApi.patch_namespaced_custom_object(
+                group=group, version=version, namespace=namespace, plural=plural, name=name, body=body
+            )
+            return crd_object
+        except Exception as e:
+            print(f"patch crd error: {e}")
+            return None
+    
+    def suspend_workflow(self, namespace, workflow_name):
+        """暂停 Argo Workflow"""
+        crd_info = conf.get('CRD_INFO', {}).get('workflow', {})
+        try:
+            self.patch_crd(
+                group=crd_info['group'], version=crd_info['version'],
+                plural=crd_info['plural'], namespace=namespace, name=workflow_name,
+                body={"spec": {"suspend": True}}
+            )
+            return True
+        except Exception as e:
+            print(f"suspend workflow error: {e}")
+            return False
+
+    def resume_workflow(self, namespace, workflow_name):
+        """恢复 Argo Workflow"""
+        crd_info = conf.get('CRD_INFO', {}).get('workflow', {})
+        try:
+            self.patch_crd(
+                group=crd_info['group'], version=crd_info['version'],
+                plural=crd_info['plural'], namespace=namespace, name=workflow_name,
+                body={"spec": {"suspend": False}}
+            )
+            return True
+        except Exception as e:
+            print(f"resume workflow error: {e}")
+            return False
 
 class K8SStreamThread(threading.Thread):
 
