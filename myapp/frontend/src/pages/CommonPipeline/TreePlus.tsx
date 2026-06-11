@@ -26,6 +26,7 @@ export default function TreePlus(props: IProps) {
 
 	const treeDataRef = useRef<INodeItem[]>()
 	const layoutConfigRef = useRef<string>('')
+	const progressRef = useRef<string>('')
 
 	const [relationDiagram, _setRelationDiagram] = useState<RelationDiagram>();
 	const relationDiagramRef = useRef(relationDiagram);
@@ -57,17 +58,29 @@ export default function TreePlus(props: IProps) {
 			const backurl = getParam('backurl') || ''
 			fetchBloodRelationData(backurl)
 
-			// 1秒轮询刷新布局信息（状态、进度、按钮），不刷新DAG图避免闪烁
+			// 1秒轮询刷新布局（状态、进度、按钮），进度变化时同步更新DAG节点
 			const layoutUrl = backurl.replace('/web/dag/', '/web/layout/')
 			const timer = setInterval(() => {
 				if (layoutUrl) {
 					axios.get(layoutUrl).then(res => {
 						const layout = res.data.result || {}
 						const layoutStr = JSON.stringify(layout)
-						// 数据没变化不更新，避免React重渲染闪烁
 						if (layoutStr !== layoutConfigRef.current) {
 							layoutConfigRef.current = layoutStr
 							setLayoutConfig(layout)
+							// 进度变化时刷新DAG节点
+							const newProgress = layout.progress || ''
+							if (newProgress !== progressRef.current && backurl) {
+								progressRef.current = newProgress
+								axios.get(backurl).then(dagRes => {
+									const dag = dagRes.data.result.dag || []
+									const rd = relationDiagramRef.current
+									if (dag.length && rd) {
+										treeDataRef.current = dag
+										rd.initData(dag)
+									}
+								})
+							}
 						}
 					}).catch(() => {})
 				}
@@ -99,9 +112,10 @@ export default function TreePlus(props: IProps) {
 			axios.get(backurl).then(res => {
 				const dag = res.data.result.dag || []
 				const layout = res.data.result.layout || {}
-				if (dag.length && relationDiagramRef.current) {
+				const rd = relationDiagramRef.current
+				if (dag.length && rd) {
 					treeDataRef.current = dag
-					relationDiagramRef.current.initData(dag)
+					rd.initData(dag)
 				}
 				setLayoutConfig(layout)
 			})
