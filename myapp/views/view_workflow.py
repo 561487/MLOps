@@ -395,7 +395,7 @@ class Workflow_ModelView_Base():
                 {
                     "name": "status",
                     "label": __("状态"),
-                    "value": workflow_obj['status']
+                    "value": layout_config.get('status', workflow_obj['status'])
                 },
                 {
                     "name": "message",
