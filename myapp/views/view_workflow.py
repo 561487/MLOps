@@ -474,17 +474,24 @@ class Workflow_ModelView_Base():
         # @pysnooper.snoop()
         def fill_child(self, dag, upstream_node_name):
             try:
-                childs = status_more['nodes'][upstream_node_name].get('children', [])
+                upstream_node = nodes.get(upstream_node_name)
+                if not upstream_node:
+                    return
+                childs = upstream_node.get('children', [])
                 for child in childs:
                     try:
+                        child_node = nodes.get(child)
+                        if not child_node:
+                            continue
                         # pod_name = child   # 这里不对，这里是workflow 名后随机生成
-                        status = status_more['nodes'][child].get('phase', 'unknown')
-                        task_name = status_more['nodes'][child]['templateName']
+                        status = child_node.get('phase', 'unknown')
+                        task_name = child_node.get('templateName', '')
+                        task_spec = nodes_spec.get(task_name, {})
                         pod_name = workflow_name + "-" + task_name + "-" + child.replace(workflow_name, '').strip('-')
                         s3_key = ''
                         metric_key = ''
                         output_key = ''
-                        artifacts = status_more['nodes'][child].get('outputs', {}).get('artifacts', [])
+                        artifacts = child_node.get('outputs', {}).get('artifacts', [])
                         for artifact in artifacts:
                             if artifact['name'] == 'main-logs':
                                 s3_key = artifact.get('s3', {}).get('key', '')
@@ -492,28 +499,28 @@ class Workflow_ModelView_Base():
                                 metric_key = artifact.get('s3', {}).get('key', '')
                             if artifact['name'] == 'output':
                                 output_key = artifact.get('s3', {}).get('key', '')
-                        retry = nodes_spec[task_name].get('retryStrategy', {}).get("limit", 0)
+                        retry = task_spec.get('retryStrategy', {}).get("limit", 0)
 
                         # 对于可重试节点的发起节点，没有日志和执行命令，
-                        displayName = status_more['nodes'][child].get('displayName', '')
+                        displayName = child_node.get('displayName', '')
                         displayName = displayName.replace("(0)", '(first)')
-                        match = re.findall("(\([1-9]+\))", displayName)
+                        match = re.findall(r"(\([1-9]+\))", displayName)
                         if len(match) > 0:
                             retry_index = match[0].replace("(", '').replace(")", '')
                             displayName = displayName.replace(match[0], __('(第%s次重试)')%retry_index)
-                        title = nodes_spec[task_name].get('metadata', {}).get("annotations", {}).get("task", pod_name)+f"({displayName})"
-                        node_type = status_more['nodes'][child]['type']
+                        title = task_spec.get('metadata', {}).get("annotations", {}).get("task", pod_name)+f"({displayName})"
+                        node_type = child_node.get('type', '')
                         if node_type == "Retry":
                             title += __("(有%s次重试机会)")%retry
                         if node_type == 'Skipped':
                             title += "(skip)"
 
-                        nodeSelector = nodes_spec[task_name].get('nodeSelector', {})
+                        nodeSelector = task_spec.get('nodeSelector', {})
                         node_selector = ''
                         for key in nodeSelector:
                             node_selector += key + "=" + nodeSelector[key] + ","
                         node_selector = node_selector.strip(',')
-                        requests_resource = nodes_spec[task_name].get('container', {}).get("resources", {}).get("requests", {})
+                        requests_resource = task_spec.get('container', {}).get("resources", {}).get("requests", {})
                         resource_gpu = "0"
                         shared_resource_name = conf.get('GPU_SHARED_RESOURCE_NAME', 'nvidia.com/gpu.shared')
                         if shared_resource_name in requests_resource:
@@ -526,36 +533,36 @@ class Workflow_ModelView_Base():
 
                         ui_node = {
                             "node_type": node_type,
-                            "nid": status_more['nodes'][child]['id'],
-                            "pid": status_more['nodes'][upstream_node_name]['id'],
+                            "nid": child_node.get('id', child),
+                            "pid": upstream_node.get('id', upstream_node_name),
                             "title": title,
                             "pod": pod_name,
-                            "start_time": k8s_client.to_local_time(status_more['nodes'][child].get('startedAt','')),
-                            "finish_time": k8s_client.to_local_time(status_more['nodes'][child].get('finishedAt','')),
+                            "start_time": k8s_client.to_local_time(child_node.get('startedAt','')),
+                            "finish_time": k8s_client.to_local_time(child_node.get('finishedAt','')),
                             "detail_url": self.route_base + f"/web/node_detail/{cluster_name}/{namespace}/{workflow_name}/{child}",
                             "name": pod_name,
-                            "outputs": status_more['nodes'][child].get('outputs', {}),
+                            "outputs": child_node.get('outputs', {}),
                             # "icon": '<svg t="1671087371964" class="icon" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="4320" width="200" height="200"><path d="M109.714286 73.142857c-21.942857 0-36.571429 14.628571-36.571429 36.571429v804.571428c0 21.942857 14.628571 36.571429 36.571429 36.571429h804.571428c21.942857 0 36.571429-14.628571 36.571429-36.571429v-804.571428c0-21.942857-14.628571-36.571429-36.571429-36.571429h-804.571428z m0-73.142857h804.571428c58.514286 0 109.714286 51.2 109.714286 109.714286v804.571428c0 58.514286-51.2 109.714286-109.714286 109.714286h-804.571428C51.2 1024 0 972.8 0 914.285714v-804.571428C0 51.2 51.2 0 109.714286 0z m438.857143 292.571429h219.428571c21.942857 0 36.571429 14.628571 36.571429 36.571428s-14.628571 36.571429-36.571429 36.571429h-219.428571c-21.942857 0-36.571429-14.628571-36.571429-36.571429s14.628571-36.571429 36.571429-36.571428z m-219.428572 438.857142c21.942857 0 36.571429-14.628571 36.571429-36.571428S351.085714 658.285714 329.142857 658.285714s-36.571429 14.628571-36.571428 36.571429 14.628571 36.571429 36.571428 36.571428z m0 73.142858C270.628571 804.571429 219.428571 753.371429 219.428571 694.857143S270.628571 585.142857 329.142857 585.142857 438.857143 636.342857 438.857143 694.857143 387.657143 804.571429 329.142857 804.571429z m-7.314286-446.171429L241.371429 277.942857c-14.628571-14.628571-36.571429-14.628571-51.2 0-14.628571 14.628571-14.628571 36.571429 0 51.2L292.571429 431.542857c7.314286 7.314286 21.942857 14.628571 29.257142 14.628572s21.942857 0 29.257143-7.314286l153.6-153.6c14.628571-14.628571 14.628571-36.571429 0-51.2-14.628571-14.628571-36.571429-14.628571-51.2 0L321.828571 358.4zM548.571429 658.285714h219.428571c21.942857 0 36.571429 14.628571 36.571429 36.571429s-14.628571 36.571429-36.571429 36.571428h-219.428571c-21.942857 0-36.571429-14.628571-36.571429-36.571428s14.628571-36.571429 36.571429-36.571429z" p-id="4321"></path></svg>',
                             "icon": status_icon.get(status, default_status_icon),
                             "status": {
                                 "label": status,
                                 "icon": status_icon.get(status, default_status_icon)
                             },
-                            "message": status_more['nodes'][child].get('message', ''),
+                            "message": child_node.get('message', ''),
                             "node_shape": "rectangle",
                             "color": status_color.get(status, default_status_color),
                             "task_name": task_name,
-                            "task_id": nodes_spec[task_name].get('metadata', {}).get("labels", {}).get("task-id", ''),
-                            "task_label": nodes_spec[task_name].get('metadata', {}).get("annotations", {}).get("task", ''),
-                            "volumeMounts": nodes_spec[task_name].get('container', {}).get("volumeMounts", []),
-                            "volumes": nodes_spec[task_name].get('volumes', []),
+                            "task_id": task_spec.get('metadata', {}).get("labels", {}).get("task-id", ''),
+                            "task_label": task_spec.get('metadata', {}).get("annotations", {}).get("task", ''),
+                            "volumeMounts": task_spec.get('container', {}).get("volumeMounts", []),
+                            "volumes": task_spec.get('volumes', []),
                             "node_selector": node_selector,
                             "s3_key": s3_key,
                             "metric_key": metric_key,
                             "output_key":output_key,
                             "retry": retry,
-                            "resource_cpu": str(nodes_spec[task_name].get('container', {}).get("resources", {}).get("requests", {}).get("cpu", '0')),
-                            "resource_memory": str(nodes_spec[task_name].get('container', {}).get("resources", {}).get("requests", {}).get("memory", '0')),
+                            "resource_cpu": str(task_spec.get('container', {}).get("resources", {}).get("requests", {}).get("cpu", '0')),
+                            "resource_memory": str(task_spec.get('container', {}).get("resources", {}).get("requests", {}).get("memory", '0')),
                             "resource_gpu": resource_gpu,
                             "children": []
                         }
