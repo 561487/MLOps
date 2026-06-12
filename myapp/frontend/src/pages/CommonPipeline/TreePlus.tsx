@@ -100,7 +100,7 @@ export default function TreePlus(props: IProps) {
 			const rd = relationDiagramRef.current
 			if (dag.length && rd) {
 				treeDataRef.current = dag
-				rd.initData(dag)
+				rd.updateNodes(dag)
 			}
 		})
 	}
@@ -129,7 +129,7 @@ export default function TreePlus(props: IProps) {
 				const rd = relationDiagramRef.current
 				if (dag.length && rd) {
 					treeDataRef.current = dag
-					rd.initData(dag)
+					rd.updateNodes(dag)
 				}
 				setLayoutConfig(layout)
 			})
