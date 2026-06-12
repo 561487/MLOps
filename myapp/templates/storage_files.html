@@ -1,0 +1,283 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>存储资源文件管理 - {{ storage.name }}</title>
+<style>
+  body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif; color: #222; background: #fff; }
+  .storage-files-page { padding: 16px; }
+  .storage-files-toolbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 12px 0; }
+  .storage-files-path { font-family: monospace; background: #f7f7f7; padding: 6px 8px; border-radius: 4px; }
+  .storage-files-message { margin-left: 8px; color: #666; }
+  .storage-files-card { border: 1px solid #ddd; border-radius: 4px; padding: 12px; margin-top: 12px; }
+  .storage-files-preview { white-space: pre-wrap; max-height: 420px; overflow: auto; background: #111; color: #eee; padding: 12px; border-radius: 4px; }
+  .btn { border: 1px solid #bbb; border-radius: 4px; background: #fff; padding: 5px 10px; cursor: pointer; text-decoration: none; color: #222; display: inline-block; }
+  .btn:hover { background: #f3f3f3; }
+  .btn-primary { background: #337ab7; border-color: #2e6da4; color: #fff; }
+  .btn-primary:hover { background: #286090; }
+  .btn-danger { background: #d9534f; border-color: #d43f3a; color: #fff; }
+  .btn-danger:hover { background: #c9302c; }
+  .btn-xs { font-size: 12px; padding: 2px 6px; }
+  .btn-sm { font-size: 13px; padding: 4px 9px; }
+  .form-control { border: 1px solid #ccc; border-radius: 4px; padding: 5px 8px; }
+  table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+  th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+  th { background: #f7f7f7; }
+  tr:hover { background: #f9f9f9; }
+  .hidden { display: none; }
+</style>
+</head>
+<body>
+
+<div class="storage-files-page" id="storage-file-app" data-storage-id="{{ storage.id }}">
+  <h3>存储资源文件管理：{{ storage.name }}</h3>
+  <div>
+    <span>项目组：{{ storage.project.name if storage.project else '' }}</span>
+    <span style="margin-left: 16px;">命名空间：{{ namespace }}</span>
+    <span style="margin-left: 16px;">PVC：{{ storage.pvc_name or storage.name }}</span>
+  </div>
+
+  <div class="storage-files-toolbar">
+    <button class="btn btn-default btn-sm" id="btn-root">根目录</button>
+    <button class="btn btn-default btn-sm" id="btn-up">上级目录</button>
+    <span class="storage-files-path" id="current-path">/</span>
+    <span class="storage-files-message" id="message"></span>
+  </div>
+
+  <div class="storage-files-toolbar">
+    <input class="form-control" id="mkdir-name" style="width: 220px;" placeholder="新目录名或路径">
+    <button class="btn btn-primary btn-sm" id="btn-mkdir">新建目录</button>
+    <input type="file" id="upload-file">
+    <button class="btn btn-primary btn-sm" id="btn-upload">上传文件</button>
+    <button class="btn btn-default btn-sm" id="btn-refresh">刷新</button>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>名称</th>
+        <th style="width: 110px;">类型</th>
+        <th style="width: 140px;">大小</th>
+        <th style="width: 180px;">修改时间</th>
+        <th style="width: 220px;">操作</th>
+      </tr>
+    </thead>
+    <tbody id="file-list"></tbody>
+  </table>
+
+  <div class="storage-files-card hidden" id="preview-panel">
+    <div class="storage-files-toolbar">
+      <strong id="preview-title">文本预览</strong>
+      <button class="btn btn-sm" id="btn-close-preview">关闭</button>
+    </div>
+    <pre class="storage-files-preview" id="preview-content"></pre>
+  </div>
+</div>
+
+<script>
+(function () {
+  var storageId = document.getElementById('storage-file-app').getAttribute('data-storage-id');
+  var currentPath = '/';
+  var listBody = document.getElementById('file-list');
+  var currentPathEl = document.getElementById('current-path');
+  var messageEl = document.getElementById('message');
+
+  function setMessage(text, isError) {
+    messageEl.textContent = text || '';
+    messageEl.style.color = isError ? '#c00' : '#666';
+  }
+
+  function joinPath(base, name) {
+    if (!name) return base || '/';
+    if (name.charAt(0) === '/') return normalizePath(name);
+    return normalizePath((base === '/' ? '' : base) + '/' + name);
+  }
+
+  function normalizePath(path) {
+    var parts = (path || '/').split('/').filter(Boolean);
+    var normalized = [];
+    for (var i = 0; i < parts.length; i += 1) {
+      if (parts[i] === '..') continue;
+      if (parts[i] !== '.') normalized.push(parts[i]);
+    }
+    return '/' + normalized.join('/');
+  }
+
+  function parentPath(path) {
+    var parts = (path || '/').split('/').filter(Boolean);
+    parts.pop();
+    return '/' + parts.join('/');
+  }
+
+  function formatSize(size) {
+    size = Number(size || 0);
+    if (size < 1024) return size + ' B';
+    if (size < 1024 * 1024) return (size / 1024).toFixed(1) + ' KiB';
+    if (size < 1024 * 1024 * 1024) return (size / 1024 / 1024).toFixed(1) + ' MiB';
+    return (size / 1024 / 1024 / 1024).toFixed(1) + ' GiB';
+  }
+
+  function requestJson(url, options) {
+    options = options || {};
+    options.headers = options.headers || {};
+    if (options.body && !(options.body instanceof FormData)) {
+      options.headers['Content-Type'] = 'application/json';
+    }
+    return fetch(url, options).then(function (response) {
+      return response.text().then(function (text) {
+        var data = {};
+        try {
+          data = text ? JSON.parse(text) : {};
+        } catch (error) {
+          data = { message: text || response.statusText };
+        }
+        if (!response.ok) {
+          throw new Error(data.message || response.statusText || '请求失败');
+        }
+        return data;
+      });
+    }).then(function (data) {
+      if (data.status && data.status !== 0) {
+        throw new Error(data.message || '请求失败');
+      }
+      return data.result || {};
+    });
+  }
+
+  function load(path) {
+    currentPath = normalizePath(path || '/');
+    currentPathEl.textContent = currentPath;
+    setMessage('加载中...');
+    requestJson('/storage_modelview/api/file/list/' + storageId + '?path=' + encodeURIComponent(currentPath))
+      .then(function (result) {
+        renderList(result.items || []);
+        setMessage('共 ' + (result.items || []).length + ' 项');
+      })
+      .catch(function (error) {
+        renderList([]);
+        setMessage(error.message || String(error), true);
+      });
+  }
+
+  function renderList(items) {
+    listBody.innerHTML = '';
+    items.forEach(function (item) {
+      var tr = document.createElement('tr');
+      var nameTd = document.createElement('td');
+      var nameLink = document.createElement('a');
+      nameLink.textContent = item.name;
+      nameLink.href = 'javascript:void(0)';
+      nameLink.onclick = function () {
+        if (item.type === 'directory') load(item.path);
+      };
+      nameTd.appendChild(nameLink);
+      tr.appendChild(nameTd);
+
+      var typeTd = document.createElement('td');
+      typeTd.textContent = item.type;
+      tr.appendChild(typeTd);
+
+      var sizeTd = document.createElement('td');
+      sizeTd.textContent = item.type === 'directory' ? '-' : formatSize(item.size);
+      tr.appendChild(sizeTd);
+
+      var modifiedTd = document.createElement('td');
+      modifiedTd.textContent = item.modified || '';
+      tr.appendChild(modifiedTd);
+
+      var actionTd = document.createElement('td');
+      if (item.type === 'file') {
+        var previewBtn = document.createElement('button');
+        previewBtn.className = 'btn btn-xs btn-default';
+        previewBtn.textContent = '预览';
+        previewBtn.onclick = function () { preview(item.path); };
+        actionTd.appendChild(previewBtn);
+
+        var downloadLink = document.createElement('a');
+        downloadLink.className = 'btn btn-xs btn-default';
+        downloadLink.style.marginLeft = '6px';
+        downloadLink.textContent = '下载';
+        downloadLink.href = '/storage_modelview/api/file/download/' + storageId + '?path=' + encodeURIComponent(item.path);
+        actionTd.appendChild(downloadLink);
+      }
+      var deleteBtn = document.createElement('button');
+      deleteBtn.className = 'btn btn-xs btn-danger';
+      deleteBtn.style.marginLeft = '6px';
+      deleteBtn.textContent = '删除';
+      deleteBtn.onclick = function () { remove(item.path); };
+      actionTd.appendChild(deleteBtn);
+      tr.appendChild(actionTd);
+      listBody.appendChild(tr);
+    });
+  }
+
+  function mkdir() {
+    var name = document.getElementById('mkdir-name').value;
+    if (!name) return setMessage('请输入目录名', true);
+    setMessage('创建目录中...');
+    requestJson('/storage_modelview/api/file/mkdir/' + storageId, {
+      method: 'POST',
+      body: JSON.stringify({ path: joinPath(currentPath, name) })
+    }).then(function () {
+      document.getElementById('mkdir-name').value = '';
+      load(currentPath);
+    }).catch(function (error) {
+      setMessage(error.message || String(error), true);
+    });
+  }
+
+  function upload() {
+    var fileInput = document.getElementById('upload-file');
+    if (!fileInput.files || !fileInput.files.length) return setMessage('请选择文件', true);
+    var data = new FormData();
+    data.append('path', currentPath);
+    data.append('file', fileInput.files[0]);
+    setMessage('上传中...');
+    requestJson('/storage_modelview/api/file/upload/' + storageId, {
+      method: 'POST',
+      body: data
+    }).then(function () {
+      fileInput.value = '';
+      load(currentPath);
+    }).catch(function (error) {
+      setMessage(error.message || String(error), true);
+    });
+  }
+
+  function remove(path) {
+    if (!window.confirm('确定删除 ' + path + ' ?')) return;
+    requestJson('/storage_modelview/api/file/delete/' + storageId, {
+      method: 'DELETE',
+      body: JSON.stringify({ path: path, recursive: false })
+    }).then(function () {
+      load(currentPath);
+    }).catch(function (error) {
+      setMessage(error.message || String(error), true);
+    });
+  }
+
+  function preview(path) {
+    requestJson('/storage_modelview/api/file/preview/' + storageId + '?path=' + encodeURIComponent(path))
+      .then(function (result) {
+        document.getElementById('preview-title').textContent = '文本预览：' + path + (result.truncated ? '（已截断）' : '');
+        document.getElementById('preview-content').textContent = result.content || '';
+        document.getElementById('preview-panel').className = 'storage-files-card';
+      }).catch(function (error) {
+        setMessage(error.message || String(error), true);
+      });
+  }
+
+  document.getElementById('btn-root').onclick = function () { load('/'); };
+  document.getElementById('btn-up').onclick = function () { load(parentPath(currentPath)); };
+  document.getElementById('btn-refresh').onclick = function () { load(currentPath); };
+  document.getElementById('btn-mkdir').onclick = mkdir;
+  document.getElementById('btn-upload').onclick = upload;
+  document.getElementById('btn-close-preview').onclick = function () {
+    document.getElementById('preview-panel').className = 'storage-files-card hidden';
+  };
+  load('/');
+}());
+</script>
+</body>
+</html>

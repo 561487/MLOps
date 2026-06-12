@@ -53,6 +53,7 @@ class Storage(Model, AuditMixinNullable, MyappModelBase):
         "config": _("配置"),
         "config_html": _("配置"),
         "mount_expr": _("挂载表达式"),
+        "files_html": _("文件"),
         "remark": _("备注"),
     }
 
@@ -78,3 +79,10 @@ class Storage(Model, AuditMixinNullable, MyappModelBase):
         pvc_name = self.pvc_name or self.name
         mount_path = self.mount_path or '/mnt/storage'
         return f'{pvc_name}(storage):{mount_path}'
+
+    @property
+    def files_html(self):
+        return Markup(
+            '<a class="btn btn-sm btn-primary" target="_blank" '
+            'href="/storage_modelview/api/files/{id}">文件</a>'.format(id=self.id)
+        )

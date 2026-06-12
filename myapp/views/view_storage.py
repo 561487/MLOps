@@ -1,8 +1,13 @@
+import base64
 import json
+import os
+import posixpath
 import re
+from datetime import datetime
+from urllib.parse import quote
 
 import yaml
-from flask import g, request
+from flask import Response, g, render_template, request
 from flask_appbuilder.baseviews import expose_api
 from flask_appbuilder.fieldwidgets import BS3TextFieldWidget, Select2ManyWidget, Select2Widget
 from flask_babel import lazy_gettext as _
@@ -69,7 +74,7 @@ class Storage_ModelView_Base():
     order_columns = ['id']
     page_size = 100
 
-    list_columns = ['name', 'storage_type_display', 'project', 'namespace', 'capacity']
+    list_columns = ['name', 'storage_type_display', 'project', 'namespace', 'capacity', 'files_html']
     show_columns = ['name', 'storage_type_display', 'project', 'namespace', 'capacity']
     add_columns = ['name', 'storage_type', 'project', 'namespace', 'capacity']
     edit_columns = add_columns
@@ -81,6 +86,7 @@ class Storage_ModelView_Base():
         "project": {"type": "ellip1", "width": 160},
         "namespace": {"type": "ellip2", "width": 220},
         "capacity": {"type": "ellip1", "width": 120},
+        "files_html": {"type": "ellip1", "width": 80},
     }
 
     spec_label_columns = {
@@ -95,6 +101,7 @@ class Storage_ModelView_Base():
         "pv_name": _("PV名称"),
         "pvc_name": _("PVC名称"),
         "mount_expr": _("挂载表达式"),
+        "files_html": _("文件"),
         "config": _("配置"),
         "config_html": _("配置"),
         "remark": _("备注"),
@@ -545,6 +552,119 @@ class Storage_ModelView_Base():
             raise Exception('storage not found')
         return storage
 
+    def _check_storage_permission(self, storage, write=False):
+        if g.user.is_admin():
+            return True
+        if user_can_access_project(g.user, storage.project):
+            return True
+        raise Exception('no permission')
+
+    def _file_manager_namespace(self, storage):
+        namespaces = self._candidate_file_manager_namespaces(storage)
+        if namespaces:
+            return namespaces[0]
+        raise Exception('namespace is required')
+
+    def _candidate_file_manager_namespaces(self, storage):
+        candidates = []
+        candidates.extend(self._namespaces(storage))
+        if storage.project:
+            for attr in ['pipeline_namespace', 'notebook_namespace', 'service_namespace']:
+                try:
+                    namespace = getattr(storage.project, attr)
+                    if namespace:
+                        candidates.append(namespace)
+                except Exception:
+                    pass
+        candidates.extend(self._split_names(default_namespaces()))
+        return list(dict.fromkeys([namespace for namespace in candidates if namespace]))
+
+    def _resolve_file_manager_pvc(self, storage, k8s_client):
+        pvc_name = storage.pvc_name or storage.name
+        if not pvc_name:
+            raise Exception('pvc_name is required')
+
+        def find_pvc():
+            pending_pvc = None
+            for namespace in self._candidate_file_manager_namespaces(storage):
+                pvc = k8s_client.get_pvc(name=pvc_name, namespace=namespace)
+                if not pvc:
+                    continue
+                if pvc.get('status') == 'Bound':
+                    return namespace, pvc
+                pending_pvc = (namespace, pvc)
+            if pending_pvc:
+                namespace, pvc = pending_pvc
+                raise Exception('PVC {} in namespace {} is {}, please wait until it is Bound'.format(
+                    pvc_name, namespace, pvc.get('status') or 'unknown'
+                ))
+            return None, None
+
+        namespace, pvc = find_pvc()
+        if namespace and pvc:
+            return namespace, pvc
+
+        if storage.storage_type in [STORAGE_TYPE_NFS, STORAGE_TYPE_MINIO_JUICEFS]:
+            self._sync_storage(storage)
+            namespace, pvc = find_pvc()
+            if namespace and pvc:
+                return namespace, pvc
+
+        raise Exception('PVC {} not found in namespaces: {}'.format(
+            pvc_name, ','.join(self._candidate_file_manager_namespaces(storage))
+        ))
+
+    def _ensure_file_manager(self, storage):
+        k8s_client = self._k8s_client(storage)
+        namespace, pvc = self._resolve_file_manager_pvc(storage, k8s_client)
+        pod = k8s_client.ensure_storage_file_manager_pod(
+            namespace=namespace,
+            storage_name=storage.name,
+            pvc_name=pvc['name'],
+            image=conf.get('STORAGE_FILE_MANAGER_IMAGE', 'busybox:1.36'),
+            mount_path='/mnt/storage',
+            timeout=int(conf.get('STORAGE_FILE_MANAGER_POD_TIMEOUT', 30)),
+        )
+        return k8s_client, pod
+
+    def _normalize_storage_path(self, value, allow_root=True):
+        value = (value or '/').strip()
+        if '\x00' in value:
+            raise Exception('invalid path')
+        parts = [part for part in value.split('/') if part]
+        if any(part == '..' for part in parts):
+            raise Exception('path traversal is not allowed')
+        if not value.startswith('/'):
+            value = '/' + value
+        normalized = posixpath.normpath(value)
+        if normalized == '.':
+            normalized = '/'
+        if normalized != '/' and normalized.endswith('/'):
+            normalized = normalized.rstrip('/')
+        if normalized == '/' and not allow_root:
+            raise Exception('root path is not allowed')
+        return normalized
+
+    def _pod_path(self, storage_path):
+        storage_path = self._normalize_storage_path(storage_path)
+        if storage_path == '/':
+            return '/mnt/storage'
+        return '/mnt/storage{}'.format(storage_path)
+
+    def _sh_quote(self, value):
+        return "'{}'".format((value or '').replace("'", "'\\''"))
+
+    def _format_mtime(self, value):
+        try:
+            return datetime.fromtimestamp(int(float(value))).strftime('%Y-%m-%d %H:%M:%S')
+        except Exception:
+            return ''
+
+    def _file_operation_context(self, storage_id, write=False):
+        storage = self._get_item(storage_id)
+        self._check_storage_permission(storage, write=write)
+        return storage, self._ensure_file_manager(storage)
+
     def _project_from_args(self):
         project_id = request.args.get('project_id') or request.args.get('project')
         project_name = request.args.get('project_name') or request.args.get('project')
@@ -711,6 +831,167 @@ class Storage_ModelView_Base():
             return self.response(200, status=0, message='success', result={
                 "project": project.name if project else '',
                 "volumes": volumes,
+            })
+        except Exception as e:
+            return self.response_error(500, message=str(e))
+
+    @expose_api(description="存储资源文件管理页面", url="/files/<storage_id>", methods=["GET"])
+    def files(self, storage_id):
+        try:
+            storage = self._get_item(storage_id)
+            self._check_storage_permission(storage)
+            return render_template(
+                'storage_files.html',
+                storage=storage,
+                namespace=self._file_manager_namespace(storage),
+            )
+        except Exception as e:
+            return self.response_error(500, message=str(e))
+
+    @expose_api(description="存储资源文件列表", url="/file/list/<storage_id>", methods=["GET"])
+    def file_list(self, storage_id):
+        try:
+            storage_path = self._normalize_storage_path(request.args.get('path') or '/')
+            _, (k8s_client, pod) = self._file_operation_context(storage_id)
+            pod_path = self._pod_path(storage_path)
+            command = """
+                set -e
+                target={target}
+                [ -d "$target" ] || exit 2
+                for item in "$target"/* "$target"/.[!.]* "$target"/..?*; do
+                    [ -e "$item" ] || continue
+                    name="$(basename "$item")"
+                    if [ -L "$item" ]; then type="symlink";
+                    elif [ -d "$item" ]; then type="directory";
+                    elif [ -f "$item" ]; then type="file";
+                    else type="other"; fi
+                    size="$(stat -c '%s' "$item" 2>/dev/null || echo 0)"
+                    mtime="$(stat -c '%Y' "$item" 2>/dev/null || echo 0)"
+                    printf '%s\\t%s\\t%s\\t%s\\n' "$type" "$size" "$mtime" "$name"
+                done
+            """.format(target=self._sh_quote(pod_path))
+            output = k8s_client.exec_pod(pod['name'], pod['namespace'], command)
+            items = []
+            for line in (output or '').splitlines():
+                parts = line.split('\t', 3)
+                if len(parts) != 4:
+                    continue
+                item_type, size, mtime, name = parts
+                item_path = posixpath.join(storage_path, name)
+                if not item_path.startswith('/'):
+                    item_path = '/' + item_path
+                items.append({
+                    "name": name,
+                    "path": item_path,
+                    "type": item_type,
+                    "size": int(size) if str(size).isdigit() else 0,
+                    "modified": self._format_mtime(mtime),
+                })
+            items.sort(key=lambda item: (item['type'] != 'directory', item['name'].lower()))
+            return self.response(200, status=0, message='success', result={
+                "path": storage_path,
+                "namespace": pod['namespace'],
+                "pod": pod['name'],
+                "items": items,
+            })
+        except Exception as e:
+            return self.response_error(500, message=str(e))
+
+    @expose_api(description="存储资源创建目录", url="/file/mkdir/<storage_id>", methods=["POST"])
+    def file_mkdir(self, storage_id):
+        try:
+            req_json = request.get_json(silent=True) or {}
+            storage_path = self._normalize_storage_path(req_json.get('path') or '/', allow_root=False)
+            _, (k8s_client, pod) = self._file_operation_context(storage_id, write=True)
+            pod_path = self._pod_path(storage_path)
+            command = "mkdir -p -- {}".format(self._sh_quote(pod_path))
+            k8s_client.exec_pod(pod['name'], pod['namespace'], command)
+            return self.response(200, status=0, message='success', result={"path": storage_path})
+        except Exception as e:
+            return self.response_error(500, message=str(e))
+
+    @expose_api(description="存储资源上传文件", url="/file/upload/<storage_id>", methods=["POST"])
+    def file_upload(self, storage_id):
+        try:
+            target_dir = self._normalize_storage_path(request.form.get('path') or '/')
+            upload_file = request.files.get('file')
+            if not upload_file:
+                raise Exception('file is required')
+            filename = os.path.basename(upload_file.filename or '').strip()
+            if not filename or filename in ['.', '..'] or '/' in filename or '\\' in filename:
+                raise Exception('invalid filename')
+            if len(filename) > 255:
+                raise Exception('filename is too long')
+            max_size = int(conf.get('STORAGE_FILE_UPLOAD_MAX_SIZE', 200 * 1024 * 1024))
+            data = upload_file.read(max_size + 1)
+            if len(data) > max_size:
+                raise Exception('file is too large')
+            _, (k8s_client, pod) = self._file_operation_context(storage_id, write=True)
+            pod_dir = self._pod_path(target_dir)
+            check_command = '[ -d {target} ] && [ ! -L {target} ]'.format(target=self._sh_quote(pod_dir))
+            k8s_client.exec_pod(pod['name'], pod['namespace'], check_command)
+            target_path = posixpath.join(pod_dir, filename)
+            k8s_client.upload_to_pod(pod['name'], pod['namespace'], data, target_path)
+            return self.response(200, status=0, message='success', result={
+                "path": posixpath.join(target_dir, filename),
+                "size": len(data),
+            })
+        except Exception as e:
+            return self.response_error(500, message=str(e))
+
+    @expose_api(description="存储资源下载文件", url="/file/download/<storage_id>", methods=["GET"])
+    def file_download(self, storage_id):
+        try:
+            storage_path = self._normalize_storage_path(request.args.get('path') or '', allow_root=False)
+            _, (k8s_client, pod) = self._file_operation_context(storage_id)
+            pod_path = self._pod_path(storage_path)
+            check_command = '[ -f {target} ] && [ ! -L {target} ]'.format(target=self._sh_quote(pod_path))
+            k8s_client.exec_pod(pod['name'], pod['namespace'], check_command)
+            data = k8s_client.download_from_pod(pod['name'], pod['namespace'], pod_path)
+            filename = os.path.basename(storage_path)
+            response = Response(data, content_type='application/octet-stream')
+            response.headers['Content-Disposition'] = "attachment; filename*=UTF-8''{}".format(quote(filename))
+            return response
+        except Exception as e:
+            return self.response_error(500, message=str(e))
+
+    @expose_api(description="存储资源删除文件", url="/file/delete/<storage_id>", methods=["DELETE"])
+    def file_delete(self, storage_id):
+        try:
+            req_json = request.get_json(silent=True) or {}
+            storage_path = self._normalize_storage_path(req_json.get('path') or '', allow_root=False)
+            recursive = bool(req_json.get('recursive'))
+            _, (k8s_client, pod) = self._file_operation_context(storage_id, write=True)
+            pod_path = self._pod_path(storage_path)
+            if recursive:
+                command = "rm -rf -- {}".format(self._sh_quote(pod_path))
+            else:
+                command = "if [ -d {target} ] && [ ! -L {target} ]; then rmdir -- {target}; else rm -f -- {target}; fi".format(
+                    target=self._sh_quote(pod_path)
+                )
+            k8s_client.exec_pod(pod['name'], pod['namespace'], command)
+            return self.response(200, status=0, message='success', result={"path": storage_path})
+        except Exception as e:
+            return self.response_error(500, message=str(e))
+
+    @expose_api(description="存储资源文本预览", url="/file/preview/<storage_id>", methods=["GET"])
+    def file_preview(self, storage_id):
+        try:
+            storage_path = self._normalize_storage_path(request.args.get('path') or '', allow_root=False)
+            limit = min(int(request.args.get('limit') or 20000), 100000)
+            _, (k8s_client, pod) = self._file_operation_context(storage_id)
+            pod_path = self._pod_path(storage_path)
+            check_command = '[ -f {target} ] && [ ! -L {target} ]'.format(target=self._sh_quote(pod_path))
+            k8s_client.exec_pod(pod['name'], pod['namespace'], check_command)
+            command = "head -c {} {} | base64".format(limit + 1, self._sh_quote(pod_path))
+            output = k8s_client.exec_pod(pod['name'], pod['namespace'], command)
+            data = base64.b64decode(''.join((output or '').split()))
+            truncated = len(data) > limit
+            content = data[:limit].decode('utf-8', errors='replace')
+            return self.response(200, status=0, message='success', result={
+                "path": storage_path,
+                "content": content,
+                "truncated": truncated,
             })
         except Exception as e:
             return self.response_error(500, message=str(e))
