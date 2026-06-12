@@ -60,7 +60,7 @@ export default function TreePlus(props: IProps) {
 	}, [relationDiagram]);
 
 	const refreshDagNodes = (backurl: string) => {
-		axios.get(backurl).then(dagRes => {
+		getNodeRelationCommon(backurl).then(dagRes => {
 			const dag = dagRes.data.result.dag || []
 			const rd = relationDiagramRef.current
 			if (dag.length && rd) {
@@ -91,7 +91,7 @@ export default function TreePlus(props: IProps) {
 	const refreshDagAndLayout = () => {
 		const backurl = getParam('backurl') || ''
 		if (backurl) {
-			axios.get(backurl).then(res => {
+			getNodeRelationCommon(backurl).then(res => {
 				const dag = res.data.result.dag || []
 				const layout = res.data.result.layout || {}
 				const rd = relationDiagramRef.current

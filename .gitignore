@@ -45,3 +45,4 @@ venv/
 .cursorignore
 /myapp/static/appbuilder/vison/
 /myapp/static/appbuilder/visonPlus/
+/myapp/static/appbuilder/frontend/
