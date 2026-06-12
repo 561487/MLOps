@@ -22,5 +22,6 @@ export interface IPipelineEdit {
   parallelism?: number;
   dag_json?: string;
   global_env?: string;
+  volume_mount?: string;
   expand: string;
 }

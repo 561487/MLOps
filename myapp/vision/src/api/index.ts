@@ -48,6 +48,10 @@ const pipeline_modelview_detail = (pipelineId: number | string): Promise<any> =>
   return ajax.get(`/pipeline_modelview/api/${pipelineId}`);
 };
 
+const pipeline_modelview_info = (pipelineId: number | string): Promise<any> => {
+  return ajax.get(`/pipeline_modelview/api/_info?id=${pipelineId}`);
+};
+
 // 删除指定流水线
 const pipeline_modelview_delete = (pipelineId: number | string): Promise<any> => {
   return ajax.delete(`/pipeline_modelview/api/${pipelineId}`);
@@ -133,6 +137,7 @@ const api = {
   pipeline_modelview_list,
   pipeline_modelview_all,
   pipeline_modelview_detail,
+  pipeline_modelview_info,
   pipeline_modelview_delete,
   pipeline_modelview_edit,
   pipeline_modelview_run,

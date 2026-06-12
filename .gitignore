@@ -43,3 +43,5 @@ venv/
 .cursor/
 /install/docker/data-dev/
 .cursorignore
+/myapp/static/appbuilder/vison/
+/myapp/static/appbuilder/visonPlus/
