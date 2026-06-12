@@ -591,21 +591,30 @@ class Workflow_ModelView_Base():
                         collect_existing(n.get('children', []))
                 collect_existing(dag_config)
 
-                # 找到第一个有子节点的 DAG 节点，将占位节点加在其中
-                parent_node = None
-                def find_parent(nodes_list):
-                    for n in nodes_list:
-                        if 'children' in n:
-                            return n
-                        res = find_parent(n.get('children', []))
-                        if res:
-                            return res
-                    return None
-                parent_node = find_parent(dag_config)
+                # 获取按上下游排序的任务列表，确保占位节点按正确顺序插入
+                sorted_tasks = pipeline.sort(all_tasks)
 
-                # 按 pipeline 顺序添加缺失的任务到父节点的 children 中
-                target_list = parent_node['children'] if parent_node else dag_config
-                for task in all_tasks:
+                # 在 DAG 树中按排序顺序找到最后一个真实节点的位置
+                last_real_node = None
+                def find_node_by_task_name(nodes_list, name):
+                    for n in nodes_list:
+                        if n.get('task_name') == name:
+                            return n
+                        found = find_node_by_task_name(n.get('children', []), name)
+                        if found:
+                            return found
+                    return None
+
+                for task in sorted_tasks:
+                    if str(task.id) in existing_task_ids or task.name in existing_task_names:
+                        found = find_node_by_task_name(dag_config, task.name)
+                        if found:
+                            last_real_node = found
+
+                # 从最后一个真实节点开始，按拓扑顺序链式插入占位节点
+                target_list = last_real_node['children'] if last_real_node else dag_config
+                parent_node = last_real_node
+                for task in sorted_tasks:
                     if str(task.id) not in existing_task_ids and task.name not in existing_task_names:
                         placeholder = {
                             "node_type": "Pod",
@@ -639,6 +648,9 @@ class Workflow_ModelView_Base():
                             "children": []
                         }
                         target_list.append(placeholder)
+                        # 链式追加：当前占位节点成为下一个占位节点的父容器
+                        target_list = placeholder['children']
+                        parent_node = placeholder
 
         return layout_config, dag_config, self.node_detail_config, workflow_obj
 
