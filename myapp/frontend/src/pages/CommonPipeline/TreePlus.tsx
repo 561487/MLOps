@@ -59,6 +59,17 @@ export default function TreePlus(props: IProps) {
 
 	}, [relationDiagram]);
 
+	const refreshDagNodes = (backurl: string) => {
+		axios.get(backurl).then(dagRes => {
+			const dag = dagRes.data.result.dag || []
+			const rd = relationDiagramRef.current
+			if (dag.length && rd) {
+				treeDataRef.current = dag
+				rd.updateNodes(dag)
+			}
+		})
+	}
+
 	const handleClickNode = (node: any) => {
 		// console.log(node)
 		const currentNode = relationDiagram && relationDiagram.dataMap && relationDiagram.dataMap.get(node.key)
@@ -75,6 +86,22 @@ export default function TreePlus(props: IProps) {
 		}).catch(() => {
 			setLoadingDetail(false)
 		})
+	}
+
+	const refreshDagAndLayout = () => {
+		const backurl = getParam('backurl') || ''
+		if (backurl) {
+			axios.get(backurl).then(res => {
+				const dag = res.data.result.dag || []
+				const layout = res.data.result.layout || {}
+				const rd = relationDiagramRef.current
+				if (dag.length && rd) {
+					treeDataRef.current = dag
+					rd.updateNodes(dag)
+				}
+				setLayoutConfig(layout)
+			})
+		}
 	}
 
 	const fetchBloodRelationData = (url: string) => {
