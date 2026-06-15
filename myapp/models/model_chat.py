@@ -50,7 +50,8 @@ class Chat(Model,MyappModelBase):
             service_type=self.service_type,
             service_config=self.service_config,
             owner=self.owner,
-            expand=self.expand)
+            expand=self.expand
+        )
 
 class ChatLog(Model,MyappModelBase):
     __tablename__ = 'chat_log'

@@ -10,340 +10,7 @@
 	<title>智能小助手</title>
   <script type="module" crossorigin src="/frontend/distChat/assets/index-34463448.js"></script>
   <link rel="stylesheet" href="/frontend/distChat/assets/index-136239be.css">
-<link rel="manifest" href="/frontend/distChat/manifest.webmanifest"><script id="vite-plugin-pwa:register-sw" src="/frontend/distChat/registerSW.js"></script>
-<style>
-  /* 分组标题样式 */
-  .scene-group-header {
-    font-size: 12px;
-    color: #999;
-    padding: 12px 16px 4px;
-    font-weight: 600;
-    letter-spacing: 1px;
-    width: 100%;
-    text-align: left;
-    border-top: 1px solid #eee;
-    margin-top: 8px;
-  }
-  .scene-group-header:first-of-type {
-    border-top: none;
-    margin-top: 0;
-  }
-  .dark .scene-group-header {
-    color: #666;
-    border-top-color: #333;
-  }
-</style>
-<script>
-// ========== 知识库点击跳转外部链接 ==========
-document.addEventListener('click', function(e) {
-  for (var target = e.target; target && target !== document.body; target = target.parentElement) {
-    if (target.textContent && target.textContent.trim() === '\u77E5\u8BC6\u5E93') {
-      e.preventDefault();
-      e.stopPropagation();
-      window.open('https://10.121.177.20:2443/', '_blank');
-      return false;
-    }
-  }
-}, true);
-
-// ========== 模型设置按钮点击跳转（根据 data-aihub 属性区分目标） ==========
-document.addEventListener('click', function(e) {
-  for (var target = e.target; target && target !== document.body; target = target.parentElement) {
-    if (target.textContent && target.textContent.trim() === '\u6A21\u578B\u8BBE\u7F6E') {
-      e.preventDefault();
-      e.stopPropagation();
-      // 向上查找 data-aihub 属性（可能在父元素上）
-      var check = target;
-      var isAihub = false;
-      while (check && check !== document.body) {
-        if (check.hasAttribute && check.hasAttribute('data-aihub')) {
-          isAihub = true;
-          break;
-        }
-        check = check.parentElement;
-      }
-      if (isAihub) {
-        window.top.location.href = '/frontend/ai_hub/other/chat?hideSidebar=1';
-      } else {
-        window.top.location.href = '/frontend/ai_assistant/model_config';
-      }
-      return false;
-    }
-  }
-}, true);
-
-// ========== 隐藏模型设置按钮的+号和刷新按钮 ==========
-(function() {
-  var buttonsHidden = false;
-
-  function hideToolbarButtons() {
-    if (buttonsHidden) return;
-    
-    // 1. 先隐藏所有刷新按钮（通过 SVG 特征识别）
-    var allSvgs = document.querySelectorAll('svg');
-    for (var i = 0; i < allSvgs.length; i++) {
-      var svg = allSvgs[i];
-      if (svg.offsetParent === null) continue;
-      var html = svg.outerHTML;
-      // 检查是否是刷新图标（包含刷新路径特征）
-      if (html.indexOf('688 766.272') !== -1 || html.indexOf('p-id="12981"') !== -1 || html.indexOf('1684921152178') !== -1) {
-        var btn = svg.closest('button');
-        if (btn) {
-          btn.style.display = 'none';
-        } else {
-          var parent = svg.parentElement;
-          while (parent && parent !== document.body) {
-            if (parent.tagName === 'BUTTON' || parent.onclick) {
-              parent.style.display = 'none';
-              break;
-            }
-            parent = parent.parentElement;
-          }
-        }
-      }
-    }
-    
-    // 2. 查找包含"模型设置"文字的可见按钮
-    var allBtns = document.querySelectorAll('button');
-    var found = false;
-    
-    for (var i = 0; i < allBtns.length; i++) {
-      var btn = allBtns[i];
-      if (btn.offsetParent === null) continue;
-      if ((btn.textContent || '').indexOf('\u6A21\u578B\u8BBE\u7F6E') !== -1) {
-        found = true;
-        // 隐藏此按钮内的图标元素（+号）
-        var icons = btn.querySelectorAll('.n-button__icon, svg, i, [class*="icon"], [class*="Icon"]');
-        for (var j = 0; j < icons.length; j++) {
-          icons[j].style.display = 'none';
-        }
-        
-        // 找父容器，隐藏同级的其他按钮
-        var p = btn.parentElement;
-        var depth = 0;
-        while (p && p !== document.body && depth < 10) {
-          depth++;
-          for (var j = 0; j < p.children.length; j++) {
-            var child = p.children[j];
-            if (child === btn) continue;
-            if (child.tagName === 'BUTTON') {
-              child.style.display = 'none';
-            }
-          }
-          p = p.parentElement;
-        }
-      }
-    }
-    
-    if (found) {
-      buttonsHidden = true;
-    }
-  }
-
-  // 使用 MutationObserver 监听 DOM 变化
-  var observer = new MutationObserver(function(mutations) {
-    hideToolbarButtons();
-  });
-
-  // 立即执行一次
-  hideToolbarButtons();
-
-  // 轮询执行（更频繁）
-  var tries = 0;
-  var timer = setInterval(function() {
-    tries++;
-    hideToolbarButtons();
-    if (tries > 50 || buttonsHidden) {
-      clearInterval(timer);
-      if (buttonsHidden) observer.disconnect();
-    }
-  }, 200);
-
-  // 开始监听整个 body 的变化
-  if (document.body) {
-    observer.observe(document.body, {
-      childList: true,
-      subtree: true
-    });
-  } else {
-    document.addEventListener('DOMContentLoaded', function() {
-      observer.observe(document.body, {
-        childList: true,
-        subtree: true
-      });
-    });
-  }
-})();
-
-// ========== 将"创建会话场景"按钮文本改为"模型设置" ==========
-(function() {
-  var done = false;
-  function rename() {
-    if (done) return;
-    var all = document.querySelectorAll('body *');
-    for (var i = 0; i < all.length; i++) {
-      var el = all[i];
-      if (el.offsetParent === null) continue;
-      var txt = (el.textContent || '').trim();
-      if (txt === '\u521B\u5EFA\u4F1A\u8BDD\u573A\u666F' && !el.children.length) {
-        // 找到最精确的叶子节点
-        el.textContent = '\u6A21\u578B\u8BBE\u7F6E';
-        // 向上找最近的按钮/可点击元素，标记 data-aihub
-        var p = el;
-        while (p && p !== document.body) {
-          if (p.tagName === 'BUTTON' || p.tagName === 'A' || p.getAttribute('role') === 'button') {
-            p.setAttribute('data-aihub', '1');
-            done = true;
-            return;
-          }
-          p = p.parentElement;
-        }
-        // 如果没找到按钮父级，标记文本元素本身
-        el.setAttribute('data-aihub', '1');
-        done = true;
-        return;
-      }
-    }
-  }
-  rename();
-  var tries = 0;
-  var timer = setInterval(function() {
-    tries++;
-    rename();
-    if (done || tries > 50) clearInterval(timer);
-  }, 200);
-})();
-  
-  // ========== 场景分组标题（立即执行版） ==========
-(function() {
-  // 场景名称 → 所属分组
-  var GROUP_OF = {
-    'deepseek': '\u667A\u80FD\u5BF9\u8BDD', 'qwen3': '\u667A\u80FD\u5BF9\u8BDD', 'chatglm4': '\u667A\u80FD\u5BF9\u8BDD', '\u6587\u751F\u56FE': '\u667A\u80FD\u5BF9\u8BDD',
-    'Wechat': '\u673A\u5668\u4EBA', '\u4F01\u4E1A\u5FAE\u4FE1': '\u673A\u5668\u4EBA', '\u9489\u9489': '\u673A\u5668\u4EBA',
-    '\u77E5\u8BC6\u5E93': '\u77E5\u8BC6\u5E93'
-  };
-  // 分组显示顺序
-  var ORDER = ['\u667A\u80FD\u5BF9\u8BDD', '\u673A\u5668\u4EBA', '\u77E5\u8BC6\u5E93'];
-  // 分组标题 CSS 类名
-  var HEADER_CLASS = 'scene-group-header';
-  // 场景项候选选择器
-  var ITEM_SELECTORS = 'a, button, [class*="card"], [class*="item"], [class*="Card"], [class*="Item"], li';
-  var done = false;
-
-  function doGroup() {
-    if (done) return;
-    // 1. 找到场景列表的容器：查找第一个包含场景名的可见父容器
-    var sceneNames = Object.keys(GROUP_OF);
-    var container = null;
-    
-    // 找 sidebar / 列表容器
-    var allElements = document.querySelectorAll('body *');
-    for (var i = 0; i < allElements.length; i++) {
-      var el = allElements[i];
-      if (el.offsetParent === null) continue;
-      var text = (el.textContent || '').trim();
-      // 如果一个容器包含了至少 3 个场景名（作为直接或间接子文本），很可能是列表容器
-      var matchCount = 0;
-      for (var s = 0; s < sceneNames.length; s++) {
-        if (text.indexOf(sceneNames[s]) !== -1) matchCount++;
-      }
-      if (matchCount >= 5) {  // 包含至少5个场景名
-        container = el;
-        break;
-      }
-    }
-    if (!container) return;
-
-    // 2. 在容器内为每个分组找到所有场景项
-    var groupFirstItem = {};
-    var groupItems = {};
-    for (var gn in ORDER) { groupItems[ORDER[gn]] = []; }
-    var items = container.querySelectorAll(ITEM_SELECTORS);
-    for (var i = 0; i < items.length; i++) {
-      var item = items[i];
-      if (item.offsetParent === null) continue;
-      var itemText = (item.textContent || '').trim();
-      for (var name in GROUP_OF) {
-        if (itemText.indexOf(name) !== -1) {
-          var grp = GROUP_OF[name];
-          if (!groupFirstItem[grp]) {
-            groupFirstItem[grp] = item;
-          }
-          if (groupItems[grp]) {
-            groupItems[grp].push(item);
-          }
-          break;
-        }
-      }
-    }
-
-    // 3. 确认至少找到 2 组
-    var foundGroups = Object.keys(groupFirstItem);
-    if (foundGroups.length < 2) return;
-
-    // 4. 将知识库分组的所有项移到各自父容器的底部
-    var kbItems = groupItems['知识库'] || [];
-    for (var ki = kbItems.length - 1; ki >= 0; ki--) {
-      var kbItem = kbItems[ki];
-      var parent = kbItem.parentElement;
-      if (parent) {
-        parent.appendChild(kbItem);
-      }
-    }
-
-    // 5. 按 ORDER 顺序插入分组标题
-    for (var g = 0; g < ORDER.length; g++) {
-      var gn = ORDER[g];
-      var firstItem = groupFirstItem[gn];
-      if (!firstItem) continue;
-      // 检查是否已有标题
-      var prev = firstItem.previousElementSibling;
-      if (prev && prev.classList.contains(HEADER_CLASS)) continue;
-      // 创建标题元素
-      var h = document.createElement('div');
-      h.className = HEADER_CLASS;
-      h.textContent = gn;
-      (firstItem.parentElement || container).insertBefore(h, firstItem);
-    }
-    done = true;
-  }
-
-  // 使用 MutationObserver 监听 DOM 变化
-  var observer = new MutationObserver(function(mutations) {
-    doGroup();
-  });
-
-  // 立即执行一次
-  doGroup();
-
-  // 轮询执行（更频繁）
-  var tries = 0;
-  var timer = setInterval(function() {
-    tries++;
-    doGroup();
-    if (done || tries > 50) {
-      clearInterval(timer);
-      if (done) observer.disconnect();
-    }
-  }, 200);
-
-  // 开始监听整个 body 的变化
-  if (document.body) {
-    observer.observe(document.body, {
-      childList: true,
-      subtree: true
-    });
-  } else {
-    document.addEventListener('DOMContentLoaded', function() {
-      observer.observe(document.body, {
-        childList: true,
-        subtree: true
-      });
-    });
-  }
-})();
-
-</script></head>
+<link rel="manifest" href="/frontend/distChat/manifest.webmanifest"><script id="vite-plugin-pwa:register-sw" src="/frontend/distChat/registerSW.js"></script></head>
 
 <body class="dark:bg-black">
 	<div id="app">
@@ -354,6 +21,7 @@ document.addEventListener('click', function(e) {
 				align-items: center;
 				height: 100vh;
 			}
+
 			.balls {
 				width: 4em;
 				display: flex;
@@ -361,29 +29,46 @@ document.addEventListener('click', function(e) {
 				align-items: center;
 				justify-content: space-between;
 			}
+
 			.balls div {
 				width: 0.8em;
 				height: 0.8em;
 				border-radius: 50%;
 				background-color: #1672fa;
 			}
+
 			.balls div:nth-of-type(1) {
 				transform: translateX(-100%);
 				animation: left-swing 0.5s ease-in alternate infinite;
 			}
+
 			.balls div:nth-of-type(3) {
 				transform: translateX(-95%);
 				animation: right-swing 0.5s ease-out alternate infinite;
 			}
+
 			@keyframes left-swing {
-				50%, 100% { transform: translateX(95%); }
+
+				50%,
+				100% {
+					transform: translateX(95%);
+				}
 			}
+
 			@keyframes right-swing {
-				50% { transform: translateX(-95%); }
-				100% { transform: translateX(100%); }
+				50% {
+					transform: translateX(-95%);
+				}
+
+				100% {
+					transform: translateX(100%);
+				}
 			}
+
 			@media (prefers-color-scheme: dark) {
-				body { background: #121212; }
+				body {
+					background: #121212;
+				}
 			}
 		</style>
 		<div class="loading-wrap">
@@ -394,6 +79,7 @@ document.addEventListener('click', function(e) {
 			</div>
 		</div>
 	</div>
+	
 </body>
-</html>
 
+</html>

@@ -170,7 +170,7 @@
     "doc": "https://prompthero.com/openjourney-prompts",
     "session_num": 0,
     "chat_type": "text",
-    "hello": "",
+    "hello": "图片描述，仅支持英文，<a target=\"_blank\" href=\"https://prompthero.com/openjourney-prompts\">提示词参考</a>",
     "tips": "portrait photograph of Madison Beer as Pocahontas, young beautiful native american woman, perfect symmetrical face, feather jewelry, traditional handmade dress, armed female hunter warrior, (((wild west))) environment, Utah landscape, ultra realistic, concept art, elegant, ((intricate)), ((highly detailed)), depth of field, ((professionally color graded)), 8k, art by artgerm and greg rutkowski and alphonse mucha\njapanese style shrine on top of a misty mountain overgrown, hyper realistic, lush gnarly plants, 8 k, denoised, by greg rutkowski, tom bagshaw, james gurney cinematic lighting ",
     "knowledge": {
     },
