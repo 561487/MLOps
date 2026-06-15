@@ -402,7 +402,7 @@ class Total_Resource_ModelView_Api(MyappFormRestApi):
             "gpu_used": sum([pod_resource_metric[x].get('gpu',0) for x in pod_resource_metric]),
         }
 
-        resource_options = open('myapp/utils/echart/resource.txt').read()
+        resource_options = open('utils/echart/resource.txt').read()
         chat1 = copy.deepcopy(resource_options)
         chat1 = chat1.replace('MEM_NAME', __('内存总量(G)')).replace('MEM_CENTER_X', '7%').replace('MEM_VALUE', str(round(float(all_resource['mem_all']))))
         chat1 = chat1.replace('CPU_NAME', __('CPU总量(核)')).replace('CPU_CENTER_X', '17%').replace('CPU_VALUE', str(round(float(all_resource['cpu_all']))))

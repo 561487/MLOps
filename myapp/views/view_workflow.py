@@ -781,10 +781,10 @@ class Workflow_ModelView_Base():
             },
         ]
         if not metric_content:
-            echart_demos_file = os.listdir('myapp/utils/echart/')
+            echart_demos_file = os.listdir('utils/echart/')
             for file in echart_demos_file:
                 # print(file)
-                file_path = os.path.join('myapp/utils/echart/',file)
+                file_path = os.path.join('utils/echart/',file)
                 can = ['area-stack.json', 'rose.json', 'mix-line-bar.json', 'pie-nest.json', 'bar-stack.json',
                        'candlestick-simple.json', 'graph-simple.json', 'tree-polyline.json', 'sankey-simple.json',
                        'radar.json', 'sunburst-visualMap.json', 'parallel-aqi.json', 'funnel.json',
