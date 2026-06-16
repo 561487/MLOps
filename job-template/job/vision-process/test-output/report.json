@@ -1,0 +1,21 @@
+{
+  "summary": {
+    "deal_type": "augmentation",
+    "input_path": "picture.jpg",
+    "output_path": "test-output",
+    "images_path": "test-output/images",
+    "total": 1,
+    "success": 1,
+    "failed": 0,
+    "failed_items": []
+  },
+  "items": [
+    {
+      "input_path": "picture.jpg",
+      "relative_path": "picture.jpg",
+      "status": "success",
+      "output_path": "test-output/images/picture_aug1.jpg",
+      "output_count": 3
+    }
+  ]
+}
