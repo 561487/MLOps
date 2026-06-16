@@ -395,6 +395,9 @@ def deal_event(event, workflow_info, namespace):
                 back_object['username'] = back_object['labels']['pipeline-username']
             workflow = save_workflow(back_object, dbsession)
             if workflow:
+                if workflow.status == 'Suspended':
+                    continue  # Suspended 状态不推送告警、不采集监控
+                
                 has_push = check_has_push(back_object, dbsession)
                 if not has_push:
                     try:

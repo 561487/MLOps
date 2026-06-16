@@ -182,27 +182,27 @@ def init():
                     print(e)
                     db.session.rollback()
             else:
-                pass
-                # try:
-                #     job_template.name = job_template_name.replace('_', '-')
-                #     job_template.describe = job_template_describe
-                #     job_template.entrypoint = job_template_command
-                #     job_template.volume_mount = job_template_volume
-                #     job_template.accounts = job_template_account
-                #     job_template_expand['source'] = "github"
-                #     job_template.expand = json.dumps(job_template_expand, indent=4, ensure_ascii=False) if job_template_expand else '{}'
-                #     job_template.created_by_fk = 1
-                #     job_template.changed_by_fk = 1
-                #     job_template.project_id = project.id
-                #     job_template.images_id = images.id
-                #     job_template.version = 'Release'
-                #     job_template.env = job_template_env
-                #     job_template.args = json.dumps(job_template_args, indent=4, ensure_ascii=False) if job_template_args else '{}'
-                #     db.session.commit()
-                #     print('update job_template %s' % job_template_name.replace('_', '-'))
-                # except Exception as e:
-                #     print(e)
-                #     db.session.rollback()
+                try:
+                    job_template.name = job_template_name.replace('_', '-')
+                    job_template.describe = job_template_describe
+                    job_template.entrypoint = job_template_command
+                    job_template.volume_mount = job_template_volume
+                    job_template.accounts = job_template_account
+                    job_template_expand = job_template_expand or {}
+                    job_template_expand['source'] = "github"
+                    job_template.expand = json.dumps(job_template_expand, indent=4, ensure_ascii=False) if job_template_expand else '{}'
+                    job_template.created_by_fk = 1
+                    job_template.changed_by_fk = 1
+                    job_template.project_id = project.id
+                    job_template.images_id = images.id
+                    job_template.version = kwargs.get('job_template_version', 'Release')
+                    job_template.env = job_template_env
+                    job_template.args = json.dumps(job_template_args, indent=4, ensure_ascii=False) if job_template_args else '{}'
+                    db.session.commit()
+                    print('update job_template %s' % job_template_name.replace('_', '-'))
+                except Exception as e:
+                    print(e)
+                    db.session.rollback()
 
     # 初始化创建仓库镜像模板任务流
     try:

@@ -71,8 +71,8 @@ status_color = {
 class Workflow_ModelView_Base():
     label_title = _('运行实例')
     datamodel = SQLAInterface(Workflow)
-    list_columns = ['project', 'pipeline_url', 'cluster', 'create_time', 'change_time', 'elapsed_time', 'final_status', 'status', 'username', 'log', 'stop']
-    fixed_columns = ['log', 'stop']
+    list_columns = ['project', 'pipeline_url', 'cluster', 'create_time', 'change_time', 'elapsed_time', 'final_status', 'status', 'username', 'log', 'stop', 'suspend', 'resume']
+    fixed_columns = ['log', 'stop', 'suspend', 'resume']
     search_columns = ['status', 'labels', 'name', 'cluster', 'annotations', 'spec', 'status_more', 'username', 'create_time']
     cols_width = {
         "project": {"type": "ellip2", "width": 120},
@@ -183,6 +183,55 @@ class Workflow_ModelView_Base():
             flash(__('no permission'), 'warning')
         return redirect(request.referrer)
 
+    @event_logger.log_this
+    @expose_api(description="暂停workflow",url="/suspend/<crd_id>")
+    def suspend(self, crd_id):
+        workflow = db.session.query(self.datamodel.obj).filter_by(id=crd_id).first()
+        if not workflow:
+            flash(__('workflow不存在'), 'warning')
+            return redirect(request.referrer)
+        if workflow.username != g.user.username and not g.user.is_admin():
+            flash(__('no permission'), 'warning')
+            return redirect(request.referrer)
+        try:
+            k8s_client = py_k8s.K8s(workflow.pipeline.project.cluster.get('KUBECONFIG', ''))
+            success = k8s_client.suspend_workflow(namespace=workflow.namespace, workflow_name=workflow.name)
+            if success:
+                workflow.status = 'Suspended'
+                workflow.change_time = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                db.session.commit()
+                flash(__('workflow已暂停'), 'success')
+            else:
+                flash(__('暂停失败，请检查workflow状态'), 'warning')
+        except Exception as e:
+            traceback.print_exc()
+            flash(__('暂停异常: %s' % str(e)), 'warning')
+        return redirect(request.referrer)
+
+    @event_logger.log_this
+    @expose_api(description="恢复workflow",url="/resume/<crd_id>")
+    def resume(self, crd_id):
+        workflow = db.session.query(self.datamodel.obj).filter_by(id=crd_id).first()
+        if not workflow:
+            flash(__('workflow不存在'), 'warning')
+            return redirect(request.referrer)
+        if workflow.username != g.user.username and not g.user.is_admin():
+            flash(__('no permission'), 'warning')
+            return redirect(request.referrer)
+        try:
+            k8s_client = py_k8s.K8s(workflow.pipeline.project.cluster.get('KUBECONFIG', ''))
+            success = k8s_client.resume_workflow(namespace=workflow.namespace, workflow_name=workflow.name)
+            if success:
+                workflow.status = 'Running'
+                workflow.change_time = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                db.session.commit()
+                flash(__('workflow已恢复'), 'success')
+            else:
+                flash(__('恢复失败，请检查workflow状态'), 'warning')
+        except Exception as e:
+            traceback.print_exc()
+            flash(__('恢复异常: %s' % str(e)), 'warning')
+        return redirect(request.referrer)
 
     def get_dag(self, cluster_name, namespace, workflow_name, node_name=''):
 
@@ -211,8 +260,17 @@ class Workflow_ModelView_Base():
                                     )
                 db.session.add(workflow)
                 db.session.commit()
+                workflow_model = workflow
             elif workflow_model and workflow_obj:
-                workflow_model.status = workflow_obj['status']
+                # 如果用户在页面上主动暂停了，不要被K8s状态覆盖
+                if workflow_model.status == 'Suspended':
+                    # 除非 K8s 显示任务已经完成
+                    if workflow_obj['status'] not in ['Succeeded', 'Failed', 'Error']:
+                        pass  # 保持 Suspended
+                    else:
+                        workflow_model.status = workflow_obj['status']
+                else:
+                    workflow_model.status = workflow_obj['status']
                 workflow_model.status_more = workflow_obj['status_more']
                 db.session.commit()
 
@@ -243,9 +301,35 @@ class Workflow_ModelView_Base():
 
         layout_config["create_time"] = workflow_obj['create_time']
         layout_config['search'] = ''
-        layout_config["status"] = workflow_obj['status']
+        # 如果用户主动暂停了，显示 DB 状态而不是 K8s 状态
+        if workflow_model and workflow_model.status == 'Suspended':
+            layout_config["status"] = 'Suspended'
+        else:
+            layout_config["status"] = workflow_obj['status']
         layout_config.update(labels)
-        layout_config['progress'] = status_more.get('progress', '0/0')
+        # 查找 Pipeline，用于计算进度
+        pipeline = None
+        try:
+            pid = layout_config.get("pipeline-id", '0')
+            if int(pid):
+                pipeline = db.session.query(Pipeline).filter_by(id=int(pid)).first()
+                if pipeline:
+                    layout_config['pipeline-name'] = pipeline.name
+                    layout_config['pipeline-describe'] = pipeline.describe
+        except Exception:
+            pass
+
+        # 计算进度：用Pipeline总任务数作为分母，已完成Pod数作为分子
+        nodes = status_more.get('nodes', {})
+        succeeded_pods = 0
+        for node in nodes.values():
+            if node.get('type') == 'Pod' and node.get('phase') == 'Succeeded':
+                succeeded_pods += 1
+        total_tasks = len(pipeline.get_tasks()) if pipeline else 0
+        if total_tasks > 0:
+            layout_config['progress'] = f'{succeeded_pods}/{total_tasks}'
+        else:
+            layout_config['progress'] = status_more.get('progress', '0/0')
         layout_config["start_time"] = k8s_client.to_local_time(status_more.get('startedAt',''))
         layout_config['finish_time'] = k8s_client.to_local_time(status_more.get('finishedAt',''))
         if layout_config['finish_time'] and layout_config['finish_time']<layout_config["start_time"]:
@@ -263,13 +347,6 @@ class Workflow_ModelView_Base():
             "spec": spec,
             "status": status_more
         }
-
-        pipeline = None
-        if int(layout_config.get("pipeline-id", '0')):
-            pipeline = db.session.query(Pipeline).filter_by(id=int(layout_config.get("pipeline-id", '0'))).first()
-            if pipeline:
-                layout_config['pipeline-name'] = pipeline.name
-                layout_config['pipeline-describe'] = pipeline.describe
 
         dag_default_status_icon = '<svg t="1673492959659" class="icon" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="7570" width="200" height="200"><path d="M512 51.2c254.08 0 460.8 206.72 460.8 460.8s-206.72 460.8-460.8 460.8S51.2 766.08 51.2 512 257.92 51.2 512 51.2M512 0C229.248 0 0 229.248 0 512s229.248 512 512 512 512-229.248 512-512S794.752 0 512 0L512 0z" fill="#D1D3D4" p-id="7571"></path><path d="M470.976 642.624C470.72 633.6 470.656 626.88 470.656 622.4c0-26.496 3.776-49.344 11.264-68.608 5.504-14.528 14.4-29.12 26.624-43.904 9.024-10.752 25.216-26.432 48.576-47.04s38.592-37.056 45.568-49.344 10.496-25.6 10.496-40.128c0-26.24-10.24-49.344-30.72-69.184S536.768 274.368 507.008 274.368c-28.736 0-52.736 9.024-72 27.008S403.136 347.52 397.12 385.728L327.744 377.472c6.272-51.264 24.832-90.496 55.68-117.76S455.104 218.88 505.856 218.88c53.76 0 96.64 14.656 128.64 43.904s48 64.64 48 106.112c0 24-5.632 46.144-16.896 66.368s-33.28 44.864-65.984 73.856C577.6 528.64 563.264 542.976 556.48 552.256S544.768 572.096 541.504 584.128s-5.12 31.488-5.632 58.496L470.976 642.624zM466.88 777.984l0-76.864 76.864 0 0 76.864L466.88 777.984z" fill="#D1D3D4" p-id="7572"></path></svg>'
         dag_status_icon = {
@@ -290,6 +367,22 @@ class Workflow_ModelView_Base():
                     "url": f"/workflow_modelview/api/stop/{workflow_model.id}"
                 }
             )
+            # 暂停按钮：Running/Pending 状态显示
+            if workflow_model.status and workflow_model.status.lower() in ['running', 'pending']:
+                layout_config["right_button"].append(
+                    {
+                        "label": __("暂停"),
+                        "url": f"/workflow_modelview/api/suspend/{workflow_model.id}"
+                    }
+                )
+            # 恢复按钮：Suspended 状态显示
+            if workflow_model.status and workflow_model.status.lower() == 'suspended':
+                layout_config["right_button"].append(
+                    {
+                        "label": __("恢复"),
+                        "url": f"/workflow_modelview/api/resume/{workflow_model.id}"
+                    }
+                )
         if pipeline:
             layout_config['right_button'].append(
                 {
@@ -317,7 +410,7 @@ class Workflow_ModelView_Base():
                 {
                     "name": "status",
                     "label": __("状态"),
-                    "value": workflow_obj['status']
+                    "value": layout_config.get('status', workflow_obj['status'])
                 },
                 {
                     "name": "message",
@@ -363,7 +456,7 @@ class Workflow_ModelView_Base():
                 {
                     "name": "progress",
                     "label": __("进度"),
-                    "value": status_more.get('progress', '0/0')
+                    "value": layout_config.get('progress', '0/0')
                 },
                 {
                     "name": "schedule_type",
@@ -381,17 +474,24 @@ class Workflow_ModelView_Base():
         # @pysnooper.snoop()
         def fill_child(self, dag, upstream_node_name):
             try:
-                childs = status_more['nodes'][upstream_node_name].get('children', [])
+                upstream_node = nodes.get(upstream_node_name)
+                if not upstream_node:
+                    return
+                childs = upstream_node.get('children', [])
                 for child in childs:
                     try:
+                        child_node = nodes.get(child)
+                        if not child_node:
+                            continue
                         # pod_name = child   # 这里不对，这里是workflow 名后随机生成
-                        status = status_more['nodes'][child].get('phase', 'unknown')
-                        task_name = status_more['nodes'][child]['templateName']
+                        status = child_node.get('phase', 'unknown')
+                        task_name = child_node.get('templateName', '')
+                        task_spec = nodes_spec.get(task_name, {})
                         pod_name = workflow_name + "-" + task_name + "-" + child.replace(workflow_name, '').strip('-')
                         s3_key = ''
                         metric_key = ''
                         output_key = ''
-                        artifacts = status_more['nodes'][child].get('outputs', {}).get('artifacts', [])
+                        artifacts = child_node.get('outputs', {}).get('artifacts', [])
                         for artifact in artifacts:
                             if artifact['name'] == 'main-logs':
                                 s3_key = artifact.get('s3', {}).get('key', '')
@@ -399,28 +499,28 @@ class Workflow_ModelView_Base():
                                 metric_key = artifact.get('s3', {}).get('key', '')
                             if artifact['name'] == 'output':
                                 output_key = artifact.get('s3', {}).get('key', '')
-                        retry = nodes_spec[task_name].get('retryStrategy', {}).get("limit", 0)
+                        retry = task_spec.get('retryStrategy', {}).get("limit", 0)
 
                         # 对于可重试节点的发起节点，没有日志和执行命令，
-                        displayName = status_more['nodes'][child].get('displayName', '')
+                        displayName = child_node.get('displayName', '')
                         displayName = displayName.replace("(0)", '(first)')
-                        match = re.findall("(\([1-9]+\))", displayName)
+                        match = re.findall(r"(\([1-9]+\))", displayName)
                         if len(match) > 0:
                             retry_index = match[0].replace("(", '').replace(")", '')
                             displayName = displayName.replace(match[0], __('(第%s次重试)')%retry_index)
-                        title = nodes_spec[task_name].get('metadata', {}).get("annotations", {}).get("task", pod_name)+f"({displayName})"
-                        node_type = status_more['nodes'][child]['type']
+                        title = task_spec.get('metadata', {}).get("annotations", {}).get("task", pod_name)+f"({displayName})"
+                        node_type = child_node.get('type', '')
                         if node_type == "Retry":
                             title += __("(有%s次重试机会)")%retry
                         if node_type == 'Skipped':
                             title += "(skip)"
 
-                        nodeSelector = nodes_spec[task_name].get('nodeSelector', {})
+                        nodeSelector = task_spec.get('nodeSelector', {})
                         node_selector = ''
                         for key in nodeSelector:
                             node_selector += key + "=" + nodeSelector[key] + ","
                         node_selector = node_selector.strip(',')
-                        requests_resource = nodes_spec[task_name].get('container', {}).get("resources", {}).get("requests", {})
+                        requests_resource = task_spec.get('container', {}).get("resources", {}).get("requests", {})
                         resource_gpu = "0"
                         shared_resource_name = conf.get('GPU_SHARED_RESOURCE_NAME', 'nvidia.com/gpu.shared')
                         if shared_resource_name in requests_resource:
@@ -433,36 +533,36 @@ class Workflow_ModelView_Base():
 
                         ui_node = {
                             "node_type": node_type,
-                            "nid": status_more['nodes'][child]['id'],
-                            "pid": status_more['nodes'][upstream_node_name]['id'],
+                            "nid": child_node.get('id', child),
+                            "pid": upstream_node.get('id', upstream_node_name),
                             "title": title,
                             "pod": pod_name,
-                            "start_time": k8s_client.to_local_time(status_more['nodes'][child].get('startedAt','')),
-                            "finish_time": k8s_client.to_local_time(status_more['nodes'][child].get('finishedAt','')),
+                            "start_time": k8s_client.to_local_time(child_node.get('startedAt','')),
+                            "finish_time": k8s_client.to_local_time(child_node.get('finishedAt','')),
                             "detail_url": self.route_base + f"/web/node_detail/{cluster_name}/{namespace}/{workflow_name}/{child}",
                             "name": pod_name,
-                            "outputs": status_more['nodes'][child].get('outputs', {}),
+                            "outputs": child_node.get('outputs', {}),
                             # "icon": '<svg t="1671087371964" class="icon" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="4320" width="200" height="200"><path d="M109.714286 73.142857c-21.942857 0-36.571429 14.628571-36.571429 36.571429v804.571428c0 21.942857 14.628571 36.571429 36.571429 36.571429h804.571428c21.942857 0 36.571429-14.628571 36.571429-36.571429v-804.571428c0-21.942857-14.628571-36.571429-36.571429-36.571429h-804.571428z m0-73.142857h804.571428c58.514286 0 109.714286 51.2 109.714286 109.714286v804.571428c0 58.514286-51.2 109.714286-109.714286 109.714286h-804.571428C51.2 1024 0 972.8 0 914.285714v-804.571428C0 51.2 51.2 0 109.714286 0z m438.857143 292.571429h219.428571c21.942857 0 36.571429 14.628571 36.571429 36.571428s-14.628571 36.571429-36.571429 36.571429h-219.428571c-21.942857 0-36.571429-14.628571-36.571429-36.571429s14.628571-36.571429 36.571429-36.571428z m-219.428572 438.857142c21.942857 0 36.571429-14.628571 36.571429-36.571428S351.085714 658.285714 329.142857 658.285714s-36.571429 14.628571-36.571428 36.571429 14.628571 36.571429 36.571428 36.571428z m0 73.142858C270.628571 804.571429 219.428571 753.371429 219.428571 694.857143S270.628571 585.142857 329.142857 585.142857 438.857143 636.342857 438.857143 694.857143 387.657143 804.571429 329.142857 804.571429z m-7.314286-446.171429L241.371429 277.942857c-14.628571-14.628571-36.571429-14.628571-51.2 0-14.628571 14.628571-14.628571 36.571429 0 51.2L292.571429 431.542857c7.314286 7.314286 21.942857 14.628571 29.257142 14.628572s21.942857 0 29.257143-7.314286l153.6-153.6c14.628571-14.628571 14.628571-36.571429 0-51.2-14.628571-14.628571-36.571429-14.628571-51.2 0L321.828571 358.4zM548.571429 658.285714h219.428571c21.942857 0 36.571429 14.628571 36.571429 36.571429s-14.628571 36.571429-36.571429 36.571428h-219.428571c-21.942857 0-36.571429-14.628571-36.571429-36.571428s14.628571-36.571429 36.571429-36.571429z" p-id="4321"></path></svg>',
                             "icon": status_icon.get(status, default_status_icon),
                             "status": {
                                 "label": status,
                                 "icon": status_icon.get(status, default_status_icon)
                             },
-                            "message": status_more['nodes'][child].get('message', ''),
+                            "message": child_node.get('message', ''),
                             "node_shape": "rectangle",
                             "color": status_color.get(status, default_status_color),
                             "task_name": task_name,
-                            "task_id": nodes_spec[task_name].get('metadata', {}).get("labels", {}).get("task-id", ''),
-                            "task_label": nodes_spec[task_name].get('metadata', {}).get("annotations", {}).get("task", ''),
-                            "volumeMounts": nodes_spec[task_name].get('container', {}).get("volumeMounts", []),
-                            "volumes": nodes_spec[task_name].get('volumes', []),
+                            "task_id": task_spec.get('metadata', {}).get("labels", {}).get("task-id", ''),
+                            "task_label": task_spec.get('metadata', {}).get("annotations", {}).get("task", ''),
+                            "volumeMounts": task_spec.get('container', {}).get("volumeMounts", []),
+                            "volumes": task_spec.get('volumes', []),
                             "node_selector": node_selector,
                             "s3_key": s3_key,
                             "metric_key": metric_key,
                             "output_key":output_key,
                             "retry": retry,
-                            "resource_cpu": str(nodes_spec[task_name].get('container', {}).get("resources", {}).get("requests", {}).get("cpu", '0')),
-                            "resource_memory": str(nodes_spec[task_name].get('container', {}).get("resources", {}).get("requests", {}).get("memory", '0')),
+                            "resource_cpu": str(task_spec.get('container', {}).get("resources", {}).get("requests", {}).get("cpu", '0')),
+                            "resource_memory": str(task_spec.get('container', {}).get("resources", {}).get("requests", {}).get("memory", '0')),
                             "resource_gpu": resource_gpu,
                             "children": []
                         }
@@ -479,6 +579,86 @@ class Workflow_ModelView_Base():
                 traceback.print_exc()
 
         fill_child(self, dag_config, workflow_name)
+
+        # 补充尚未创建的占位节点（灰色 Pending）
+        if pipeline:
+            all_tasks = pipeline.get_tasks()
+            if all_tasks:
+                # 收集 dag_config 中已存在的 task_id 和 task_name（双重匹配）
+                existing_task_ids = set()
+                existing_task_names = set()
+                def collect_existing(nodes_list):
+                    for n in nodes_list:
+                        tid = n.get('task_id', '')
+                        if tid:
+                            existing_task_ids.add(tid)
+                        tname = n.get('task_name', '')
+                        if tname:
+                            existing_task_names.add(tname)
+                        collect_existing(n.get('children', []))
+                collect_existing(dag_config)
+
+                # 获取按上下游排序的任务列表，确保占位节点按正确顺序插入
+                sorted_tasks = pipeline.sort(all_tasks)
+
+                # 在 DAG 树中按排序顺序找到最后一个真实节点的位置
+                last_real_node = None
+                def find_node_by_task_name(nodes_list, name):
+                    for n in nodes_list:
+                        if n.get('task_name') == name:
+                            return n
+                        found = find_node_by_task_name(n.get('children', []), name)
+                        if found:
+                            return found
+                    return None
+
+                for task in sorted_tasks:
+                    if str(task.id) in existing_task_ids or task.name in existing_task_names:
+                        found = find_node_by_task_name(dag_config, task.name)
+                        if found:
+                            last_real_node = found
+
+                # 从最后一个真实节点开始，按拓扑顺序链式插入占位节点
+                target_list = last_real_node['children'] if last_real_node else dag_config
+                parent_node = last_real_node
+                for task in sorted_tasks:
+                    if str(task.id) not in existing_task_ids and task.name not in existing_task_names:
+                        placeholder = {
+                            "node_type": "Pod",
+                            "nid": f"pending_{task.name}",
+                            "pid": parent_node.get('nid', '') if parent_node else '',
+                            "title": task.label,
+                            "pod": '',
+                            "start_time": '',
+                            "finish_time": '',
+                            "detail_url": '',
+                            "name": task.name,
+                            "outputs": {},
+                            "icon": default_status_icon,
+                            "status": {"label": "Pending", "icon": default_status_icon},
+                            "message": '',
+                            "node_shape": "rectangle",
+                            "color": default_status_color,
+                            "task_name": task.name,
+                            "task_id": str(task.id),
+                            "task_label": task.label,
+                            "volumeMounts": [],
+                            "volumes": [],
+                            "node_selector": '',
+                            "s3_key": '',
+                            "metric_key": '',
+                            "output_key": '',
+                            "retry": 0,
+                            "resource_cpu": '0',
+                            "resource_memory": '0',
+                            "resource_gpu": '0',
+                            "children": []
+                        }
+                        target_list.append(placeholder)
+                        # 链式追加：当前占位节点成为下一个占位节点的父容器
+                        target_list = placeholder['children']
+                        parent_node = placeholder
+
         return layout_config, dag_config, self.node_detail_config, workflow_obj
 
     @expose_api(description="workflow的执行进度",url="/web/log/<cluster_name>/<namespace>/<workflow_name>/<pod_name>", methods=["GET", ])

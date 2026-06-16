@@ -1,0 +1,2 @@
+input_path,output_count,output_path,relative_path,status
+picture.jpg,3,test-output/images/picture_aug1.jpg,picture.jpg,success

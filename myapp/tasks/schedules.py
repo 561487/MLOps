@@ -751,6 +751,12 @@ def upload_timerun(pipeline_id,stop_time):
                             pass_run = dbsession.query(RunHistory).filter(RunHistory.pipeline_id == pipeline.id).filter(RunHistory.execution_date > start_time).filter(RunHistory.run_id == run_id).first()
                             # 如果是定时任务发起的实例，并且已经过期，就直接删除
                             if pass_run and run_id not in latest_run_ids:
+                                exist_workflow = dbsession.query(Workflow).filter(                                                                                                                                               
+                                    Workflow.labels.contains(run_id)                                                                                                                                                             
+                                ).first()                                                                                                                                                                                        
+                                if exist_workflow and exist_workflow.status == 'Suspended':                                                                                                                                      
+                                    continue 
+                                
                                 k8s_client = K8s(pipeline.project.cluster.get('KUBECONFIG',''))
                                 k8s_client.delete_workflow(all_crd_info=conf.get("CRD_INFO", {}), namespace='pipeline',run_id=run_id)
                                 workflow = dbsession.query(Workflow).filter(Workflow.labels.contains(run_id)).first()

@@ -1,11 +1,11 @@
-/* eslint-disable @typescript-eslint/no-invalid-this */
+﻿/* eslint-disable @typescript-eslint/no-invalid-this */
 /* eslint-disable @typescript-eslint/no-this-alias */
 import * as d3 from 'd3';
 import D3Tool, { ID3ToolParams } from './D3Tool';
 import { graphviz } from 'd3-graphviz';
 import React from 'react';
 import { INodeItem } from './TreePlusInterface';
-// 防止被treeShaking
+// 闃叉琚玹reeShaking
 const graphvizName = graphviz.name;
 
 interface IThemeColor {
@@ -112,7 +112,7 @@ export default class RelationDiagram extends D3Tool {
 		const childrenKey = relativeKey
 		const parentKey = relativeKey === 'children' ? 'parent' : 'children'
 
-		// 处理树结构上的每一个节点
+		// 澶勭悊鏍戠粨鏋勪笂鐨勬瘡涓€涓妭鐐?
 		const dfs = (nodes: INodeItem[], level = 0, upItem?: IPreHandleNode, idPath: string[] = []): IPreHandleNode[] => {
 			const res: IPreHandleNode[] = [];
 
@@ -133,12 +133,12 @@ export default class RelationDiagram extends D3Tool {
 					key,
 					level,
 					relativeKey,
-					// 构建双向链表结构
+					// 鏋勫缓鍙屽悜閾捐〃缁撴瀯
 					[parentKey]: upItem ? [upItem] : [],
 					[childrenKey]: []
 				} as IPreHandleNode
 
-				// 处理已经遍历过得情况
+				// 澶勭悊宸茬粡閬嶅巻杩囧緱鎯呭喌
 				if (nodeCache) {
 					const flag = nodeCache[parentKey].map(node => node.key).includes(upItem?.key || '')
 					// const flag = false
@@ -147,7 +147,7 @@ export default class RelationDiagram extends D3Tool {
 					} else {
 						tarNode = {
 							...nodeCache,
-							// 构建双向链表结构
+							// 鏋勫缓鍙屽悜閾捐〃缁撴瀯
 							[parentKey]: [upItem, ...nodeCache[parentKey]],
 						}
 					}
@@ -168,7 +168,7 @@ export default class RelationDiagram extends D3Tool {
 
 		dfs(nodes)
 
-		// 节点重构建
+		// 鑺傜偣閲嶆瀯寤?
 		nodesMapByKey.forEach(item => {
 			const currentItemList = item[parentKey]
 			for (let i = 0; i < currentItemList.length; i++) {
@@ -180,7 +180,7 @@ export default class RelationDiagram extends D3Tool {
 					nodesMapByKey.set(itemId, tarItem)
 				}
 			}
-			// 更新当前节点关系
+			// 鏇存柊褰撳墠鑺傜偣鍏崇郴
 			item[parentKey] = item[parentKey].map(node => nodesMapByKey.get(node.key)) as IPreHandleNode[]
 			nodesMapByKey.set(item.key, item)
 		})
@@ -192,13 +192,13 @@ export default class RelationDiagram extends D3Tool {
 	}
 
 	public initData<T extends INodeItem>(data: T[]) {
-		// 初始化
+		// 鍒濆鍖?
 		this.nodesInCollectionMap = new Map()
 		this.dataNodes = []
 
 		// console.log('data', data);
 
-		// 这一步之后已经构建了完整的链路关系
+		// 杩欎竴姝ヤ箣鍚庡凡缁忔瀯寤轰簡瀹屾暣鐨勯摼璺叧绯?
 		const preHandlePreData: IPreHandleNode[] = this.preHandleNodes(data, 'parent');
 		const preHandleNextData: IPreHandleNode[] = this.preHandleNodes(data, 'children');
 
@@ -209,7 +209,7 @@ export default class RelationDiagram extends D3Tool {
 		// 	this.handleCollectionNodes(preHandleNextData, 'children')
 		// }
 
-		// 合并根节点
+		// 鍚堝苟鏍硅妭鐐?
 		// const [preRoot] = preHandlePreData
 		// const [nextRoot] = preHandleNextData
 		// if (preRoot && nextRoot) {
@@ -224,7 +224,7 @@ export default class RelationDiagram extends D3Tool {
 		// 	preHandleNextData[0].collectionParent = preRoot.collectionParent
 		// }
 
-		// 合并根节点
+		// 鍚堝苟鏍硅妭鐐?
 		for (let i = 0; i < preHandleNextData.length; i++) {
 			preHandleNextData[i].key = `node_${i}`;
 			preHandleNextData[i].parent = preHandlePreData[i].parent
@@ -246,15 +246,40 @@ export default class RelationDiagram extends D3Tool {
 		})
 	}
 
+
+		/**
+		 * 原地更新节点数据（颜色、状态），不重新渲染 Graphviz 布局
+		 * 用于轮询时只更新节点视觉效果，避免 Graphviz 重排导致的
+		 * "__data__ is null" 报错和位置抖动
+		 */
+		public updateNodes(dag: INodeItem[]) {
+			this.nodesInCollectionMap = new Map()
+			this.dataNodes = []
+
+			const preHandlePreData = this.preHandleNodes(dag, 'parent');
+			const preHandleNextData = this.preHandleNodes(dag, 'children');
+
+			for (let i = 0; i < preHandleNextData.length; i++) {
+				preHandleNextData[i].key = `node_${i}`;
+				preHandleNextData[i].parent = preHandlePreData[i].parent;
+			}
+
+			this.rootNode = preHandleNextData[0];
+			this.preRenderDataReady(preHandleNextData);
+
+			// 原地更新颜色和状态，不触发 Graphviz 重排
+			this.refresh();
+		}
+
 	public preRenderDataReady(nodes?: IPreHandleNode[]) {
 
 		if (nodes?.length) {
-			// 扁平化
+			// 鎵佸钩鍖?
 			const preData = this.tree2List(nodes, 'parent');
 			const nextData = this.tree2List(nodes, 'children');
 			const targetData = [...preData, ...nextData];
 
-			// 构建图的Map
+			// 鏋勫缓鍥剧殑Map
 			const targetDataMap = this.list2Map(targetData, 'key');
 			const targetDataMapByName = this.list2Map(targetData, 'node_name');
 			const dataNodes: IPreHandleNode[] = [];
@@ -271,7 +296,7 @@ export default class RelationDiagram extends D3Tool {
 	}
 
 	/**
-	 * 构造渲染节点
+	 * 鏋勯€犳覆鏌撹妭鐐?
 	 * @param nodes 
 	 */
 	public createRenderNodes(nodes: IPreHandleNode[], isDisable?: boolean): string[] {
@@ -281,7 +306,7 @@ export default class RelationDiagram extends D3Tool {
 			if (!isInCollection) {
 				if (node.data_fields === 'COLLECT') {
 					return `${node['key']}
-					[label="聚合节点，剩余${node.collectNum}个节点(双击展开) + ",
+					[label="鑱氬悎鑺傜偣锛屽墿浣?{node.collectNum}涓妭鐐?鍙屽嚮灞曞紑) + ",
 						shape=box,
 						style=dashed,
 						margin=0,
@@ -290,7 +315,7 @@ export default class RelationDiagram extends D3Tool {
 				}
 
 				return `${node['key']}
-					[label="占位符占位符占位${node.key}",
+					[label="鍗犱綅绗﹀崰浣嶇鍗犱綅${node.key}",
 						shape=box,
 						width=8,
 						height=0.8,
@@ -305,7 +330,7 @@ export default class RelationDiagram extends D3Tool {
 	}
 
 	/**
-	 * 构造渲染关系（边）
+	 * 鏋勯€犳覆鏌撳叧绯伙紙杈癸級
 	 * @param nodes 
 	 */
 	public cerateRenderNodesRelation(nodes: IPreHandleNode[]) {
@@ -338,12 +363,12 @@ export default class RelationDiagram extends D3Tool {
 	}
 
 	/**
-	 * 渲染后处理，事件绑定等等
+	 * 娓叉煋鍚庡鐞嗭紝浜嬩欢缁戝畾绛夌瓑
 	 */
 	public backRenderHandle() {
 		const _selfThis = this;
 		const renderNodesMap = new Map<string, IRenderNode>();
-		// 去掉多余的提示信息
+		// 鍘绘帀澶氫綑鐨勬彁绀轰俊鎭?
 		d3.selectAll('title').remove()
 
 		d3.selectAll('.node').each((item: any) => {
@@ -369,7 +394,7 @@ export default class RelationDiagram extends D3Tool {
 				console.error(error);
 			}
 
-			// 调试位置坐标
+			// 璋冭瘯浣嶇疆鍧愭爣
 			// d3.selectAll(`#${nodeId}`)
 			// 	.append('g')
 			// 	.append('text')
@@ -392,7 +417,7 @@ export default class RelationDiagram extends D3Tool {
 		// 		tipsContent = (
 		// 			<div>
 		// 				<div className="pb12 d-f jc-b ac fs16">
-		// 					<strong>详情</strong>
+		// 					<strong>璇︽儏</strong>
 		// 				</div>
 		// 				<div>{123}</div>
 		// 			</div>
@@ -414,7 +439,7 @@ export default class RelationDiagram extends D3Tool {
 		// 	});
 
 
-		// 区分单双击事件
+		// 鍖哄垎鍗曞弻鍑讳簨浠?
 		let timeout: any = null;
 		d3.selectAll('.node[type="collect"]')
 			.on('click', function (node: any, d: any) {
@@ -610,7 +635,7 @@ export default class RelationDiagram extends D3Tool {
 			const targetNode = collection.shift()
 
 			if (targetNode) {
-				// 处理在节点collect里存在关系的情况
+				// 澶勭悊鍦ㄨ妭鐐筩ollect閲屽瓨鍦ㄥ叧绯荤殑鎯呭喌
 				this.nodesInCollectionMap.delete(targetNode.key)
 				const nodesQuene = [...targetNode.children]
 				while (nodesQuene.length) {
@@ -621,7 +646,7 @@ export default class RelationDiagram extends D3Tool {
 					}
 				}
 
-				// 处理展开关系
+				// 澶勭悊灞曞紑鍏崇郴
 				currentNode.collectNum = (currentNode.collectNum || 0) - 1
 				currentNode.collectionNodes = collection
 				parentNode.collectionChildren = collection
@@ -640,7 +665,7 @@ export default class RelationDiagram extends D3Tool {
 			const targetNode = collection.shift()
 
 			if (targetNode) {
-				// 处理在节点collect里存在关系的情况
+				// 澶勭悊鍦ㄨ妭鐐筩ollect閲屽瓨鍦ㄥ叧绯荤殑鎯呭喌
 				this.nodesInCollectionMap.delete(targetNode.key)
 				const nodesQuene = [...targetNode.parent]
 				while (nodesQuene.length) {
@@ -651,7 +676,7 @@ export default class RelationDiagram extends D3Tool {
 					}
 				}
 
-				// 处理展开关系
+				// 澶勭悊灞曞紑鍏崇郴
 				currentNode.collectNum = (currentNode.collectNum || 0) - 1
 				currentNode.collectionNodes = collection
 				childrenNode.collectionParent = collection
@@ -665,7 +690,7 @@ export default class RelationDiagram extends D3Tool {
 	}
 
 	/**
-	 * 渲染节点
+	 * 娓叉煋鑺傜偣
 	 * @param nodes
 	 */
 	public renderNode(nodes: IPreHandleNode[], isDisable?: boolean) {
@@ -708,7 +733,7 @@ export default class RelationDiagram extends D3Tool {
 					console.error(error);
 				}
 
-				// 后处理
+				// 鍚庡鐞?
 				this.backRenderHandle()
 
 				this.loadingEnd && this.loadingEnd()
@@ -719,7 +744,7 @@ export default class RelationDiagram extends D3Tool {
 
 	public highlightRelation(node: IRenderNode) {
 
-		// 全局置灰
+		// 鍏ㄥ眬缃伆
 		d3.selectAll(`.node polygon`).attr('stroke', '#cdcdcd').attr('fill', '#ffffff');
 		d3.selectAll(`.node text`).attr('fill', '#cdcdcd');
 		d3.selectAll(`.node .rectBg`).attr('fill', '#cdcdcd');
@@ -736,7 +761,7 @@ export default class RelationDiagram extends D3Tool {
 		for (let i = 0; i < nodeParentList.length; i++) {
 			const item = nodeParentList[i];
 
-			// 高亮节点
+			// 楂樹寒鑺傜偣
 			if (item) {
 				// d3.selectAll(`#${item.key} polygon`).attr('stroke', '#0078d4').attr('fill', '#ffffff');
 				// d3.selectAll(`#${item.key} text`).attr('fill', '#0078d4');
@@ -748,7 +773,7 @@ export default class RelationDiagram extends D3Tool {
 				d3.selectAll(`#${item.key} .nodeContent`).attr('fill', '#000');
 			}
 
-			// 高亮边
+			// 楂樹寒杈?
 			if (item && item.parent && item.parent.length) {
 				for (let i = 0; i < item.parent.length; i++) {
 					const par = item.parent[i];
@@ -784,9 +809,17 @@ export default class RelationDiagram extends D3Tool {
 		}
 	}
 
+	private refreshNodeView(item: IPreHandleNode) {
+		const currentColor = item.color
+		d3.selectAll(`#${item.key} .rectBg`).attr('fill', currentColor);
+		d3.selectAll(`#${item.key} .nodeType`).text(item.title).attr('fill', currentColor);
+		d3.selectAll(`#${item.key} .nodeContent`).text(item.name).attr('fill', '#000');
+		d3.select(`#icon_status_text_${item.key} text`).text(item.status?.label || '');
+	}
+
 	public refresh() {
 		// console.log('refresh');
-		// todo 图的改造
+		// todo 鍥剧殑鏀归€?
 
 		// const nodeParentList = this.tree2List([this.rootNode], 'parent')
 		// const nodeChildrenList = this.tree2List([this.rootNode], 'children')
@@ -800,17 +833,13 @@ export default class RelationDiagram extends D3Tool {
 				continue
 			}
 
-			// 高亮节点
+			// 楂樹寒鑺傜偣
 			if (item) {
-				// const currentColorTheme = nodeTypeThemeMap[item.data_fields] || ThemeColor[0]
-				const currentColor = item.color
-				d3.selectAll(`#${item.key} .rectBg`).attr('fill', currentColor);
-				d3.selectAll(`#${item.key} .nodeType`).attr('fill', currentColor);
-				d3.selectAll(`#${item.key} .nodeContent`).attr('fill', '#000');
+				this.refreshNodeView(item);
 			}
 
 
-			// 高亮边
+			// 楂樹寒杈?
 			if (item && item.parent && item.parent.length) {
 				for (let i = 0; i < item.parent.length; i++) {
 					const par = item.parent[i];
@@ -830,11 +859,7 @@ export default class RelationDiagram extends D3Tool {
 			}
 
 			if (item) {
-				// const currentColorTheme = nodeTypeThemeMap[item.data_fields] || ThemeColor[0]
-				const currentColor = item.color
-				d3.selectAll(`#${item.key} .rectBg`).attr('fill', currentColor);
-				d3.selectAll(`#${item.key} .nodeType`).attr('fill', currentColor);
-				d3.selectAll(`#${item.key} .nodeContent`).attr('fill', '#000');
+				this.refreshNodeView(item);
 			}
 
 			if (item && item.children && item.children.length) {
@@ -849,7 +874,7 @@ export default class RelationDiagram extends D3Tool {
 	}
 
 	/**
-	 *将某个节点移动到画布中间
+	 *灏嗘煇涓妭鐐圭Щ鍔ㄥ埌鐢诲竷涓棿
 	 *
 	 * @param {(string)} id
 	 * @memberof CostMap
@@ -861,7 +886,7 @@ export default class RelationDiagram extends D3Tool {
 
 		const renderNode: any = this.renderNodesMap?.get(id);
 		if (renderNode) {
-			// pt转px
+			// pt杞琾x
 			const x = -renderNode.x * (96 / 72) + this.innerWidth / 2 + 100;
 			// const y = renderNode.y * (96 / 72) - relativeY;
 			const y = -(relativeY - -renderNode.y) * (96 / 72) + this.innerHeight / 2;
@@ -871,7 +896,7 @@ export default class RelationDiagram extends D3Tool {
 	}
 
 	/**
-	 * 将整个应用居中展示
+	 * 灏嗘暣涓簲鐢ㄥ眳涓睍绀?
 	 *
 	 * @param {(string)} id
 	 * @memberof CostMap

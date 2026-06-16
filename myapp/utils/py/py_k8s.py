@@ -2136,6 +2136,152 @@ class K8s():
             tty=False
         )
 
+    def sanitize_pod_name(self, name, prefix='storage-file-manager'):
+        safe_name = re.sub('[^a-z0-9-]+', '-', (name or '').lower()).strip('-')
+        safe_name = safe_name or 'storage'
+        max_name_len = 63 - len(prefix) - 1
+        return '{}-{}'.format(prefix, safe_name[:max_name_len].strip('-') or 'storage')
+
+    def get_pod_phase(self, name, namespace):
+        try:
+            pod = self.v1.read_namespaced_pod(name=name, namespace=namespace, _request_timeout=5)
+            return pod.status.phase if pod.status else ''
+        except ApiException as e:
+            if e.status == 404:
+                return ''
+            raise
+
+    def ensure_storage_file_manager_pod(self, namespace, storage_name, pvc_name, image='busybox:1.36',
+                                        mount_path='/mnt/storage', timeout=30):
+        pod_name = self.sanitize_pod_name(storage_name)
+        phase = self.get_pod_phase(pod_name, namespace)
+        if phase == 'Running':
+            return {"name": pod_name, "namespace": namespace, "status": phase}
+        if phase and phase not in ['Running', 'Pending']:
+            try:
+                self.v1.delete_namespaced_pod(
+                    name=pod_name,
+                    namespace=namespace,
+                    body=client.V1DeleteOptions(),
+                    _request_timeout=10
+                )
+            except ApiException as e:
+                if e.status != 404:
+                    raise
+            phase = ''
+
+        if not phase:
+            body = {
+                "apiVersion": "v1",
+                "kind": "Pod",
+                "metadata": {
+                    "name": pod_name,
+                    "namespace": namespace,
+                    "labels": {
+                        "app": "storage-file-manager",
+                        "mlops/storage-name": storage_name,
+                    },
+                },
+                "spec": {
+                    "restartPolicy": "Always",
+                    "containers": [
+                        {
+                            "name": "file-manager",
+                            "image": image,
+                            "command": ["sh", "-c", "sleep infinity"],
+                            "resources": {
+                                "requests": {"cpu": "50m", "memory": "64Mi"},
+                                "limits": {"cpu": "500m", "memory": "512Mi"},
+                            },
+                            "volumeMounts": [
+                                {"name": "storage", "mountPath": mount_path}
+                            ],
+                        }
+                    ],
+                    "volumes": [
+                        {
+                            "name": "storage",
+                            "persistentVolumeClaim": {"claimName": pvc_name},
+                        }
+                    ],
+                },
+            }
+            try:
+                self.v1.create_namespaced_pod(namespace=namespace, body=body, _request_timeout=10)
+            except ApiException as e:
+                if e.status != 409:
+                    raise
+
+        deadline = time.time() + timeout
+        while time.time() < deadline:
+            phase = self.get_pod_phase(pod_name, namespace)
+            if phase == 'Running':
+                return {"name": pod_name, "namespace": namespace, "status": phase}
+            time.sleep(1)
+        raise Exception('storage file manager pod is not running: {} {}'.format(pod_name, phase or 'unknown'))
+
+    def exec_pod(self, name, namespace, command, container='file-manager', stdin_data=None, timeout=60):
+        if isinstance(command, str):
+            command = ['sh', '-c', command]
+        if stdin_data is None:
+            return stream(
+                self.v1.connect_get_namespaced_pod_exec,
+                name=name,
+                namespace=namespace,
+                container=container,
+                command=command,
+                stderr=True,
+                stdin=False,
+                stdout=True,
+                tty=False,
+                _request_timeout=timeout
+            )
+
+        resp = stream(
+            self.v1.connect_get_namespaced_pod_exec,
+            name=name,
+            namespace=namespace,
+            container=container,
+            command=command,
+            stderr=True,
+            stdin=True,
+            stdout=True,
+            tty=False,
+            _preload_content=False,
+            _request_timeout=timeout
+        )
+        output = ''
+        error = ''
+        try:
+            chunk_size = 256 * 1024
+            for index in range(0, len(stdin_data), chunk_size):
+                resp.write_stdin(stdin_data[index:index + chunk_size])
+            resp.close()
+            while resp.is_open():
+                resp.update(timeout=1)
+                if resp.peek_stdout():
+                    output += resp.read_stdout()
+                if resp.peek_stderr():
+                    error += resp.read_stderr()
+        finally:
+            try:
+                resp.close()
+            except Exception:
+                pass
+        if error:
+            raise Exception(error)
+        return output
+
+    def upload_to_pod(self, name, namespace, data, target_path, container='file-manager'):
+        encoded = base64.b64encode(data).decode('ascii')
+        command = ['sh', '-c', "base64 -d > '{}'".format(target_path.replace("'", "'\\''"))]
+        return self.exec_pod(name, namespace, command, container=container, stdin_data=encoded)
+
+    def download_from_pod(self, name, namespace, source_path, container='file-manager'):
+        command = ['sh', '-c', "base64 < '{}'".format(source_path.replace("'", "'\\''"))]
+        output = self.exec_pod(name, namespace, command, container=container)
+        return base64.b64decode(''.join((output or '').split()))
+
     # 实时跟踪指定pod日志，直到pod结束
     def get_pod_log_stream(self, name, namespace, container, tail_lines=100):
         """
@@ -2521,6 +2667,54 @@ class K8s():
         except Exception as e:
             print(e)
 
+    def patch_crd(self, group, version, plural, namespace, name, body):
+        """PATCH 自定义资源"""
+        try:
+            crd_object = self.CustomObjectsApi.patch_namespaced_custom_object(
+                group=group, version=version, namespace=namespace, plural=plural, name=name, body=body
+            )
+            return crd_object
+        except Exception as e:
+            print(f"patch crd error: {e}")
+            return None
+    
+    def suspend_workflow(self, namespace, workflow_name):
+        """暂停 Argo Workflow"""
+        crd_info = conf.get('CRD_INFO', {}).get('workflow', {})
+        try:
+            result = self.patch_crd(
+                group=crd_info['group'], version=crd_info['version'],
+                plural=crd_info['plural'], namespace=namespace, name=workflow_name,
+                body={"spec": {"suspend": True}}
+            )
+            return result is not None
+        except Exception as e:
+            print(f"suspend workflow error: {e}")
+            return False
+
+    def resume_workflow(self, namespace, workflow_name):
+        """恢复 Argo Workflow"""
+        crd_info = conf.get('CRD_INFO', {}).get('workflow', {})
+        try:
+            result = self.patch_crd(
+                group=crd_info['group'], version=crd_info['version'],
+                plural=crd_info['plural'], namespace=namespace, name=workflow_name,
+                body={"spec": {"suspend": False}}
+            )
+            return result is not None
+        except Exception as e:
+            print(f"resume workflow error: {e}")
+            return False
+        try:
+            self.patch_crd(
+                group=crd_info['group'], version=crd_info['version'],
+                plural=crd_info['plural'], namespace=namespace, name=workflow_name,
+                body={"spec": {"suspend": False}}
+            )
+            return True
+        except Exception as e:
+            print(f"resume workflow error: {e}")
+            return False
 
 class K8SStreamThread(threading.Thread):
 

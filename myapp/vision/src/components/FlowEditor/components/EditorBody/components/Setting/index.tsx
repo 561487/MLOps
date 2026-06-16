@@ -4,7 +4,7 @@ import { isEdge } from 'react-flow-renderer';
 import api from '@src/api';
 import { useAppDispatch, useAppSelector } from '@src/models/hooks';
 import { selectElements } from '@src/models/element';
-import { selectInfo, updateChanged, updateEditing, selectChanged } from '@src/models/pipeline';
+import { selectInfo, selectPipelineId, updateChanged, updateEditing, selectChanged } from '@src/models/pipeline';
 import { selectShow, toggle } from '@src/models/setting';
 import style from './style';
 import { DatePicker, Select, Switch } from 'antd';
@@ -80,17 +80,19 @@ function RegexValidatedTextField({
 
 const Setting: React.FC = () => {
   const dispatch = useAppDispatch();
+  const pipelineId = useAppSelector(selectPipelineId);
   const pipelineInfo = useAppSelector(selectInfo);
   const settingShow = useAppSelector(selectShow);
   const pipelineChanged = useAppSelector(selectChanged);
   const elements = useAppSelector(selectElements);
   const [current, setCurrent] = useState<any>({});
   const [dropItem, setDropItem] = useState([]);
+  const [volumeOptions, setVolumeOptions] = useState<{ label: string; value: string }[]>([]);
   const [selectedItem, setSelectedItem] = useState<IDropdownOption>();
   const { t, i18n } = useTranslation();
 
   // 配置变化事件
-  const handleOnChange = (key: string, value: string | number | boolean | IDropdownOption) => {
+  const handleOnChange = (key: string, value: string | number | boolean | IDropdownOption | string[]) => {
     const obj: any = {};
     obj[key] = value;
     if (key === 'project') {
@@ -107,7 +109,13 @@ const Setting: React.FC = () => {
   // 初始化选项
   useEffect(() => {
     if (pipelineInfo) {
-      setCurrent(pipelineInfo);
+      let parameter = {};
+      try {
+        parameter = pipelineInfo?.parameter ? JSON.parse(pipelineInfo.parameter) : {};
+      } catch (error) {
+        parameter = {};
+      }
+      setCurrent({ ...pipelineInfo, ...parameter });
       const selected: IDropdownOption = {
         key: pipelineInfo?.project?.id,
         text: pipelineInfo?.project?.name,
@@ -137,6 +145,22 @@ const Setting: React.FC = () => {
       setDropItem(orgProject);
     });
   }, []);
+
+  // 流水线扩展字段选项
+  useEffect(() => {
+    if (!pipelineId) return;
+    api.pipeline_modelview_info(pipelineId).then((res: any) => {
+      const columns = res?.edit_columns || res?.result?.edit_columns || [];
+      const volumeColumn = columns.find((column: any) => column?.name === 'volume_mount');
+      const options = (volumeColumn?.values || volumeColumn?.choices || []).map((item: any) => {
+        if (Array.isArray(item)) {
+          return { label: item[1], value: item[0] };
+        }
+        return { label: item.value || item.label || item.id, value: item.id || item.value };
+      });
+      setVolumeOptions(options);
+    });
+  }, [pipelineId]);
 
   // 根据节点的变化实时更新 dag_json
   useEffect(() => {
@@ -401,6 +425,20 @@ const Setting: React.FC = () => {
             autoAdjustHeight
             disabled
           />
+          <div className={style.splitLine}></div>
+          <div style={{ fontWeight: 600, padding: '5px 0px' }}>{t('挂载卷')}</div>
+          <Select
+            style={{ width: '100%', border: '1px solid rgb(55, 55, 55)' }}
+            value={current?.volume_mount ? `${current.volume_mount}`.split(',').filter(Boolean) : []}
+            onChange={(value: string[]) => {
+              handleOnChange('volume_mount', (value || []).join(','));
+            }}
+            mode="multiple"
+            options={volumeOptions}
+          />
+          <div style={{ color: '#666', fontSize: 12, lineHeight: '18px', marginTop: 4 }}>
+            {t('选择项目默认挂载卷或已同步的存储资源，保存后会自动挂载到流水线内每个 task')}
+          </div>
           <div className={style.splitLine}></div>
           <TextField
             label={t('全局环境变量')}
