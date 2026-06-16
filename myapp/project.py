@@ -30,6 +30,8 @@ def push_admin(message):
 def push_message(receivers, message, link=None):
     pass
 
+# 模型市场内部 API 地址（后端容器内调用平台已有 API）
+MODEL_MARKET_INTERNAL_HOST = "http://127.0.0.1"
 
 import logging
 from flask import flash, g, redirect, request, session
