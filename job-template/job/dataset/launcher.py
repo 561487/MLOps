@@ -131,10 +131,6 @@ if __name__ == "__main__":
     # print("{} args: {}".format(__file__, args))
     if args.src_type=='cube-studio' or args.src_type=='当前平台':
         download(**args.__dict__)
-    elif args.src_type=='huggingface':
-        command = f'huggingface-cli download --repo-type dataset --resume-download {args.name} --revision {args.version} --local-dir {args.save_dir} --local-dir-use-symlinks False'
-        exitcode = exe_command(command)
-        exit(exitcode)
     elif args.src_type=='modelscope' or args.src_type=='魔塔':
         command = f'modelscope download --dataset {args.name} --local_dir {args.save_dir}'
         exitcode = exe_command(command)
