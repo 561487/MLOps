@@ -25,7 +25,7 @@ def download(**kwargs):
     model_path=""
     exist_model = {}
     # 从注册的模型中下载模型
-    if kwargs['from']=='模型管理' or 'model' in kwargs['from']:
+    if kwargs['from']=='模型管理':
         url = host + "/training_model_modelview/api/?form_data=" + json.dumps({
             "filters": [
                 {
@@ -184,7 +184,7 @@ if __name__ == "__main__":
         command = f'huggingface-cli download --repo-type model --resume-download {kwargs["model_name"]} --revision {kwargs["model_version"]} --local-dir {kwargs["save_path"]} --local-dir-use-symlinks False'
         exitcode = exe_command(command)
         exit(exitcode)
-    elif kwargs['from'] == '模型管理' or 'model' in kwargs['from'] or kwargs['from']=='推理服务' or 'inference' in kwargs['from']:
+    elif kwargs['from'] == '模型管理' or kwargs['from']=='推理服务' or 'inference' in kwargs['from']:
         download(**kwargs)
 
 
