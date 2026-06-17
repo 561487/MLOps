@@ -464,8 +464,9 @@ export default class RelationDiagram extends D3Tool {
 		if (d3MainView) {
 			d3MainView.onclick = (e: any) => {
 				let isNode = false
-				for (let i = 0; i < e.path.length; i++) {
-					const elem = e.path[i];
+				const path = e.composedPath?.() || e.path || []
+				for (let i = 0; i < path.length; i++) {
+					const elem = path[i];
 					if (elem.id && ~elem.id.indexOf('node_')) {
 						isNode = true
 						break
