@@ -177,7 +177,7 @@ class InferenceService_ModelView_base():
         "inference_host_url": _("域名:需要泛域名支持，调试时域名(debug.xx.xx.xx.xx)")
     }
     service_type_choices = [x.replace('_','-') for x in service_type_choices]
-    host_rule=",<br>".join([cluster+"cluster:*."+conf.get('CLUSTERS')[cluster].get("SERVICE_DOMAIN",conf.get('SERVICE_DOMAIN','')) for cluster in conf.get('CLUSTERS') if conf.get('CLUSTERS')[cluster].get("SERVICE_DOMAIN",conf.get('SERVICE_DOMAIN',''))])
+    host_rule=",<br>".join([cluster+"cluster:*."+conf.get('CLUSTERS',{})[cluster].get("SERVICE_DOMAIN",conf.get('SERVICE_DOMAIN','')) for cluster in conf.get('CLUSTERS',{}) if conf.get('CLUSTERS',{})[cluster].get("SERVICE_DOMAIN",conf.get('SERVICE_DOMAIN',''))])
     model_path_describe = '''serving：自定义镜像的推理服务，模型地址随意
 ml-server：支持sklearn和xgb导出的模型，需按文档设置ml推理服务的配置文件
 tfserving：仅支持添加了服务签名的saved_model目录地址，例如：/mnt/xx/../saved_model/
