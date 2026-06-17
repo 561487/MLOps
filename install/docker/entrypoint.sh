@@ -24,6 +24,8 @@ myapp db upgrade     # 数据库表同步更新到mysql
 myapp fab create-admin --username admin --firstname admin --lastname admin --email admin@tencent.com --password admin
 # 会创建默认的角色和权限。会创建自定义的menu权限，也才能显示自定义menu。
 myapp init
+# 自动上传任务模板脚本到 PVC 共享存储
+python3 /home/myapp/scripts/upload_to_pvc.py 2>/dev/null || true
 
 if [ "$STAGE" = "build" ]; then
   # 构建前端主体
