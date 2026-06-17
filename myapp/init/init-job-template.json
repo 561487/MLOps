@@ -1755,6 +1755,24 @@
     },
     "job_template_args": {}
   },
+  "llm-quantize": {
+    "project_name": "模型处理",
+    "image_name": "gptqmodel:1.8.0",
+    "gitpath": "/job-template/job/llm_quantize",
+    "image_describe": "LLM量化(GPTQModel)",
+    "job_template_name": "llm-quantize",
+    "job_template_describe": "LLM量化：GPTQ/AWQ/bitsandbytes，支持主流大模型",
+    "job_template_command": "python3 /app/launcher.py",
+    "job_template_volume": "",
+    "job_template_account": "",
+    "job_template_env": "",
+    "job_template_expand": {
+      "index": 4,
+      "rec_job_template": "自定义镜像",
+      "help_url": "/job-template/job/llm_quantize"
+    },
+    "job_template_args": {}
+  },
   "model-quantization": {
     "project_name": "模型处理",
     "image_name": "python:3.9",
