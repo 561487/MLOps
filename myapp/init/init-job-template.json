@@ -1771,7 +1771,70 @@
       "rec_job_template": "自定义镜像",
       "help_url": "/job-template/job/llm_quantize"
     },
-    "job_template_args": {}
+    "job_template_args": {
+      "模型参数": {
+        "--model": {
+          "type": "str",
+          "default": "",
+          "describe": "待量化模型路径或 HuggingFace Model ID（必填）",
+          "item_type": "str",
+          "require": 1,
+          "editable": 1
+        },
+        "--output": {
+          "type": "str",
+          "default": "/mnt/admin/models/quant",
+          "describe": "量化后模型保存路径",
+          "item_type": "str",
+          "editable": 1
+        }
+      },
+      "量化配置": {
+        "--method": {
+          "type": "str",
+          "default": "gptq",
+          "describe": "选择量化算法",
+          "item_type": "select-input",
+          "choice": {
+            "gptq": "GPTQ（精度好，需校准数据）",
+            "awq": "AWQ（速度快精度高）",
+            "bnb": "bitsandbytes（无需校准，快速试用）"
+          },
+          "editable": 1
+        },
+        "--bits": {
+          "type": "int",
+          "default": 4,
+          "range": "2,8",
+          "step": 1,
+          "describe": "量化位数，推荐 4bit",
+          "editable": 1
+        },
+        "--group_size": {
+          "type": "int",
+          "default": 128,
+          "range": "32,256",
+          "step": 32,
+          "describe": "GPTQ 分组大小，128 是标准值",
+          "editable": 1
+        },
+        "--dataset": {
+          "type": "str",
+          "default": "c4",
+          "describe": "GPTQ 校准数据集名称",
+          "item_type": "str",
+          "editable": 1
+        },
+        "--nsamples": {
+          "type": "int",
+          "default": 128,
+          "range": "16,1024",
+          "step": 16,
+          "describe": "GPTQ 校准使用的样本数量",
+          "editable": 1
+        }
+      }
+    }
   },
   "model-quantization": {
     "project_name": "模型处理",
