@@ -2866,11 +2866,11 @@
   },
   "nlp-clean-data": {
     "project_name": "文本处理",
-    "image_name": "ccr.ccs.tencentyun.com/cube-studio/nlp-clean-data:20250601",
+    "image_name": "10.121.177.20:8082/mlops/nlp-clean-data:20250601",
     "gitpath": "/job-template/job/nlp-clean-data",
     "image_describe": "文本算法类的数据处理",
     "job_template_name": "nlp-clean-data",
-    "job_template_describe": "异常数据清洗(企业版)",
+    "job_template_describe": "异常数据清洗",
     "job_template_version": "Release",
     "job_template_workdir": "/app",
     "job_template_command": "python3 launcher.py",
@@ -2960,11 +2960,11 @@
   },
   "nlp-filter-data": {
     "project_name": "文本处理",
-    "image_name": "ccr.ccs.tencentyun.com/cube-studio/nlp-filter-data:20250601",
+    "image_name": "10.121.177.20:8082/mlops/nlp-filter-data:20250601",
     "gitpath": "/job-template/job/nlp-filter-data",
     "image_describe": "文本算法类的数据处理",
     "job_template_name": "nlp-filter-data",
-    "job_template_describe": "过滤异常文档(企业版)",
+    "job_template_describe": "过滤异常文档",
     "job_template_version": "Release",
     "job_template_workdir": "/app",
     "job_template_command": "python3 launcher.py",
@@ -3066,11 +3066,11 @@
   },
   "nlp-analyze-data": {
     "project_name": "文本处理",
-    "image_name": "ccr.ccs.tencentyun.com/cube-studio/nlp-analyze-data:20250601",
+    "image_name": "10.121.177.20:8082/mlops/nlp-analyze-data:20250601",
     "gitpath": "/job-template/job/nlp-analyze-data",
     "image_describe": "文本数据统计",
     "job_template_name": "nlp-analyze-data",
-    "job_template_describe": "文本数据统计，质量评估(企业版)",
+    "job_template_describe": "文本数据统计，质量评估",
     "job_template_version": "Release",
     "job_template_workdir": "/app",
     "job_template_command": "python3 launcher.py",
@@ -3080,8 +3080,7 @@
     "job_template_expand": {
       "index": 4,
       "rec_job_template": "自定义镜像",
-      "help_url": "/job-template/job/nlp-analyze-data",
-      "enterprise": true
+      "help_url": "/job-template/job/nlp-analyze-data"
     },
     "job_template_args": {
       "参数设置": {
