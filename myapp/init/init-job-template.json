@@ -1875,20 +1875,80 @@
   "model-prune": {
     "project_name": "模型处理",
     "image_name": "python:3.9",
-    "gitpath": "/job-template/job/model-prune",
-    "image_describe": "大模型剪枝",
+    "gitpath": "/job-template/job/model_prune",
+    "image_describe": "模型剪枝(Torch-Pruning)",
     "job_template_name": "model-prune",
-    "job_template_describe": "大模型剪枝(企业版)",
-    "job_template_command": "python3 launcher.py",
+    "job_template_describe": "模型剪枝：结构化剪枝/LLM剪枝/层级移除，基于Torch-Pruning",
+    "job_template_command": "python3 /app/launcher.py",
     "job_template_volume": "",
     "job_template_account": "",
     "job_template_env": "",
     "job_template_expand": {
       "index": 6,
       "rec_job_template": "自定义镜像",
-      "help_url": "/job-template/job/model-distillation"
+      "help_url": "/job-template/job/model_prune"
     },
-    "job_template_args": {}
+    "job_template_args": {
+      "模型参数": {
+        "--model": {
+          "type": "str",
+          "default": "",
+          "describe": "待剪枝模型路径或 HuggingFace Model ID（必填）",
+          "item_type": "str",
+          "require": 1,
+          "editable": 1
+        },
+        "--output": {
+          "type": "str",
+          "default": "/mnt/admin/models/pruned",
+          "describe": "剪枝后模型保存路径",
+          "item_type": "str",
+          "editable": 1
+        }
+      },
+      "剪枝配置": {
+        "--method": {
+          "type": "str",
+          "default": "structural",
+          "describe": "剪枝方法",
+          "item_type": "select-input",
+          "choice": {
+            "structural": "结构化剪枝（CV/通用模型）",
+            "llm": "LLM 剪枝（大语言模型）",
+            "layer": "层级移除（精确移除指定层）"
+          },
+          "editable": 1
+        },
+        "--ratio": {
+          "type": "float",
+          "default": 0.3,
+          "range": "0.0,1.0",
+          "step": 0.05,
+          "describe": "剪枝比例，0.3 表示移除 30% 的参数",
+          "editable": 1
+        },
+        "--prune_heads": {
+          "type": "bool",
+          "default": true,
+          "describe": "是否剪枝注意力头（仅 LLM 方法）",
+          "editable": 1
+        },
+        "--prune_layers": {
+          "type": "bool",
+          "default": false,
+          "describe": "是否移除整个 Transformer 层（仅 LLM 方法）",
+          "editable": 1
+        },
+        "--n_layers_remove": {
+          "type": "int",
+          "default": 0,
+          "range": "0,48",
+          "step": 1,
+          "describe": "移除的 Transformer 层数",
+          "editable": 1
+        }
+      }
+    }
   },
   "model-register": {
     "project_name": "模型服务化",
