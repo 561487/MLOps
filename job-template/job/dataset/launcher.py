@@ -1,5 +1,6 @@
-
-import os,sys
+import shutil, os
+shutil.rmtree('/tmp/ms_cache', ignore_errors=True)
+import sys
 import argparse
 import datetime
 import json
@@ -132,7 +133,7 @@ if __name__ == "__main__":
     if args.src_type=='cube-studio' or args.src_type=='当前平台':
         download(**args.__dict__)
     elif args.src_type=='modelscope' or args.src_type=='魔塔':
-        command = f'modelscope download --dataset {args.name} --local_dir {args.save_dir}'
+        command = f'modelscope download --dataset {args.name} --repo-type dataset --local_dir {args.save_dir} --cache_dir /tmp/ms_cache'
         exitcode = exe_command(command)
         exit(exitcode)
 

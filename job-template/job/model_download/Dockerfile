@@ -5,6 +5,7 @@ ENV TZ=Asia/Shanghai
 ENV DEBIAN_FRONTEND=noninteractive
 RUN pip config set global.index-url https://mirrors.aliyun.com/pypi/simple
 RUN pip install kubernetes==25.3.0 pysnooper psutil requests huggingface_hub hf_transfer
+RUN apt-get update && apt-get install -y git-lfs && git lfs install && rm -rf /var/lib/apt/lists/*
 RUN pip install modelscope
 COPY job/model_download/ /app/
 
