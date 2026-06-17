@@ -77,6 +77,7 @@ class ModelMarketModel(Model):
             "framework": self.framework,
             "description": self.description,
             "cover_url": self.cover_url,
+            "cover": self.cover_url,
             "tags": self.tags.split(",") if self.tags else [],
 
             "support_experience": bool(self.support_experience),

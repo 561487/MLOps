@@ -46,3 +46,4 @@ venv/
 /myapp/static/appbuilder/vison/
 /myapp/static/appbuilder/visonPlus/
 /myapp/static/appbuilder/frontend/
+/myapp/frontend/package-lock.json
