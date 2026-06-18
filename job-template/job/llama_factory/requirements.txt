@@ -1,0 +1,7 @@
+kubernetes==25.3.0
+pysnooper
+psutil
+requests
+llamafactory
+pyyaml
+email-validator
