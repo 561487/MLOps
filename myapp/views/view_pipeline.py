@@ -29,8 +29,9 @@ from sqlalchemy import or_
 from myapp.exceptions import MyappException
 from wtforms import BooleanField, IntegerField, StringField, SelectField
 from flask_appbuilder.fieldwidgets import BS3TextFieldWidget, Select2ManyWidget, Select2Widget, BS3TextAreaFieldWidget
-from myapp.forms import MyBS3TextAreaFieldWidget, MySelectMultipleField
+from myapp.forms import MyBS3TextAreaFieldWidget, MySelect2Widget, MySelectMultipleField
 from myapp.models.model_job import Repository
+from myapp.utils.storage_volume import available_volume_choices, filter_selected_volume_mount, split_volume_mount
 from myapp.utils.py import py_k8s
 import re, copy
 from kubernetes.client.models import (
@@ -144,6 +145,17 @@ def dag_to_pipeline(pipeline, dbsession, workflow_label=None, **kwargs):
             raise MyappException('task %s not exist ' % task_name)
         all_tasks[task_name] = task
 
+    try:
+        pipeline_parameter = json.loads(pipeline.parameter or '{}')
+    except Exception:
+        pipeline_parameter = {}
+    pipeline_volume_mount = filter_selected_volume_mount(
+        pipeline.created_by,
+        pipeline.project,
+        pipeline_parameter.get('volume_mount', ''),
+        namespace=conf.get('PIPELINE_NAMESPACE', 'pipeline')
+    )
+
     template_kwargs=kwargs
     if 'execution_date' not in template_kwargs:
         template_kwargs['execution_date'] = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
@@ -243,7 +255,8 @@ def dag_to_pipeline(pipeline, dbsession, workflow_label=None, **kwargs):
         container_envs.append(("KFJ_TASK_ID", str(task.id)))
         container_envs.append(("KFJ_TASK_NAME", str(task.name)))
         container_envs.append(("KFJ_TASK_NODE_SELECTOR", str(task.get_node_selector())))
-        container_envs.append(("KFJ_TASK_VOLUME_MOUNT", str(task.volume_mount)))
+        runtime_volume_mount = core.merge_volume_mount(task.volume_mount, pipeline_volume_mount)
+        container_envs.append(("KFJ_TASK_VOLUME_MOUNT", str(runtime_volume_mount)))
         container_envs.append(("KFJ_TASK_IMAGES", str(task.job_template.images)))
         container_envs.append(("KFJ_TASK_RESOURCE_CPU", str(task.resource_cpu)))
         container_envs.append(("KFJ_TASK_RESOURCE_MEMORY", str(task.resource_memory)))
@@ -305,10 +318,11 @@ def dag_to_pipeline(pipeline, dbsession, workflow_label=None, **kwargs):
         # 添加用户自定义挂载
         k8s_volumes = []
         k8s_volume_mounts = []
-        task.volume_mount = task.volume_mount.strip() if task.volume_mount else ''
-        if task.volume_mount:
+        runtime_volume_mount = core.merge_volume_mount(task.volume_mount, pipeline_volume_mount)
+        runtime_volume_mount = runtime_volume_mount.strip() if runtime_volume_mount else ''
+        if runtime_volume_mount:
             try:
-                k8s_volumes,k8s_volume_mounts = py_k8s.K8s.get_volume_mounts(task.volume_mount,pipeline.created_by.username)
+                k8s_volumes,k8s_volume_mounts = py_k8s.K8s.get_volume_mounts(runtime_volume_mount,pipeline.created_by.username)
             except Exception as e:
                 print(e)
 
@@ -601,9 +615,9 @@ class Pipeline_ModelView_Base():
         "parameter":_("后端扩展"),
         "expand":_("前端扩展")
     }
-    add_columns = ['project', 'name', 'describe']
+    add_columns = ['project', 'name', 'describe', 'parameter']
     edit_columns = ['project', 'name', 'describe', 'schedule_type', 'cron_time', 'depends_on_past', 'max_active_runs',
-                    'expired_limit', 'parallelism', 'global_env', 'alert_status', 'alert_user', 'parameter',
+                    'expired_limit', 'parallelism', 'global_env', 'parameter', 'alert_status', 'alert_user',
                     'cronjob_start_time']
     show_columns = ['project', 'name', 'describe', 'schedule_type', 'cron_time', 'depends_on_past', 'max_active_runs',
                     'expired_limit', 'parallelism', 'global_env', 'dag_json', 'pipeline_file', 'pipeline_argo_id',
@@ -734,8 +748,107 @@ class Pipeline_ModelView_Base():
 
     edit_form_extra_fields = add_form_extra_fields
 
+    expand_columns = {
+        "parameter": {
+            "volume_mount": MySelectMultipleField(
+                label=_('挂载卷'),
+                default='',
+                description=_('选择项目默认挂载卷或已同步的存储资源，保存后会自动挂载到流水线内每个 task'),
+                widget=MySelect2Widget(multiple=True),
+                choices=[],
+            )
+        }
+    }
+
 
     related_views = [Task_ModelView_Api, ]
+
+    def _pipeline_parameter(self, pipeline=None):
+        if pipeline and pipeline.parameter:
+            try:
+                return json.loads(pipeline.parameter)
+            except Exception:
+                return {}
+        return {}
+
+    def _pipeline_volume_mount(self, pipeline=None):
+        return ','.join(split_volume_mount(self._pipeline_parameter(pipeline).get('volume_mount', '')))
+
+    def _pipeline_storage_namespace(self):
+        return conf.get('PIPELINE_NAMESPACE', 'pipeline')
+
+    def _save_pipeline_volume_mount(self, pipeline, selected_volume_mount):
+        parameter = self._pipeline_parameter(pipeline)
+        selected_volume_mount = filter_selected_volume_mount(
+            g.user,
+            pipeline.project,
+            selected_volume_mount,
+            namespace=self._pipeline_storage_namespace()
+        )
+        if selected_volume_mount:
+            parameter['volume_mount'] = selected_volume_mount
+        else:
+            parameter.pop('volume_mount', None)
+        pipeline.parameter = json.dumps(parameter, indent=4, ensure_ascii=False)
+        pipeline_volume_mount = core.merge_volume_mount(pipeline.project.volume_mount, selected_volume_mount)
+        for task in pipeline.get_tasks(db.session):
+            task.volume_mount = core.merge_volume_mount(pipeline_volume_mount, task.job_template.volume_mount if task.job_template else '')
+
+    def _merge_volume_mount_req(self, req_json, src_item=None):
+        if not req_json:
+            return req_json
+        if 'volume_mount' not in req_json:
+            return req_json
+        req_json['volume_mount'] = ','.join(split_volume_mount(req_json.get('volume_mount')))
+        return req_json
+
+    def _set_pipeline_volume_mount_field(self, pipeline=None, project=None):
+        project = project or (pipeline.project if pipeline else None)
+        current_volume_mount = self._pipeline_volume_mount(pipeline)
+        if not current_volume_mount and project:
+            current_volume_mount = project.volume_mount
+        self.expand_columns['parameter']['volume_mount'] = MySelectMultipleField(
+            label=_('挂载卷'),
+            default=current_volume_mount,
+            description=_('选择项目默认挂载卷或已同步的存储资源，保存后会自动挂载到流水线内每个 task'),
+            widget=MySelect2Widget(multiple=True),
+            choices=available_volume_choices(
+                g.user,
+                project=project,
+                namespace=self._pipeline_storage_namespace(),
+                current_volume_mount=current_volume_mount
+            ),
+        )
+
+    def set_columns_related(self, exist_add_args, response_add_columns):
+        if 'volume_mount' not in response_add_columns:
+            return
+        project_value = exist_add_args.get('project') or exist_add_args.get('project_id') or {}
+        if isinstance(project_value, dict):
+            project_value = project_value.get('id') or project_value.get('value')
+        project = db.session.query(Project).filter_by(id=int(project_value)).first() if str(project_value).isdigit() else None
+        parameter = exist_add_args.get('parameter') or {}
+        if isinstance(parameter, str):
+            try:
+                parameter = json.loads(parameter or '{}')
+            except Exception:
+                parameter = {}
+        current_volume_mount = exist_add_args.get('volume_mount') or parameter.get('volume_mount') or (project.volume_mount if project else '')
+        choices = available_volume_choices(
+            g.user,
+            project=project,
+            namespace=self._pipeline_storage_namespace(),
+            current_volume_mount=current_volume_mount
+        )
+        response_add_columns['volume_mount'].update({
+            "label": _('挂载卷'),
+            "description": _('选择项目默认挂载卷或已同步的存储资源，保存后会自动挂载到流水线内每个 task'),
+            "type": "Select",
+            "ui-type": "select2",
+            "default": split_volume_mount(current_volume_mount),
+            "choices": choices,
+            "values": [{"id": choice[0], "value": choice[1]} for choice in choices],
+        })
 
     def delete_task_run(self, task):
         try:
@@ -852,6 +965,7 @@ class Pipeline_ModelView_Base():
 
     # @pysnooper.snoop(watch_explode=('item'))
     def pre_add(self, item):
+        selected_volume_mount = self._pipeline_volume_mount(item)
         if not item.project or item.project.type != 'org':
             project = db.session.query(Project).filter_by(name='public').filter_by(type='org').first()
             if project:
@@ -873,6 +987,7 @@ class Pipeline_ModelView_Base():
         item.change_datetime = datetime.datetime.now()
         item.cronjob_start_time = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         item.parameter = json.dumps({}, indent=4, ensure_ascii=False)
+        self._save_pipeline_volume_mount(item, selected_volume_mount)
         # 检测crontab格式
         if item.schedule_type == 'crontab':
             if not re.match("^[0-9/*]+ [0-9/*]+ [0-9/*]+ [0-9/*]+ [0-9/*]+", item.cron_time):
@@ -880,17 +995,20 @@ class Pipeline_ModelView_Base():
                 item.cron_time = ''
 
     def pre_update_req(self,req_json=None,src_item=None,*args,**kwargs):
+        req_json = self._merge_volume_mount_req(req_json, src_item)
         if src_item and src_item.parameter:
             parameter = json.loads(src_item.parameter)
             if parameter.get("demo", 'false').lower() == 'true':
                 raise MyappException(__("示例pipeline，不允许修改，请复制后编辑"))
 
         core.validate_json(req_json.get('expand','{}'))
+        return req_json
 
     pre_add_req = pre_update_req
 
     @pysnooper.snoop()
     def pre_update(self, item):
+        selected_volume_mount = self._pipeline_volume_mount(item)
         if item.expand:
             core.validate_json(item.expand)
             item.expand = json.dumps(json.loads(item.expand), indent=4, ensure_ascii=False)
@@ -914,6 +1032,7 @@ class Pipeline_ModelView_Base():
             item.parameter = json.dumps(json.loads(item.parameter), indent=4, ensure_ascii=False)
         else:
             item.parameter = '{}'
+        self._save_pipeline_volume_mount(item, selected_volume_mount)
 
         if (item.schedule_type=='crontab' and self.src_item_json.get("schedule_type")=='once') or (item.cron_time!=self.src_item_json.get("cron_time",'')):
             item.cronjob_start_time = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
@@ -936,7 +1055,11 @@ class Pipeline_ModelView_Base():
                 flash(__('无法保障公共集群的稳定性，定时任务请选择专门的日更集群项目组'), 'warning')
 
 
+    def pre_add_web(self, item=None):
+        self._set_pipeline_volume_mount_field(item)
+
     def pre_update_web(self, item):
+        self._set_pipeline_volume_mount_field(item)
         item.dag_json = item.fix_dag_json()
         item.expand = json.dumps(item.fix_expand(), indent=4, ensure_ascii=False)
         db.session.commit()
@@ -1328,10 +1451,10 @@ class Pipeline_ModelView_Api(Pipeline_ModelView_Base, MyappModelRestApi):
     route_base = '/pipeline_modelview/api'
     # show_columns = ['project','name','describe','namespace','schedule_type','cron_time','node_selector','depends_on_past','max_active_runs','parallelism','global_env','dag_json','pipeline_file_html','pipeline_argo_id','run_id','created_by','changed_by','created_on','changed_on','expand']
     list_columns = ['id', 'project', 'pipeline_url', 'creator', 'modified']
-    add_columns = ['project', 'name', 'describe']
+    add_columns = ['project', 'name', 'describe', 'parameter']
     edit_columns = ['project', 'name', 'describe', 'schedule_type', 'cron_time', 'depends_on_past', 'max_active_runs',
-                    'expired_limit', 'parallelism', 'dag_json', 'global_env', 'alert_status', 'alert_user', 'expand',
-                    'parameter','cronjob_start_time']
+                    'expired_limit', 'parallelism', 'dag_json', 'global_env', 'parameter', 'alert_status', 'alert_user', 'expand',
+                    'cronjob_start_time']
 
     related_views = [Task_ModelView_Api, ]
 

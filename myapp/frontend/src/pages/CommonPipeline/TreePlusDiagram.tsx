@@ -262,7 +262,6 @@ export default class RelationDiagram extends D3Tool {
 			for (let i = 0; i < preHandleNextData.length; i++) {
 				preHandleNextData[i].key = 
 `node_${i}`;
-				preHandleNextData[i].parent = preHandlePreData[i].parent;
 			}
 
 			this.rootNode = preHandleNextData[0];
@@ -811,6 +810,14 @@ export default class RelationDiagram extends D3Tool {
 		}
 	}
 
+	private refreshNodeView(item: IPreHandleNode) {
+		const currentColor = item.color
+		d3.selectAll(`#${item.key} .rectBg`).attr('fill', currentColor);
+		d3.selectAll(`#${item.key} .nodeType`).text(item.title).attr('fill', currentColor);
+		d3.selectAll(`#${item.key} .nodeContent`).text(item.name).attr('fill', '#000');
+		d3.select(`#icon_status_text_${item.key} text`).text(item.status?.label || '');
+	}
+
 	public refresh() {
 		// console.log('refresh');
 		// todo 鍥剧殑鏀归€?
@@ -829,11 +836,7 @@ export default class RelationDiagram extends D3Tool {
 
 			// 楂樹寒鑺傜偣
 			if (item) {
-				// const currentColorTheme = nodeTypeThemeMap[item.data_fields] || ThemeColor[0]
-				const currentColor = item.color
-				d3.selectAll(`#${item.key} .rectBg`).attr('fill', currentColor);
-				d3.selectAll(`#${item.key} .nodeType`).attr('fill', currentColor);
-				d3.selectAll(`#${item.key} .nodeContent`).attr('fill', '#000');
+				this.refreshNodeView(item);
 			}
 
 
@@ -857,11 +860,7 @@ export default class RelationDiagram extends D3Tool {
 			}
 
 			if (item) {
-				// const currentColorTheme = nodeTypeThemeMap[item.data_fields] || ThemeColor[0]
-				const currentColor = item.color
-				d3.selectAll(`#${item.key} .rectBg`).attr('fill', currentColor);
-				d3.selectAll(`#${item.key} .nodeType`).attr('fill', currentColor);
-				d3.selectAll(`#${item.key} .nodeContent`).attr('fill', '#000');
+				this.refreshNodeView(item);
 			}
 
 			if (item && item.children && item.children.length) {
