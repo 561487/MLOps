@@ -1960,7 +1960,7 @@
     "job_template_name": "model-evaluate-opencompass",
     "job_template_describe": "OpenCompass LLM模型评测",
     "job_template_command": "python3 /app/run_evaluation.py",
-    "job_template_volume": "",
+    "job_template_volume": "models-storage(storage):/mnt/storage/models-storage",
     "job_template_account": "",
     "job_template_env": "HF_ENDPOINT=https://hf-mirror.com",
     "job_template_expand": {
@@ -1968,7 +1968,178 @@
       "rec_job_template": "自定义镜像",
       "help_url": "/job-template/job/model-evaluate-opencompass"
     },
-    "job_template_args": {}
+    "job_template_args": {
+      "模型配置": {
+        "--model_path": {
+          "type": "str",
+          "item_type": "str",
+          "label": "模型路径",
+          "require": 1,
+          "choice": [],
+          "range": "",
+          "default": "/mnt/storage/models-storage/models/",
+          "placeholder": "如 /mnt/storage/models-storage/models/qwen-7b 或 Qwen/Qwen-7B-Chat",
+          "describe": "HuggingFace 模型路径或本地模型目录，<a target='_blank' href='https://huggingface.co/models'>HF Models 参考</a>",
+          "editable": 1
+        },
+        "--model_name": {
+          "type": "str",
+          "item_type": "str",
+          "label": "模型名称",
+          "require": 1,
+          "choice": [],
+          "range": "",
+          "default": "",
+          "placeholder": "如 qwen-7b-chat",
+          "describe": "用于结果标识的模型名称",
+          "editable": 1
+        },
+        "--model_type": {
+          "type": "str",
+          "item_type": "str",
+          "label": "模型类型",
+          "require": 1,
+          "choice": ["hf_chat", "hf_base"],
+          "range": "",
+          "default": "hf_chat",
+          "placeholder": "",
+          "describe": "对话模型选 hf_chat，基座模型选 hf_base",
+          "editable": 1
+        },
+        "--model_version": {
+          "type": "str",
+          "item_type": "str",
+          "label": "模型版本",
+          "require": 0,
+          "choice": [],
+          "range": "",
+          "default": "v1",
+          "placeholder": "",
+          "describe": "模型版本号，用于区分同一模型的不同版本评测结果",
+          "editable": 1
+        },
+        "--output_path": {
+          "type": "str",
+          "item_type": "str",
+          "label": "输出路径",
+          "require": 1,
+          "choice": [],
+          "range": "",
+          "default": "/mnt/storage/models-storage/output/opencompass",
+          "placeholder": "",
+          "describe": "评测结果输出目录，metric.json / eval_summary.json / eval_report.csv 将写入此路径",
+          "editable": 1
+        }
+      },
+      "评测配置": {
+        "--datasets": {
+          "type": "list",
+          "item_type": "str",
+          "label": "评测数据集",
+          "require": 1,
+          "choice": [
+            "ceval_gen",
+            "mmlu_gen",
+            "cmmlu_gen",
+            "gsm8k_gen",
+            "bbh_gen",
+            "humaneval_gen",
+            "mbpp_gen",
+            "hellaswag_gen",
+            "piqa_gen",
+            "winogrande_gen",
+            "lambada_gen",
+            "triviaqa_gen",
+            "nq_gen",
+            "agieval_gen"
+          ],
+          "range": "",
+          "default": "ceval_gen",
+          "placeholder": "",
+          "describe": "选择评测数据集，可多选。C-Eval(中文综合)/MMLU(英文综合)/CMMLU(中文多任务)/GSM8K(数学)/BBH(推理)/HumanEval(代码)/MBPP(代码)/HellaSwag(常识)/PIQA(物理)/WinoGrande(代词)/LAMBADA(语言)/TriviaQA(问答)/NQ(开放问答)/AGIEval(考试)",
+          "editable": 1
+        },
+        "--num_gpus": {
+          "type": "int",
+          "item_type": "int",
+          "label": "GPU 数量",
+          "require": 1,
+          "choice": [],
+          "range": [1, 8],
+          "default": 1,
+          "step": 1,
+          "placeholder": "",
+          "describe": "评测使用的 GPU 数量，默认 1 卡",
+          "editable": 1
+        },
+        "--batch_size": {
+          "type": "int",
+          "item_type": "int",
+          "label": "Batch Size",
+          "require": 0,
+          "choice": [],
+          "range": [1, 512],
+          "default": 64,
+          "step": 1,
+          "placeholder": "",
+          "describe": "推理批次大小，显存不足时可减小",
+          "editable": 1
+        },
+        "--max_seq_len": {
+          "type": "int",
+          "item_type": "int",
+          "label": "最大输入长度",
+          "require": 0,
+          "choice": [],
+          "range": [128, 8192],
+          "default": 2048,
+          "step": 128,
+          "placeholder": "",
+          "describe": "模型最大输入 token 数，长文本评测可适当调大",
+          "editable": 1
+        },
+        "--max_out_len": {
+          "type": "int",
+          "item_type": "int",
+          "label": "最大输出长度",
+          "require": 0,
+          "choice": [],
+          "range": [64, 4096],
+          "default": 512,
+          "step": 64,
+          "placeholder": "",
+          "describe": "模型最大输出 token 数",
+          "editable": 1
+        },
+        "--few_shot": {
+          "type": "int",
+          "item_type": "int",
+          "label": "Few-Shot 样本数",
+          "require": 0,
+          "choice": [],
+          "range": [0, 10],
+          "default": 0,
+          "step": 1,
+          "placeholder": "",
+          "describe": "少样本提示数量，0 表示零样本评测(Zero-Shot)",
+          "editable": 1
+        }
+      },
+      "高级配置": {
+        "--model_kwargs": {
+          "type": "json",
+          "item_type": "json",
+          "label": "模型加载参数",
+          "require": 0,
+          "choice": [],
+          "range": "",
+          "default": "",
+          "placeholder": "如 {\"device_map\": \"auto\", \"torch_dtype\": \"float16\"}",
+          "describe": "额外模型加载参数(JSON)，如 device_map、torch_dtype 等。高级用户使用，留空则使用默认配置",
+          "editable": 1
+        }
+      }
+    }
   },
   "model-register": {
     "project_name": "模型服务化",

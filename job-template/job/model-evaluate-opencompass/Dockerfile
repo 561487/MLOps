@@ -36,12 +36,15 @@ RUN sed -i 's|http://archive.ubuntu.com|https://mirrors.tuna.tsinghua.edu.cn|g' 
 RUN pip3 config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple && \
     pip3 install --no-cache-dir --upgrade pip setuptools wheel
 
-# ── 3. 安装 PyTorch（CUDA 12.1，>=2.4 兼容新版 transformers） ──
+# ── 3. 安装 PyTorch（CUDA 12.1）──
+# 关键：--index-url 显式指向 CUDA 版 PyTorch 源，必须放在包名后面才生效
+# --extra-index-url 指向清华源作为依赖（numpy 等）的下载源
 RUN pip3 install --no-cache-dir \
+    --index-url https://download.pytorch.org/whl/cu121 \
+    --extra-index-url https://pypi.tuna.tsinghua.edu.cn/simple \
     torch==2.5.1 \
     torchvision==0.20.1 \
-    torchaudio==2.5.1 \
-    --index-url https://download.pytorch.org/whl/cu121
+    torchaudio==2.5.1
 
 # ── 4. 安装 OpenCompass ──
 # 从国内 PyPI 镜像安装，无需 GitHub
@@ -72,6 +75,12 @@ RUN OPENCOMPASS_DIR=$(python3 -c "import opencompass; import os; print(os.path.d
 # ── 6. 复制入口脚本 ──
 COPY job-template/job/model-evaluate-opencompass/src/ /app/
 RUN chmod +x /app/*.py
+
+# ── 7. 安装 sitecustomize.py 到 site-packages（Python 启动时自动加载） ──
+# 为 MsDataset.load 注入 trust_remote_code=True，在 opencompass 子进程中也生效
+RUN SITE_PACKAGES=$(python3 -c "import site; print(site.getsitepackages()[0])") && \
+    cp /app/sitecustomize.py "$SITE_PACKAGES/sitecustomize.py" && \
+    echo "sitecustomize.py installed to: $SITE_PACKAGES/sitecustomize.py"
 
 WORKDIR /opt/opencompass
 ENV PYTHONPATH=/app

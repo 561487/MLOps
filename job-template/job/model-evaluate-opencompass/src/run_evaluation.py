@@ -14,6 +14,28 @@ import json
 import os
 import subprocess
 import sys
+import textwrap
+import threading
+import time
+
+# ---- Monkey-patch: 为 MsDataset.load 自动注入 trust_remote_code=True ----
+# C-Eval 等数据集需要执行远程脚本，OpenCompass 内置的 dataset config 没有传这个参数
+_original_msdataset_load = None
+
+def _patch_msdataset():
+    global _original_msdataset_load
+    try:
+        from modelscope import MsDataset
+        _original_msdataset_load = MsDataset.load
+        def _patched_load(*args, **kwargs):
+            kwargs.setdefault('trust_remote_code', True)
+            return _original_msdataset_load(*args, **kwargs)
+        MsDataset.load = staticmethod(_patched_load)
+        print('[INFO] MsDataset.load 已 patch: trust_remote_code=True')
+    except ImportError:
+        pass
+
+_patch_msdataset()
 
 # ---- 平台注入的环境变量 ----
 KFJ_CREATOR = os.getenv('KFJ_CREATOR', 'admin')
@@ -38,23 +60,63 @@ def check_opencompass():
         sys.exit(1)
 
 
+def check_gpu_available(num_gpus: int = 1):
+    """检查 GPU 可用性和显存，输出诊断信息。"""
+    try:
+        import torch
+        cuda_visible = os.environ.get('CUDA_VISIBLE_DEVICES', 'unset')
+        gpu_count = torch.cuda.device_count()
+        if gpu_count == 0:
+            print(f'[ERROR] 未检测到可用 GPU！'
+                  f' CUDA_VISIBLE_DEVICES={cuda_visible}')
+            print('[HINT] 检查：1) nvidia-smi 是否正常 2) CUDA_VISIBLE_DEVICES 是否指向有效 GPU')
+            sys.exit(1)
+        print(f'[INFO] 检测到 {gpu_count} 个可用 GPU'
+              f' (CUDA_VISIBLE_DEVICES={cuda_visible})')
+        for i in range(gpu_count):
+            props = torch.cuda.get_device_properties(i)
+            # 兼容新旧版 torch: 遍历所有可能的内存属性名
+            total_mem = 0
+            for attr in ('total_memory', 'total_mem', 'totalGlobalMem'):
+                try:
+                    val = getattr(props, attr, None)
+                    if val is not None and val > 0:
+                        total_mem = val
+                        break
+                except Exception:
+                    continue
+            mem_total_gb = total_mem / (1024 ** 3)
+            mem_allocated_gb = torch.cuda.memory_allocated(i) / (1024 ** 3)
+            mem_free_gb = mem_total_gb - mem_allocated_gb
+            print(f'  GPU {i}: {props.name}, '
+                  f'显存 {mem_total_gb:.1f}GB, 已用 {mem_allocated_gb:.1f}GB, '
+                  f'可用 ~{mem_free_gb:.1f}GB')
+        if gpu_count < num_gpus:
+            print(f'[ERROR] 需要 {num_gpus} 个 GPU，但仅检测到 {gpu_count} 个')
+            sys.exit(1)
+    except ImportError:
+        print('[WARN] 无法导入 torch，跳过 GPU 检查')
+    except Exception as e:
+        print(f'[WARN] GPU 检查失败: {e}')
+
+
 def build_opencompass_cmd(args: argparse.Namespace) -> list:
-    """根据用户参数构建 OpenCompass 命令行。
-    
-    OpenCompass CLI 用法（pip 安装后）:
-        opencompass --models <model_cfg> --datasets <dataset_cfg>
-    
-    或直接使用 run.py（可用 python -c 找到安装路径）:
-        python -c "import opencompass; import os; print(os.path.dirname(opencompass.__file__))"
-    
-    这里优先使用 opencompass CLI，若缺失则尝试 python run.py。
+    """构建 OpenCompass 执行命令。
+
+    由于 C-Eval 等数据集需要 trust_remote_code=True 才能加载，
+    而 opencompass 内置的 dataset config 并未传递此参数，
+    这里生成一个 wrapper 脚本，在调用 opencompass 入口前先 monkey-patch
+    MsDataset.load，确保 trust_remote_code=True 在子进程中也生效。
     """
     work_dir = os.path.join(args.output_path, 'opencompass_results')
     os.makedirs(work_dir, exist_ok=True)
 
-    cmd = [
-        'opencompass',
-        '--datasets', args.datasets,
+    # ---- 构建 opencompass CLI 参数（不含可执行文件） ----
+    # datasets 参数：平台传逗号分隔字符串，需拆分为空格分隔的多个参数
+    dataset_list = [d.strip() for d in args.datasets.split(',') if d.strip()]
+    print(f'[INFO] 数据集列表: {dataset_list}')
+    opencompass_args = ['--datasets'] + dataset_list
+    opencompass_args += [
         '--hf-path', args.model_path,
         '--hf-num-gpus', str(args.num_gpus),
         '--batch-size', str(args.batch_size),
@@ -66,42 +128,130 @@ def build_opencompass_cmd(args: argparse.Namespace) -> list:
 
     # 模型类型
     if args.model_type == 'hf_chat':
-        cmd.extend(['--hf-type', 'chat'])
+        opencompass_args.extend(['--hf-type', 'chat'])
     elif args.model_type == 'hf_base':
-        cmd.extend(['--hf-type', 'base'])
+        opencompass_args.extend(['--hf-type', 'base'])
     else:
-        cmd.extend(['--hf-type', 'chat'])
+        opencompass_args.extend(['--hf-type', 'chat'])
 
-    # Few-shot 在 OpenCompass 数据集中配置，不作为 CLI 参数
-    # 用户如果配置了 --few_shot，通过环境变量传递给数据集配置
+    # Few-shot
     if args.few_shot > 0:
         os.environ['OPENCOMPASS_FEW_SHOT'] = str(args.few_shot)
         print(f'[INFO] Few-shot 设置为 {args.few_shot}，'
               '请确保数据集配置中引用了该环境变量')
 
-    # 额外的模型加载参数（OpenCompass 原生支持 key=value 格式）
+    # 额外的模型加载参数
     if args.model_kwargs:
         try:
             model_kwargs = json.loads(args.model_kwargs)
             if isinstance(model_kwargs, dict):
                 for k, v in model_kwargs.items():
-                    cmd.extend(['--model-kwargs', f'{k}={v}'])
+                    opencompass_args.extend(['--model-kwargs', f'{k}={v}'])
             else:
                 print(f'[WARN] model_kwargs 不是 JSON 对象，已跳过: {args.model_kwargs}')
         except json.JSONDecodeError:
             print(f'[WARN] model_kwargs 不是合法 JSON，已跳过: {args.model_kwargs}')
 
-    return cmd
+    # ---- 生成 wrapper 脚本（monkey-patch MsDataset.load → 调用 opencompass 入口） ----
+    wrapper_path = os.path.join(args.output_path, '_opencompass_wrapper.py')
+    wrapper_code = textwrap.dedent('''\
+        #!/usr/bin/env python3
+        """Auto-generated: monkey-patch MsDataset.load BEFORE OpenCompass starts."""
+        import os
+        import sys
+
+        # 确保 HuggingFace datasets 和 modelscope 都允许执行远程脚本
+        os.environ.setdefault('HF_DATASETS_TRUST_REMOTE_CODE', '1')
+
+        # 显式传播 CUDA_VISIBLE_DEVICES（防止 OpenCompass 内部覆盖）
+        _cuda_devices = os.environ.get('CUDA_VISIBLE_DEVICES', '')
+        if _cuda_devices:
+            os.environ['CUDA_VISIBLE_DEVICES'] = _cuda_devices
+            print(f'[wrapper] CUDA_VISIBLE_DEVICES={_cuda_devices}')
+
+        # ---- Monkey-patch MsDataset.load ----
+        from modelscope import MsDataset
+        _original_load = MsDataset.load
+
+        def _patched_load(*pa, **kw):
+            kw.setdefault('trust_remote_code', True)
+            return _original_load(*pa, **kw)
+
+        MsDataset.load = staticmethod(_patched_load)
+        # 某些 modelscope 版本通过 _load 间接调用，一并 patch
+        if hasattr(MsDataset, '_load'):
+            _original_load2 = MsDataset._load
+
+            @staticmethod
+            def _patched_load2(*pa, **kw):
+                kw.setdefault('trust_remote_code', True)
+                return _original_load2(*pa, **kw)
+
+            MsDataset._load = _patched_load2
+
+        print('[wrapper] MsDataset.load patched: trust_remote_code=True')
+
+        # ---- 将控制权交给 OpenCompass CLI ----
+        from opencompass.cli.main import main
+        main()
+    ''').strip()
+
+    with open(wrapper_path, 'w', encoding='utf-8') as f:
+        f.write(wrapper_code + '\n')
+
+    print(f'[INFO] 已生成 wrapper 脚本: {wrapper_path}')
+
+    # 返回: python /path/to/wrapper.py [opencompass_args...]
+    return [sys.executable, wrapper_path] + opencompass_args
 
 
-def run_opencompass(cmd: list, log_path: str):
-    """执行 OpenCompass 命令，实时输出日志。"""
+def run_opencompass(cmd: list, log_path: str,
+                    total_timeout: int = 7200,
+                    stall_timeout: int = 600):
+    """执行 OpenCompass 命令，实时输出日志，带超时保护。
+
+    Args:
+        cmd: 要执行的命令（list）
+        log_path: 日志输出路径
+        total_timeout: 总运行时间上限（秒），默认 2 小时
+        stall_timeout: 无输出超时（秒），默认 10 分钟无日志则判定卡死
+    """
     print(f'[INFO] 执行命令: {" ".join(cmd)}')
     print(f'[INFO] 日志输出: {log_path}')
+    print(f'[INFO] 超时设置: 总超时={total_timeout}s, 卡死检测={stall_timeout}s')
     print('=' * 60)
 
     process = None
+    start_time = time.time()
+    last_output_time = time.time()
+    stall_event = threading.Event()
+
+    def _watchdog():
+        """后台线程：监控总超时和输出卡死。"""
+        while not stall_event.is_set():
+            time.sleep(15)  # 每 15 秒检查一次
+            if stall_event.is_set():
+                return
+            elapsed_total = time.time() - start_time
+            elapsed_silence = time.time() - last_output_time
+            if elapsed_total > total_timeout:
+                msg = (f'\n[ERROR] 评测总运行时间超过 {total_timeout}s，'
+                       f'正在终止进程...\n')
+                print(msg, flush=True)
+                if process and process.poll() is None:
+                    process.kill()
+                return
+            if elapsed_silence > stall_timeout:
+                msg = (f'\n[ERROR] 超过 {stall_timeout}s 无任何输出！'
+                       f'进程可能卡死（OOM/下载挂起/死锁），正在终止...\n')
+                print(msg, flush=True)
+                if process and process.poll() is None:
+                    process.kill()
+                return
+
     try:
+        env = os.environ.copy()
+        env.setdefault('HF_DATASETS_TRUST_REMOTE_CODE', '1')
         with open(log_path, 'w', encoding='utf-8') as log_f:
             process = subprocess.Popen(
                 cmd,
@@ -109,17 +259,23 @@ def run_opencompass(cmd: list, log_path: str):
                 stderr=subprocess.STDOUT,
                 bufsize=1,
                 universal_newlines=True,
+                env=env,
             )
 
-            # 实时输出日志
+            # 启动看门狗线程
+            watchdog = threading.Thread(target=_watchdog, daemon=True)
+            watchdog.start()
+
+            # 实时读取输出
             for line in iter(process.stdout.readline, ''):
                 print(line, end='', flush=True)
                 log_f.write(line)
+                last_output_time = time.time()
 
             process.wait()
+
     except FileNotFoundError:
         print(f'[ERROR] 命令未找到: {cmd[0]}，请确认 OpenCompass 已正确安装')
-        # 仍尝试写入错误信息到日志文件
         with open(log_path, 'a', encoding='utf-8') as log_f:
             log_f.write(f'\n[FATAL] 命令未找到: {cmd[0]}\n')
         sys.exit(1)
@@ -133,14 +289,30 @@ def run_opencompass(cmd: list, log_path: str):
         with open(log_path, 'a', encoding='utf-8') as log_f:
             log_f.write(f'\n[FATAL] 未知错误: {e}\n')
         sys.exit(1)
+    finally:
+        stall_event.set()  # 停止看门狗
 
+    elapsed = time.time() - start_time
     print('=' * 60)
-    if process is not None and process.returncode != 0:
-        print(f'[ERROR] OpenCompass 运行失败，退出码: {process.returncode}')
-        sys.exit(process.returncode)
-    elif process is None:
+    print(f'[INFO] 总耗时: {elapsed:.1f}s')
+
+    if process is None:
         print('[ERROR] 进程未能启动，无法获取退出码')
         sys.exit(1)
+
+    returncode = process.returncode
+    if returncode is None:
+        # 被看门狗 kill 了
+        print(f'[ERROR] OpenCompass 被超时机制终止（总耗时 {elapsed:.0f}s），退出码: {-15}')
+        sys.exit(1)
+
+    if returncode == -9:
+        print(f'[ERROR] OpenCompass 被 OOM Killer 或看门狗强制终止（SIGKILL）')
+        sys.exit(1)
+
+    if returncode != 0:
+        print(f'[ERROR] OpenCompass 运行失败，退出码: {returncode}')
+        sys.exit(returncode)
 
     print(f'[OK] OpenCompass 运行完成')
 
@@ -230,9 +402,33 @@ def main():
 
     # ---- 校验 ----
     check_opencompass()
-    if not os.path.exists(args.model_path):
-        print(f'[ERROR] 模型路径不存在: {args.model_path}')
-        sys.exit(1)
+    check_gpu_available(args.num_gpus)
+    # 仅对本地路径做存在性检查，HF 模型 ID（如 Qwen/Qwen2.5-0.5B-Instruct）由 OpenCompass 自行下载
+    is_local_path = args.model_path.startswith('/') or args.model_path.startswith('./')
+    if is_local_path:
+        if os.path.exists(args.model_path):
+            print(f'[INFO] 模型路径存在: {args.model_path}')
+        else:
+            print(f'[WARN] 模型路径不存在: {args.model_path}')
+            # 诊断：检查上级目录和挂载点
+            parent = args.model_path
+            for _ in range(3):
+                parent = os.path.dirname(parent)
+                if not parent or parent == '/':
+                    break
+                if os.path.exists(parent):
+                    print(f'[INFO] 上级目录存在: {parent}/')
+                    try:
+                        items = os.listdir(parent)
+                        print(f'[INFO] 目录内容({len(items)}项): {items[:20]}')
+                    except Exception as e:
+                        print(f'[WARN] 无法列出目录: {e}')
+                    break
+                else:
+                    print(f'[WARN] 上级目录也不存在: {parent}/')
+            print('[INFO] 将继续尝试运行，由 OpenCompass 自行处理路径错误')
+    if not is_local_path:
+        print(f'[INFO] 检测到 HF 模型 ID，将由 OpenCompass 自动下载: {args.model_path}')
 
     # 创建输出目录
     os.makedirs(args.output_path, exist_ok=True)

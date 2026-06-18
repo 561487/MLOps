@@ -8,9 +8,12 @@ set -ex
 
 # ── 仓库配置（可通过环境变量覆盖） ──
 REGISTRY="${REGISTRY:-10.121.177.20:8082}"
-IMAGE_NAME="${IMAGE_NAME:-model-evaluate-opencompass}"
+IMAGE_NAME="${IMAGE_NAME:-mlops/model-evaluate-opencompass}"
 IMAGE_TAG=$(date +%Y%m%d-%H%M%S)
-DOCKERFILE_PATH="job-template/job/${IMAGE_NAME}/Dockerfile"
+# IMAGE_NAME 可能带 registry 前缀（如 mlops/model-evaluate-opencompass），
+# Dockerfile 路径只用最后一段作为目录名
+JOB_NAME="${IMAGE_NAME##*/}"
+DOCKERFILE_PATH="job-template/job/${JOB_NAME}/Dockerfile"
 
 # ── 切换到项目根目录 ──
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
