@@ -721,7 +721,7 @@ GPU_SHARED_NODE_SELECTOR={
 
 # 配置禁用gpu的方法，不然对复合共用型机器，gpu会被共享使用
 GPU_NONE={
-    "gpu":['NVIDIA_VISIBLE_DEVICES','none']
+    "gpu":['NVIDIA_VISIBLE_DEVICES','void']
 }
 
 # vgpu的类型方式
