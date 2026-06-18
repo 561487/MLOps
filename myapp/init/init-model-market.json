@@ -1,0 +1,268 @@
+[
+  {
+    "name": "yolov8",
+    "display_name": "YOLOv8 目标检测",
+    "category": "vision",
+    "task_type": "object_detection",
+    "framework": "pytorch",
+    "description": "基于 YOLOv8 的通用目标检测模型，支持一键开发、微调和部署。",
+    "cover_url": "/static/assets/images/pipeline/yolo.jpg",
+    "tags": "目标检测,视觉,YOLO",
+    "support_experience": true,
+    "support_develop": true,
+    "support_finetune": true,
+    "support_deploy": true,
+    "model_path": "/yolov8/yolov8n.pt",
+    "default_version": "v1",
+    "python_version": "3.10",
+    "cuda_version": "11.8",
+    "notebook_image": "ccr.ccs.tencentyun.com/cube-studio/yolov8:20250801",
+    "finetune_image": "ccr.ccs.tencentyun.com/cube-studio/yolov8:20250801",
+    "inference_image": "ccr.ccs.tencentyun.com/cube-studio/yolov8:20250801",
+    "default_cpu": "4",
+    "default_memory": "8G",
+    "default_gpu": "1",
+    "default_ports": "8080",
+    "volume_mount": "kubeflow-user-workspace(pvc):/mnt,dshm(emptyDir):/dev/shm",
+    "command": "python server.py",
+    "env_json": {
+      "MODELPATH": "/yolov8/yolov8n.pt"
+    },
+    "notebook_template": "yolov8-dev",
+    "finetune_template": "yolov8",
+    "deploy_template": "yolov8",
+    "demo_input_type": "image",
+    "demo_output_type": "json",
+    "demo_dataset_url": "coco",
+    "api_schema_json": {
+      "input": [
+        {
+          "name": "image",
+          "type": "image",
+          "label": "上传图片",
+          "required": true
+        }
+      ],
+      "output": {
+        "type": "json",
+        "description": "检测框与类别"
+      }
+    },
+    "status": "online"
+  },
+  {
+    "name": "yolo11x-torchserve",
+    "display_name": "YOLO11x TorchServe 推理",
+    "category": "vision",
+    "task_type": "object_detection",
+    "framework": "pytorch",
+    "description": "基于 TorchServe 部署的 YOLO11x 目标检测服务。",
+    "cover_url": "/static/assets/images/pipeline/yolo.jpg",
+    "tags": "目标检测,TorchServe,YOLO11",
+    "support_experience": true,
+    "support_develop": false,
+    "support_finetune": false,
+    "support_deploy": true,
+    "model_path": "/mnt/admin/pipeline/example/inference/torch-server/yolo/yolo11x.mar",
+    "default_version": "v1",
+    "python_version": "3.10",
+    "cuda_version": "11.8",
+    "inference_image": "ccr.ccs.tencentyun.com/cube-studio/torchserve:0.9.0-cpu",
+    "default_cpu": "15",
+    "default_memory": "30G",
+    "default_gpu": "0",
+    "default_ports": "8080",
+    "volume_mount": "kubeflow-user-workspace(pvc):/mnt,dshm(emptyDir):/dev/shm",
+    "command": "torchserve --start --model-store /models --models yolo11x=yolo11x.mar --ts-config /models/config.properties --foreground",
+    "env_json": {},
+    "demo_input_type": "image",
+    "demo_output_type": "json",
+    "api_schema_json": {
+      "input": [
+        {
+          "name": "image",
+          "type": "image",
+          "label": "上传图片",
+          "required": true
+        }
+      ],
+      "output": {
+        "type": "json",
+        "description": "检测框与类别"
+      }
+    },
+    "status": "offline"
+  },
+  {
+    "name": "whisper-base",
+    "display_name": "Whisper 语音识别",
+    "category": "audio",
+    "task_type": "speech_recognition",
+    "framework": "pytorch",
+    "description": "OpenAI Whisper 语音识别模型，支持语音转文字。",
+    "cover_url": "",
+    "tags": "语音识别,ASR,Whisper",
+    "support_experience": true,
+    "support_develop": true,
+    "support_finetune": false,
+    "support_deploy": true,
+    "model_path": "/models/whisper-base",
+    "default_version": "v1",
+    "python_version": "3.10",
+    "cuda_version": "11.8",
+    "notebook_image": "ccr.ccs.tencentyun.com/cube-studio/ubuntu-gpu:20.04-cuda11.8.0-cudnn8",
+    "inference_image": "ccr.ccs.tencentyun.com/cube-studio/ubuntu-gpu:20.04-cuda11.8.0-cudnn8",
+    "default_cpu": "4",
+    "default_memory": "8G",
+    "default_gpu": "1",
+    "default_ports": "8000",
+    "demo_input_type": "audio",
+    "demo_output_type": "text",
+    "api_schema_json": {
+      "input": [
+        {
+          "name": "audio",
+          "type": "audio",
+          "label": "上传音频",
+          "required": true
+        }
+      ],
+      "output": {
+        "type": "text",
+        "description": "识别文本"
+      }
+    },
+    "status": "online"
+  },
+  {
+    "name": "bert-base-chinese",
+    "display_name": "BERT 中文文本分类",
+    "category": "nlp",
+    "task_type": "text_classification",
+    "framework": "pytorch",
+    "description": "基于 BERT 的中文文本分类模型。",
+    "cover_url": "",
+    "tags": "NLP,文本分类,BERT",
+    "support_experience": true,
+    "support_develop": true,
+    "support_finetune": true,
+    "support_deploy": true,
+    "model_path": "/models/bert-base-chinese",
+    "default_version": "v1",
+    "python_version": "3.10",
+    "cuda_version": "11.8",
+    "notebook_image": "ccr.ccs.tencentyun.com/cube-studio/ubuntu-gpu:20.04-cuda11.8.0-cudnn8",
+    "finetune_image": "ccr.ccs.tencentyun.com/cube-studio/ubuntu-gpu:20.04-cuda11.8.0-cudnn8",
+    "inference_image": "ccr.ccs.tencentyun.com/cube-studio/ubuntu-gpu:20.04-cuda11.8.0-cudnn8",
+    "default_cpu": "4",
+    "default_memory": "8G",
+    "default_gpu": "1",
+    "default_ports": "8000",
+    "demo_input_type": "text",
+    "demo_output_type": "json",
+    "api_schema_json": {
+      "input": [
+        {
+          "name": "text",
+          "type": "text",
+          "label": "输入文本",
+          "required": true
+        }
+      ],
+      "output": {
+        "type": "json",
+        "description": "分类结果"
+      }
+    },
+    "status": "online"
+  },
+  {
+    "name": "clip-vit-base",
+    "display_name": "CLIP 图文理解",
+    "category": "multimodal",
+    "task_type": "image_text_matching",
+    "framework": "pytorch",
+    "description": "CLIP 多模态模型，支持图文匹配与零样本分类。",
+    "cover_url": "",
+    "tags": "多模态,CLIP,图文匹配",
+    "support_experience": true,
+    "support_develop": true,
+    "support_finetune": false,
+    "support_deploy": true,
+    "model_path": "/models/clip-vit-base-patch32",
+    "default_version": "v1",
+    "python_version": "3.10",
+    "cuda_version": "11.8",
+    "notebook_image": "ccr.ccs.tencentyun.com/cube-studio/ubuntu-gpu:20.04-cuda11.8.0-cudnn8",
+    "inference_image": "ccr.ccs.tencentyun.com/cube-studio/ubuntu-gpu:20.04-cuda11.8.0-cudnn8",
+    "default_cpu": "4",
+    "default_memory": "8G",
+    "default_gpu": "1",
+    "default_ports": "8000",
+    "demo_input_type": "image",
+    "demo_output_type": "json",
+    "api_schema_json": {
+      "input": [
+        {
+          "name": "image",
+          "type": "image",
+          "label": "上传图片",
+          "required": true
+        },
+        {
+          "name": "text",
+          "type": "text",
+          "label": "描述文本",
+          "required": true
+        }
+      ],
+      "output": {
+        "type": "json",
+        "description": "匹配分数"
+      }
+    },
+    "status": "online"
+  },
+  {
+    "name": "qwen2-7b-chat",
+    "display_name": "Qwen2-7B-Chat",
+    "category": "llm",
+    "task_type": "chat",
+    "framework": "pytorch",
+    "description": "通义千问 Qwen2-7B 对话大模型。",
+    "cover_url": "",
+    "tags": "大模型,对话,Qwen",
+    "support_experience": true,
+    "support_develop": true,
+    "support_finetune": true,
+    "support_deploy": true,
+    "model_path": "/models/qwen2-7b-chat",
+    "default_version": "v1",
+    "python_version": "3.10",
+    "cuda_version": "11.8",
+    "notebook_image": "ccr.ccs.tencentyun.com/cube-studio/ubuntu-gpu:20.04-cuda11.8.0-cudnn8",
+    "finetune_image": "ccr.ccs.tencentyun.com/cube-studio/ubuntu-gpu:20.04-cuda11.8.0-cudnn8",
+    "inference_image": "ccr.ccs.tencentyun.com/cube-studio/ubuntu-gpu:20.04-cuda11.8.0-cudnn8",
+    "default_cpu": "8",
+    "default_memory": "32G",
+    "default_gpu": "2",
+    "default_ports": "8000",
+    "demo_input_type": "text",
+    "demo_output_type": "chat",
+    "api_schema_json": {
+      "input": [
+        {
+          "name": "prompt",
+          "type": "text",
+          "label": "输入问题",
+          "required": true
+        }
+      ],
+      "output": {
+        "type": "chat",
+        "description": "模型回复"
+      }
+    },
+    "status": "online"
+  }
+]

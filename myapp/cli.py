@@ -921,6 +921,74 @@ def init():
     except Exception as e:
         print(e)
         # traceback.print_exc()
+    def add_model_market(init_file):
+        from myapp.models.model_market import ModelMarketModel
+
+        if not os.path.exists(init_file):
+            return
+
+        models = json.load(open(init_file, mode='r'))
+        models = replace_git(models)
+        for data in models:
+            name = data.get('name', '').strip()
+            display_name = data.get('display_name', '').strip()
+            if not name or not display_name:
+                continue
+
+            model = db.session.query(ModelMarketModel).filter_by(name=name).first()
+            if not model:
+                model = ModelMarketModel()
+
+            model.name = name
+            model.display_name = display_name
+            model.category = data.get('category', '')
+            model.task_type = data.get('task_type', '')
+            model.framework = data.get('framework', '')
+            model.description = data.get('description', '')
+            model.cover_url = data.get('cover_url', '')
+            model.tags = data.get('tags', '')
+            model.support_experience = bool(data.get('support_experience', True))
+            model.support_develop = bool(data.get('support_develop', True))
+            model.support_finetune = bool(data.get('support_finetune', True))
+            model.support_deploy = bool(data.get('support_deploy', True))
+            model.model_path = data.get('model_path', '')
+            model.default_version = data.get('default_version', 'v1')
+            model.python_version = data.get('python_version', '3.10')
+            model.cuda_version = data.get('cuda_version', '11.8')
+            model.notebook_image = data.get('notebook_image', '')
+            model.finetune_image = data.get('finetune_image', '')
+            model.inference_image = data.get('inference_image', '')
+            model.default_cpu = data.get('default_cpu', '2')
+            model.default_memory = data.get('default_memory', '4G')
+            model.default_gpu = data.get('default_gpu', '0')
+            model.default_ports = data.get('default_ports', '8000')
+            model.volume_mount = data.get('volume_mount', '')
+            model.command = data.get('command', '')
+            model.env_json = json.dumps(data.get('env_json', {}), ensure_ascii=False)
+            model.notebook_template = data.get('notebook_template', '')
+            model.finetune_template = data.get('finetune_template', '')
+            model.deploy_template = data.get('deploy_template', '')
+            model.demo_input_type = data.get('demo_input_type', '')
+            model.demo_output_type = data.get('demo_output_type', '')
+            model.demo_dataset_url = data.get('demo_dataset_url', '')
+            model.api_schema_json = json.dumps(data.get('api_schema_json', {}), ensure_ascii=False)
+            model.status = data.get('status', 'online')
+            model.created_by = 1
+
+            if not model.id:
+                db.session.add(model)
+            db.session.commit()
+            print(f'add model_market {name}')
+
+    # 初始化模型市场
+    try:
+        print('begin add model_market')
+        init_file = os.path.join(init_dir, 'init-model-market.json')
+        if os.path.exists(init_file):
+            add_model_market(init_file)
+    except Exception as e:
+        print(e)
+
     # 初始化示例所需要的测试数据
     try:
         import subprocess

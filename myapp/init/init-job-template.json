@@ -637,7 +637,7 @@
           "require": 1,
           "choice": [
             "当前平台",
-            "huggingface"
+            "modelscope"
           ],
           "range": "",
           "default": "当前平台",
@@ -698,7 +698,7 @@
   },
   "model-download": {
     "project_name": "数据导入导出",
-    "image_name": "ccr.ccs.tencentyun.com/cube-studio/model_download:20250301",
+    "image_name": "10.121.177.20:8082/mlops/model_download:20250601",
     "gitpath": "/job-template/job/model_download",
     "image_describe": "模型导入",
     "job_template_name": "model-download",
@@ -722,7 +722,7 @@
           "choice": [
             "模型管理",
             "推理服务",
-            "huggingface"
+            "modelscope"
           ],
           "range": "",
           "default": "模型管理",
@@ -1775,11 +1775,11 @@
   },
   "model-distillation": {
     "project_name": "模型处理",
-    "image_name": "python:3.9",
+    "image_name": "10.121.177.20:8082/mlops/model-distillation:20260611",
     "gitpath": "/job-template/job/model-distillation",
     "image_describe": "大模型蒸馏",
     "job_template_name": "model-distillation",
-    "job_template_describe": "大模型蒸馏(企业版)",
+    "job_template_describe": "大模型蒸馏",
     "job_template_command": "python3 launcher.py",
     "job_template_volume": "",
     "job_template_account": "",
@@ -1789,7 +1789,150 @@
       "rec_job_template": "自定义镜像",
       "help_url": "/job-template/job/model-distillation"
     },
-    "job_template_args": {}
+    "job_template_args": {
+      "模型配置": {
+        "--teacher_path": {
+          "type": "str",
+          "item_type": "str",
+          "label": "Teacher 模型路径",
+          "require": 1,
+          "choice": [],
+          "default": "",
+          "placeholder": "/mnt/models/teacher/",
+          "describe": "预训练好的大模型（Teacher）目录路径",
+          "editable": 1
+        },
+        "--student_arch": {
+          "type": "str",
+          "item_type": "str",
+          "label": "Student 模型结构",
+          "require": 1,
+          "choice": [
+            "bert-tiny",
+            "bert-mini",
+            "distilbert-base-uncased",
+            "google/mobilebert-uncased"
+          ],
+          "default": "bert-tiny",
+          "describe": "蒸馏后的小模型结构，bert-tiny 最小最快",
+          "editable": 1
+        },
+        "--output_path": {
+          "type": "str",
+          "item_type": "str",
+          "label": "输出路径",
+          "require": 1,
+          "choice": [],
+          "default": "",
+          "placeholder": "/mnt/models/distilled/",
+          "describe": "蒸馏后模型的保存目录",
+          "editable": 1
+        }
+      },
+      "数据配置": {
+        "--data_path": {
+          "type": "str",
+          "item_type": "str",
+          "label": "训练数据路径",
+          "require": 1,
+          "choice": [],
+          "default": "",
+          "placeholder": "/mnt/data/train.csv",
+          "describe": "CSV 或 JSONL 格式的训练数据",
+          "editable": 1
+        },
+        "--text_field": {
+          "type": "str",
+          "item_type": "str",
+          "label": "文本列名",
+          "require": 0,
+          "choice": [],
+          "default": "text",
+          "placeholder": "text",
+          "describe": "数据中文本内容的列名",
+          "editable": 1
+        },
+        "--label_field": {
+          "type": "str",
+          "item_type": "str",
+          "label": "标签列名",
+          "require": 0,
+          "choice": [],
+          "default": "label",
+          "placeholder": "label",
+          "describe": "数据中标签的列名",
+          "editable": 1
+        },
+        "--max_samples": {
+          "type": "str",
+          "item_type": "str",
+          "label": "最大样本数",
+          "require": 0,
+          "choice": [],
+          "default": "0",
+          "placeholder": "10000",
+          "describe": "最多使用的训练样本数，0=使用全部",
+          "editable": 1
+        }
+      },
+      "蒸馏参数": {
+        "--temperature": {
+          "type": "str",
+          "item_type": "str",
+          "label": "温度 (Temperature)",
+          "require": 0,
+          "choice": [],
+          "default": "4.0",
+          "placeholder": "4.0",
+          "describe": "越高 Teacher 知识越平滑，学生学到的细节越多，常用 2~10",
+          "editable": 1
+        },
+        "--alpha": {
+          "type": "str",
+          "item_type": "str",
+          "label": "硬标签权重 (Alpha)",
+          "require": 0,
+          "choice": [],
+          "default": "0.5",
+          "placeholder": "0.5",
+          "describe": "0~1，0=纯软标签，1=纯硬标签，0.5 为平衡",
+          "editable": 1
+        },
+        "--epochs": {
+          "type": "str",
+          "item_type": "str",
+          "label": "训练轮数 (Epochs)",
+          "require": 0,
+          "choice": [],
+          "default": "3",
+          "placeholder": "3",
+          "describe": "蒸馏训练的迭代轮数",
+          "editable": 1
+        },
+        "--batch_size": {
+          "type": "str",
+          "item_type": "str",
+          "label": "批次大小",
+          "require": 0,
+          "choice": [],
+          "default": "16",
+          "placeholder": "16",
+          "describe": "每批次的样本数，GPU 显存不足时调小",
+          "editable": 1
+        },
+        "--learning_rate": {
+          "type": "str",
+          "item_type": "str",
+          "label": "学习率",
+          "require": 0,
+          "choice": [],
+          "default": "2e-5",
+          "placeholder": "2e-5",
+          "describe": "蒸馏训练的学习率",
+          "editable": 1
+        }
+      }
+    }
   },
   "model-prune": {
     "project_name": "模型处理",
@@ -2741,48 +2884,188 @@
   },
   "nlp-clean-data": {
     "project_name": "文本处理",
-    "image_name": "python:3.9",
-    "gitpath": "/job-template/job/nlp-process",
+    "image_name": "10.121.177.20:8082/mlops/nlp-clean-data:20250601",
+    "gitpath": "/job-template/job/nlp-clean-data",
     "image_describe": "文本算法类的数据处理",
     "job_template_name": "nlp-clean-data",
-    "job_template_describe": "异常数据清洗(企业版)",
+    "job_template_describe": "异常数据清洗",
     "job_template_version": "Release",
-    "job_template_workdir": "",
-    "job_template_command": "python clean-data.py",
+    "job_template_workdir": "/app",
+    "job_template_command": "python3 launcher.py",
     "job_template_volume": "",
     "job_template_account": "",
     "job_template_env": "",
     "job_template_expand": {
       "index": 1,
       "rec_job_template": "自定义镜像",
-      "help_url": "/job-template/job/nlp-process"
+      "help_url": "/job-template/job/nlp-clean-data"
     },
-    "job_template_args": {}
+    "job_template_args": {
+      "参数设置": {
+        "--input_dir": {
+          "type": "str",
+          "item_type": "str",
+          "label": "输入目录",
+          "require": 1,
+          "default": "",
+          "describe": "JSONL 输入目录",
+          "editable": 1
+        },
+        "--output_dir": {
+          "type": "str",
+          "item_type": "str",
+          "label": "输出目录",
+          "require": 1,
+          "default": "",
+          "describe": "JSONL 输出目录",
+          "editable": 1
+        },
+        "--text_field": {
+          "type": "str",
+          "item_type": "str",
+          "label": "文本字段名",
+          "require": 0,
+          "default": "text",
+          "describe": "JSONL 中文本字段名，留空或字段不存在时会自动检测文本列",
+          "editable": 1
+        },
+        "--min_length": {
+          "type": "int",
+          "item_type": "str",
+          "label": "最小文本长度",
+          "require": 0,
+          "default": "0",
+          "describe": "小于此长度的文本将被过滤，0 表示不限制",
+          "editable": 1
+        },
+        "--max_length": {
+          "type": "int",
+          "item_type": "str",
+          "label": "最大文本长度",
+          "require": 0,
+          "default": "0",
+          "describe": "大于此长度的文本将被过滤，0 表示不限制",
+          "editable": 1
+        },
+        "--drop_empty": {
+          "type": "str",
+          "item_type": "str",
+          "label": "去除空值",
+          "require": 0,
+          "choice": [
+            "true",
+            "false"
+          ],
+          "default": "true",
+          "describe": "是否去除空值/空白行",
+          "editable": 1
+        },
+        "--drop_duplicates": {
+          "type": "str",
+          "item_type": "str",
+          "label": "去重",
+          "require": 0,
+          "choice": [
+            "true",
+            "false"
+          ],
+          "default": "true",
+          "describe": "是否去除完全重复的行（整条记录完全相同的去重）",
+          "editable": 1
+        }
+      }
+    }
   },
   "nlp-filter-data": {
     "project_name": "文本处理",
-    "image_name": "python:3.9",
-    "gitpath": "/job-template/job/nlp-process",
+    "image_name": "10.121.177.20:8082/mlops/nlp-filter-data:20250601",
+    "gitpath": "/job-template/job/nlp-filter-data",
     "image_describe": "文本算法类的数据处理",
     "job_template_name": "nlp-filter-data",
-    "job_template_describe": "过滤异常文档(企业版)",
+    "job_template_describe": "过滤异常文档",
     "job_template_version": "Release",
-    "job_template_workdir": "",
-    "job_template_command": "python launcher.py",
+    "job_template_workdir": "/app",
+    "job_template_command": "python3 launcher.py",
     "job_template_volume": "",
     "job_template_account": "",
     "job_template_env": "",
     "job_template_expand": {
       "index": 2,
       "rec_job_template": "自定义镜像",
-      "help_url": "/job-template/job/nlp-process"
+      "help_url": "/job-template/job/nlp-filter-data"
     },
-    "job_template_args": {}
+    "job_template_args": {
+      "参数设置": {
+        "--input_dir": {
+          "type": "str",
+          "item_type": "str",
+          "label": "输入目录",
+          "require": 1,
+          "choice": [],
+          "range": "",
+          "default": "",
+          "placeholder": "",
+          "describe": "输入文档目录",
+          "editable": 1
+        },
+        "--output_dir": {
+          "type": "str",
+          "item_type": "str",
+          "label": "输出目录",
+          "require": 1,
+          "choice": [],
+          "range": "",
+          "default": "",
+          "placeholder": "",
+          "describe": "过滤后的 JSONL 输出目录",
+          "editable": 1
+        },
+        "--text_field": {
+          "type": "str",
+          "item_type": "str",
+          "label": "文本字段名",
+          "require": 0,
+          "choice": [],
+          "range": "",
+          "default": "text",
+          "placeholder": "",
+          "describe": "文本字段名，留空或字段不存在时会自动检测文本列",
+          "editable": 1
+        },
+        "--target_lang": {
+          "type": "str",
+          "item_type": "str",
+          "label": "目标语言",
+          "require": 0,
+          "choice": [
+            "zh",
+            "none"
+          ],
+          "range": "",
+          "default": "zh",
+          "placeholder": "",
+          "describe": "目标语言过滤，zh=保留中文文本，none=不做语言过滤",
+          "editable": 1
+        },
+        "--min_score": {
+          "type": "int",
+          "item_type": "str",
+          "label": "质量及格线",
+          "require": 0,
+          "choice": [],
+          "range": "",
+          "default": "60",
+          "placeholder": "",
+          "describe": "质量及格线 (0-100)，低于此分的文本将被过滤",
+          "editable": 1
+        }
+      }
+    }
   },
   "nlp-replace-private-data": {
     "project_name": "文本处理",
     "image_name": "python:3.9",
-    "gitpath": "/job-template/job/nlp-process",
+    "gitpath": "",
     "image_describe": "文本算法类的数据处理",
     "job_template_name": "nlp-replace-private-data",
     "job_template_describe": "去除隐私信息(企业版)",
@@ -2795,35 +3078,73 @@
     "job_template_expand": {
       "index": 3,
       "rec_job_template": "自定义镜像",
-      "help_url": "/job-template/job/nlp-process"
+      "help_url": ""
     },
     "job_template_args": {}
   },
   "nlp-analyze-data": {
     "project_name": "文本处理",
-    "image_name": "python:3.9",
-    "gitpath": "/job-template/job/nlp-process",
+    "image_name": "10.121.177.20:8082/mlops/nlp-analyze-data:20250601",
+    "gitpath": "/job-template/job/nlp-analyze-data",
     "image_describe": "文本数据统计",
     "job_template_name": "nlp-analyze-data",
-    "job_template_describe": "文本数据统计，质量评估(企业版)",
+    "job_template_describe": "文本数据统计，质量评估",
     "job_template_version": "Release",
     "job_template_workdir": "/app",
-    "job_template_command": "python analyze-data.py",
+    "job_template_command": "python3 launcher.py",
     "job_template_volume": "",
     "job_template_account": "",
     "job_template_env": "",
     "job_template_expand": {
       "index": 4,
       "rec_job_template": "自定义镜像",
-      "help_url": "/job-template/job/nlp-process",
-      "enterprise": true
+      "help_url": "/job-template/job/nlp-analyze-data"
     },
-    "job_template_args": {}
+    "job_template_args": {
+      "参数设置": {
+        "--input_dir": {
+          "type": "str",
+          "item_type": "str",
+          "label": "输入目录",
+          "require": 1,
+          "choice": [],
+          "range": "",
+          "default": "",
+          "placeholder": "",
+          "describe": "输入文档目录",
+          "editable": 1
+        },
+        "--output_dir": {
+          "type": "str",
+          "item_type": "str",
+          "label": "输出目录",
+          "require": 1,
+          "choice": [],
+          "range": "",
+          "default": "",
+          "placeholder": "",
+          "describe": "输出目录",
+          "editable": 1
+        },
+        "--text_field": {
+          "type": "str",
+          "item_type": "str",
+          "label": "文本字段名",
+          "require": 0,
+          "choice": [],
+          "range": "",
+          "default": "text",
+          "placeholder": "",
+          "describe": "文本字段名，留空或字段不存在时会自动检测文本列",
+          "editable": 1
+        }
+      }
+    }
   },
   "question-generation": {
     "project_name": "文本处理",
     "image_name": "python:3.9",
-    "gitpath": "/job-template/job/nlp-process",
+    "gitpath": "",
     "image_describe": "文本算法类的数据处理",
     "job_template_name": "question-generation",
     "job_template_describe": "问题生成(企业版)",
@@ -2836,14 +3157,14 @@
     "job_template_expand": {
       "index": 5,
       "rec_job_template": "自定义镜像",
-      "help_url": "/job-template/job/nlp-process"
+      "help_url": ""
     },
     "job_template_args": {}
   },
   "question-answer-generation": {
     "project_name": "文本处理",
     "image_name": "python:3.9",
-    "gitpath": "/job-template/job/nlp-process",
+    "gitpath": "",
     "image_describe": "文本算法类的数据处理",
     "job_template_name": "question-answer-generation",
     "job_template_describe": "问答对生成(企业版)",
@@ -2856,14 +3177,14 @@
     "job_template_expand": {
       "index": 6,
       "rec_job_template": "自定义镜像",
-      "help_url": "/job-template/job/nlp-process"
+      "help_url": ""
     },
     "job_template_args": {}
   },
   "question-answer-extension": {
     "project_name": "文本处理",
     "image_name": "python:3.9",
-    "gitpath": "/job-template/job/nlp-process",
+    "gitpath": "",
     "image_describe": "文本算法类的数据处理",
     "job_template_name": "question-answer-extension",
     "job_template_describe": "问答对扩充(企业版)",
@@ -2876,7 +3197,7 @@
     "job_template_expand": {
       "index": 7,
       "rec_job_template": "自定义镜像",
-      "help_url": "/job-template/job/nlp-process"
+      "help_url": ""
     },
     "job_template_args": {}
   },

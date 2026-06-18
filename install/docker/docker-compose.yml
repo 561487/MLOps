@@ -8,24 +8,6 @@ services:
     ports:
       - "6379:6379"
 
-  mysql:  # 数据库
-    image: mysql:8.0.32
-    restart: unless-stopped
-    environment:
-      MYSQL_ROOT_PASSWORD: admin
-      MYSQL_DATABASE: kubeflow
-      TZ: Asia/Shanghai
-    ports:
-      - "3306:3306"
-    volumes:
-      - ./data/mysql:/var/lib/mysql
-      - ./docker-add-file/mysqld.cnf:/etc/mysql/conf.d/mysqld.cnf
-    healthcheck:
-      test: "/usr/bin/mysql --user=root --password=admin --execute \"SHOW DATABASES;\""
-      timeout: 45s
-      interval: 10s
-      retries: 10
-
   frontend:   # 前端容器
     image: ccr.ccs.tencentyun.com/cube-studio/kubeflow-dashboard-frontend:2026.03.01
     restart: unless-stopped
@@ -51,13 +33,11 @@ services:
       REDIS_HOST: 'redis'
       REDIS_PORT: '6379'
       REDIS_PASSWORD: admin
-      MYSQL_SERVICE: 'mysql+pymysql://root:admin@mysql:3306/kubeflow?charset=utf8mb4'
+      MYSQL_SERVICE: 'mysql+pymysql://root:admin@10.121.177.221:3306/kubeflow?charset=utf8mb4'
       ENVIRONMENT: DEV
     depends_on:
         redis:
           condition: service_started
-        mysql:
-          condition: service_healthy
     volumes:
       - ../../myapp/static/appbuilder/frontend:/data/web/frontend
       - ../../myapp/:/home/myapp/myapp/

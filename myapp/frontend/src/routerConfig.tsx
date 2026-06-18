@@ -99,6 +99,57 @@ export const innerDynamicRouterConfig: IRouterConfigPlusItem[] = [
         path: '/commonRelation',
         title: '通用关系图',
         element: lazy2Compont(() => import("./pages/CommonPipeline/DWStandard") as any)
+    },    // 模型市场相关路由 — 路径对应菜单 hierarchy: service > model_market_group
+    {
+        path: '/service/model_market_group/model_market_vision',
+        title: '视觉模型',
+        key: 'model_market_vision',
+        menu_type: 'innerRoute',
+        element: lazy2Compont(() => import("./pages/ModelMarket/ModelMarketCategory") as any)
+    },
+    {
+        path: '/service/model_market_group/model_market_audio',
+        title: '语音模型',
+        key: 'model_market_audio',
+        menu_type: 'innerRoute',
+        element: lazy2Compont(() => import("./pages/ModelMarket/ModelMarketCategory") as any)
+    },
+    {
+        path: '/service/model_market_group/model_market_nlp',
+        title: '自然语言模型',
+        key: 'model_market_nlp',
+        menu_type: 'innerRoute',
+        element: lazy2Compont(() => import("./pages/ModelMarket/ModelMarketCategory") as any)
+    },
+    {
+        path: '/service/model_market_group/model_market_multimodal',
+        title: '多模态模型',
+        key: 'model_market_multimodal',
+        menu_type: 'innerRoute',
+        element: lazy2Compont(() => import("./pages/ModelMarket/ModelMarketCategory") as any)
+    },
+    {
+        path: '/service/model_market_group/model_market_llm',
+        title: '大模型',
+        key: 'model_market_llm',
+        menu_type: 'innerRoute',
+        element: lazy2Compont(() => import("./pages/ModelMarket/ModelMarketCategory") as any)
+    },
+    {
+        path: '/service/model_market_group/detail/:modelId',
+        title: '模型详情',
+        key: 'model_market_detail',
+        menu_type: 'innerRoute',
+        hidden: true,
+        element: lazy2Compont(() => import("./pages/ModelMarket/ModelDetail") as any)
+    },
+    {
+        path: '/service/model_market_group/service/:marketServiceId',
+        title: '推理服务',
+        key: 'model_market_service',
+        menu_type: 'innerRoute',
+        hidden: true,
+        element: lazy2Compont(() => import("./pages/ModelMarket/ServiceDetail") as any)
     },
 ]
 
@@ -112,6 +163,10 @@ export const routerConfigPlus: IRouterConfigPlusItem[] = [
         path: '/',
         index: true,
         element: lazy2Compont(() => import("./pages/Home/Home") as any)
+    },    // 重定向：点击模型市场父级菜单时默认跳转到视觉
+    {
+        path: '/service/model_market_group',
+        element: lazy2Compont(() => import("./pages/ModelMarket/RedirectToHome") as any)
     },
     {
         path: '/showData',
