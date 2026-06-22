@@ -33,14 +33,14 @@ if not KC or not os.path.isfile(KC):
 
 print(f'Using kubeconfig: {KC}')
 
-# 脚本映射：目标名 → 源文件路径（相对项目根目录）
-PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+# 脚本映射：目标名 → 源文件路径
+JOB_TEMPLATE_ROOT = '/cube-studio/job-template/job'
 SCRIPTS = {
-    'llm_quantize.py': os.path.join(PROJECT_ROOT, 'job-template/job/llm_quantize/launcher.py'),
-    'model_prune.py': os.path.join(PROJECT_ROOT, 'job-template/job/model_prune/launcher.py'),
+    'llm_quantize.py': os.path.join(JOB_TEMPLATE_ROOT, 'llm_quantize/launcher.py'),
+    'model_prune.py': os.path.join(JOB_TEMPLATE_ROOT, 'model_prune/launcher.py'),
 }
 
-sys.path.insert(0, os.path.join(PROJECT_ROOT, 'myapp'))
+sys.path.insert(0, '/home/myapp/myapp')
 os.environ.setdefault('STAGE', 'DEV')
 os.environ.setdefault('ENVIRONMENT', 'DEV')
 
