@@ -2,8 +2,11 @@
 
 set -ex
 
-docker build --network=host -t ccr.ccs.tencentyun.com/cube-studio/model_download:20250301 -f job/model_download/Dockerfile .
-docker push ccr.ccs.tencentyun.com/cube-studio/model_download:20250301
+IMAGE=${IMAGE:-10.121.177.20:8082/mlops/model_download:20250601}
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+BUILD_CONTEXT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+docker build --network=host -t "${IMAGE}" -f "${SCRIPT_DIR}/Dockerfile" "${BUILD_CONTEXT}"
+docker push "${IMAGE}"
 
 
 

@@ -174,10 +174,10 @@ const Model: React.FC<ModelProps> = props => {
         }
         break;
       case 'int':
-        res = +value;
+        res = isNaN(+value) || value === '' || value === null || value === undefined ? 0 : +value;
         break;
       case 'float':
-        res = +value;
+        res = isNaN(+value) || value === '' || value === null || value === undefined ? 0.0 : +value;
         break;
       default:
         res = value;
@@ -471,7 +471,9 @@ const Model: React.FC<ModelProps> = props => {
                 )
               }
               if(args.type==='int'){
-                const range = typeof args.range === 'string' ? args.range.split(',') : args.range;
+                const rangeStr = typeof args.range === 'string' ? args.range.split(',') : args.range;
+                const range = Array.isArray(rangeStr) && rangeStr.length >= 2 && rangeStr[0] !== '' && rangeStr[1] !== ''
+                  ? [parseInt(rangeStr[0], 10), parseInt(rangeStr[1], 10)] : null;
                 return (<React.Fragment key={key}>
                   {
                     <div style={{ width: '100%' }}>
@@ -493,14 +495,21 @@ const Model: React.FC<ModelProps> = props => {
                               }
                           }
                           label={`${key}`}
-                          min={range || 0}
-                          max={range || 100}
+                          min={range ? range[0] : 0}
+                          max={range ? range[1] : 100}
                           step= {args.step || 1 }
                           onIncrement={(value?: string) => {
-                            handleOnChange(key, value ? parseInt(value,10)+1 : 1, args.type);
+                            const v = parseInt(value || '0', 10) || 0;
+                            handleOnChange(key, v + 1, args.type);
                           }}
                           onDecrement={(value?: string) => {
-                            handleOnChange(key, value ? parseInt(value,10)-1 : -1, args.type);
+                            const v = parseInt(value || '0', 10) || 0;
+                            handleOnChange(key, v - 1, args.type);
+                          }}
+                          onValidate={(value?: string) => {
+                            const v = parseInt(value || '0', 10);
+                            handleOnChange(key, isNaN(v) ? 0 : v, args.type);
+                            return isNaN(v) ? '0' : String(v);
                           }}
                           value={keyValue}
                           disabled={args.editable !== 1}

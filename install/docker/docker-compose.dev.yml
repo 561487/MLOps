@@ -3,12 +3,6 @@ services:
     ports: !override
       - "16379:6379"
 
-  mysql:
-    ports: !override
-      - "13306:3306"
-    volumes:
-      - ./data-dev/mysql:/var/lib/mysql
-      - ./docker-add-file/mysqld.cnf:/etc/mysql/conf.d/mysqld.cnf
 
   frontend:
     ports: !override

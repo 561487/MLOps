@@ -830,13 +830,16 @@ class Workflow_ModelView_Base():
         pipeline_name = labels.get('pipeline-name', workflow_name)
         bind_pod_url = f'/k8s/web/search/{cluster_name}/{namespace}/{pipeline_name}'
 
-        echart_option = ''
         metric_content = ''
+        output_content = ''
         try:
-            if node_detail_config['metric_key']:
-                metric_content = self.get_minio_content(node_detail_config['metric_key'],decompress=True)
-                # print(metric_content)
-                metric_content = metric_content
+            if node_detail_config.get('metric_key'):
+                metric_content = self.get_minio_content(node_detail_config['metric_key'], decompress=True) or ''
+        except Exception as e:
+            print(e)
+        try:
+            if node_detail_config.get('output_key'):
+                output_content = self.get_minio_content(node_detail_config['output_key'], decompress=True) or ''
         except Exception as e:
             print(e)
 
@@ -942,47 +945,174 @@ class Workflow_ModelView_Base():
             }
         ]
 
-        tip = __("提示：仅企业版支持任务结果、模型指标、数据集可视化预览")
+        # ========== 结果可视化 Tab ==========
         tab7 = [
             {
                 "tabName": __("结果可视化"),
-                "content": [
-                    {
-                        "groupName": "",
-                        "groupContent": {
-                            "value": Markup(tip),
-                            # options的值
-                            "type": 'html'
-                        }
-                    },
-
-                ],
+                "content": [],
                 "bottomButton": []
             },
         ]
-        if not metric_content:
-            echart_demos_file = os.listdir('myapp/utils/echart/')
-            for file in echart_demos_file:
-                # print(file)
-                file_path = os.path.join('myapp/utils/echart/',file)
+
+        # 尝试解析并渲染真实的 metric / output 数据
+        has_real_data = False
+
+        # 1) metric artifact — 期望是 ECharts option JSON
+        if metric_content:
+            try:
+                metric_json = json.loads(metric_content)
+                if isinstance(metric_json, dict) and ('series' in metric_json or 'xAxis' in metric_json or 'yAxis' in metric_json):
+                    tab7[0]['content'].append({
+                        "groupName": __("任务指标"),
+                        "groupContent": {
+                            "value": json.dumps(metric_json, ensure_ascii=False),
+                            "type": 'echart'
+                        }
+                    })
+                    has_real_data = True
+                elif isinstance(metric_json, list):
+                    # 列表类型的 echart 配置（如多个 series）
+                    tab7[0]['content'].append({
+                        "groupName": __("任务指标"),
+                        "groupContent": {
+                            "value": json.dumps(metric_json, ensure_ascii=False),
+                            "type": 'echart'
+                        }
+                    })
+                    has_real_data = True
+                else:
+                    # 其他 JSON 格式，以 map 形式展示（展开嵌套对象）
+                    if isinstance(metric_json, dict):
+                        flat_metric = {}
+                        for k, v in metric_json.items():
+                            if isinstance(v, (dict, list)):
+                                flat_metric[k] = json.dumps(v, ensure_ascii=False)
+                            else:
+                                flat_metric[k] = str(v) if v is not None else ''
+                    else:
+                        flat_metric = {"data": str(metric_json)}
+                    tab7[0]['content'].append({
+                        "groupName": __("任务指标"),
+                        "groupContent": {
+                            "value": flat_metric,
+                            "type": 'map'
+                        }
+                    })
+                    has_real_data = True
+            except (json.JSONDecodeError, ValueError):
+                # 非 JSON 文本，当 text 展示
+                tab7[0]['content'].append({
+                    "groupName": __("任务指标"),
+                    "groupContent": {
+                        "value": str(metric_content),
+                        "type": 'text'
+                    }
+                })
+                has_real_data = True
+
+        # 2) output artifact — 可能是图片 URL、ECharts option JSON、HTML、或普通文本
+        if output_content:
+            output_str = str(output_content).strip()
+            try:
+                output_json = json.loads(output_str)
+                if isinstance(output_json, dict):
+                    # 检查是否是 ECharts option
+                    if 'series' in output_json or 'xAxis' in output_json:
+                        tab7[0]['content'].append({
+                            "groupName": __("任务输出"),
+                            "groupContent": {
+                                "value": json.dumps(output_json, ensure_ascii=False),
+                                "type": 'echart'
+                            }
+                        })
+                        has_real_data = True
+                    else:
+                        # 展开嵌套对象，避免前端显示 [object Object]
+                        flat_output = {}
+                        for k, v in output_json.items():
+                            if isinstance(v, (dict, list)):
+                                flat_output[k] = json.dumps(v, ensure_ascii=False)
+                            else:
+                                flat_output[k] = str(v) if v is not None else ''
+                        tab7[0]['content'].append({
+                            "groupName": __("任务输出"),
+                            "groupContent": {
+                                "value": flat_output,
+                                "type": 'map'
+                            }
+                        })
+                        has_real_data = True
+                elif isinstance(output_json, list):
+                    tab7[0]['content'].append({
+                        "groupName": __("任务输出"),
+                        "groupContent": {
+                            "value": json.dumps(output_json, ensure_ascii=False),
+                            "type": 'echart'
+                        }
+                    })
+                    has_real_data = True
+            except (json.JSONDecodeError, ValueError):
+                # 非 JSON，检测是否是图片链接或 HTML
+                if output_str.startswith('http') and any(output_str.lower().endswith(ext) for ext in ['.png', '.jpg', '.jpeg', '.gif', '.svg', '.webp']):
+                    # 📷 图片链接 — NodeDetail 不支持 image 类型，但可以用 html 包裹 img 标签
+                    tab7[0]['content'].append({
+                        "groupName": __("任务输出"),
+                        "groupContent": {
+                            "value": Markup(f'<img src="{output_str}" style="max-width:100%;height:auto;" />'),
+                            "type": 'html'
+                        }
+                    })
+                    has_real_data = True
+                elif output_str.startswith('<') and output_str.endswith('>'):
+                    # HTML 内容
+                    tab7[0]['content'].append({
+                        "groupName": __("任务输出"),
+                        "groupContent": {
+                            "value": Markup(output_str),
+                            "type": 'html'
+                        }
+                    })
+                    has_real_data = True
+                else:
+                    tab7[0]['content'].append({
+                        "groupName": __("任务输出"),
+                        "groupContent": {
+                            "value": output_str,
+                            "type": 'text'
+                        }
+                    })
+                    has_real_data = True
+
+        # 3) 无真实数据时，加载示例 echarts 图表作为参考
+        if not has_real_data:
+            tab7[0]['content'].append({
+                "groupName": "",
+                "groupContent": {
+                    "value": Markup(__("提示：任务完成后，将 metric 或 output artifact 输出为 JSON 格式的 ECharts option 即可在此展示可视化结果。以下为示例图表：")),
+                    "type": 'html'
+                }
+            })
+            echart_demos_dir = 'utils/echart/'
+            if os.path.isdir(echart_demos_dir):
+                echart_demos_file = os.listdir(echart_demos_dir)
                 can = ['area-stack.json', 'rose.json', 'mix-line-bar.json', 'pie-nest.json', 'bar-stack.json',
                        'candlestick-simple.json', 'graph-simple.json', 'tree-polyline.json', 'sankey-simple.json',
                        'radar.json', 'sunburst-visualMap.json', 'parallel-aqi.json', 'funnel.json',
-                       'sunburst-visualMap.json', 'scatter-effect.json','multiple-lines.json']
-                not_can = ['bar3d-punch-card.json', 'simple-surface.json']# 不行的。
-
-                if file.endswith('.json') and file in can:
-                    echart_option = ''.join(open(file_path).readlines())
-                    # print(echart_option)
-                    tab7[0]['content'].append(
-                        {
-                            "groupName": __("任务结果示例：")+file.replace('.json','')+__("类型图表"),
-                            "groupContent": {
-                                "value": echart_option,  # options的值
-                                "type": 'echart'
-                            }
-                        }
-                    )
+                       'scatter-effect.json', 'multiple-lines.json']
+                for file in echart_demos_file:
+                    file_path = os.path.join(echart_demos_dir, file)
+                    if file.endswith('.json') and file in can:
+                        try:
+                            echart_option = open(file_path).read()
+                            tab7[0]['content'].append({
+                                "groupName": __("示例：") + file.replace('.json', '') + __(" 类型图表"),
+                                "groupContent": {
+                                    "value": echart_option,
+                                    "type": 'echart'
+                                }
+                            })
+                        except Exception as e:
+                            print(e)
 
         tab8 = [
             {
