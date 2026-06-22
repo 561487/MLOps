@@ -11,6 +11,10 @@ import shutil
 import sys
 
 
+# 指定数据集缓存路径（PVC 持久化，避免每次重复下载）
+os.environ['HF_DATASETS_CACHE'] = '/mnt/storage/models-storage/datasets/quantization-dataset/'
+
+
 def _copy_tokenizer(src: str, dst: str):
     """从源模型目录复制 tokenizer 和配置文件到输出目录"""
     for fname in ["tokenizer.json", "tokenizer_config.json", "tokenizer.model",
