@@ -67,13 +67,18 @@ with app.app_context():
         print('No files to upload')
         sys.exit(1)
 
-    # 创建 Pod 并写入文件
+    # 创建 Pod 并写入文件（兼容不同挂载路径）
+    PVC_PATHS = ['/mnt/scripts/', '/mnt/admin/scripts/']
     pod_name = 'script-uploader-' + str(int(time.time()))
-    cmds = 'set -e\nmkdir -p /mnt/scripts/\n'
-    for dest in contents:
-        n = 'F_' + dest.upper().replace('.', '_')
-        cmds += f'echo ${n} | base64 -d > /mnt/scripts/{dest}\n'
-    cmds += 'echo "--- Files on PVC ---"\nls -la /mnt/scripts/\n'
+    cmds = 'set -e\n'
+    for p in PVC_PATHS:
+        cmds += f'mkdir -p {p}\n'
+        for dest in contents:
+            n = 'F_' + dest.upper().replace('.', '_')
+            cmds += f'echo ${n} | base64 -d > {p}{dest}\n'
+    cmds += 'echo "--- Files on PVC ---"\n'
+    for p in PVC_PATHS:
+        cmds += f'ls -la {p}\n'
 
     envs = [{'name': 'F_' + d.upper().replace('.', '_'), 'value': v} for d, v in contents.items()]
 
