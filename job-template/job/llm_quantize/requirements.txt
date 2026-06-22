@@ -1,7 +1,5 @@
-gptqmodel>=1.8.0
-datasets>=2.14.0
-autoawq>=0.2.0
-bitsandbytes>=0.41.0
-accelerate>=0.24.0
+llmcompressor>=0.12.0
 torch>=2.1.0
 transformers>=4.36.0
+datasets>=2.14.0
+accelerate>=0.24.0
