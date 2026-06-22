@@ -1820,8 +1820,8 @@
         },
         "--dataset": {
           "type": "str",
-          "default": "c4",
-          "describe": "GPTQ 校准数据集名称",
+          "default": "wikitext2",
+          "describe": "GPTQ 校准数据集名称（推荐 wikitext2，仅需 ~10MB）",
           "item_type": "str",
           "editable": 1
         },

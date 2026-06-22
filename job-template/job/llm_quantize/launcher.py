@@ -48,8 +48,13 @@ def quantize_gptq(model_path: str, output: str, bits: int, group_size: int,
     model = GPTQModel.load(model_path, quant_config)
 
     print(f"[GPTQModel] 加载校准数据: {dataset}, {nsamples} 条")
-    calib = load_dataset(dataset, "en", split="train",
-                         trust_remote_code=True).select(range(nsamples))["text"]
+    # 根据数据集名称自动选择配置
+    if dataset == "wikitext2":
+        calib = load_dataset("wikitext2", "wikitext-2-raw-v1", split="train",
+                             trust_remote_code=True).select(range(nsamples))["text"]
+    else:
+        calib = load_dataset(dataset, "en", split="train",
+                             trust_remote_code=True).select(range(nsamples))["text"]
 
     print(f"[GPTQModel] 开始量化 ({bits}bit, group_size={group_size})...")
     model.quantize(calib, batch_size=2)
@@ -124,8 +129,8 @@ def main():
                         help="待量化模型路径或 HuggingFace model ID")
     parser.add_argument("--output", type=str, default=os.getenv("OUTPUT_PATH", "/mnt/admin/models/quant"),
                         help="量化后模型保存路径")
-    parser.add_argument("--dataset", type=str, default=os.getenv("QUANT_DATASET", "c4"),
-                        help="GPTQ 校准数据集")
+    parser.add_argument("--dataset", type=str, default=os.getenv("QUANT_DATASET", "wikitext2"),
+                        help="GPTQ 校准数据集（默认 wikitext2，仅需 ~10MB）")
     parser.add_argument("--nsamples", type=int, default=int(os.getenv("QUANT_NSAMPLES", "128")),
                         help="GPTQ 校准样本数")
     args = parser.parse_args()
