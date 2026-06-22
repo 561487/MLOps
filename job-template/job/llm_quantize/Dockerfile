@@ -1,21 +1,11 @@
-FROM nvidia/cuda:12.1.0-runtime-ubuntu22.04
+FROM python:3.9-slim
 
-# 修复 apt 源（删除坏的签名，使用 http）
-RUN rm -f /etc/apt/sources.list.d/cuda.list /etc/apt/sources.list.d/nvidia-ml.list && \
-    apt-get clean && \
-    apt-get update -y 2>/dev/null || true && \
-    apt-get install -y python3 python3-pip && \
-    ln -sf /usr/bin/python3 /usr/bin/python
-
-# 升级 pip
-RUN python3 -m pip install --upgrade pip
-
-# CUDA 版 PyTorch
-RUN pip3 install torch --index-url https://download.pytorch.org/whl/cu121
+# CUDA 版 PyTorch（自带 CUDA 运行时）
+RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cu121
 
 # 量化依赖
-RUN pip3 install gptqmodel --no-build-isolation && \
-    pip3 install autoawq bitsandbytes datasets accelerate transformers
+RUN pip install --no-cache-dir gptqmodel && \
+    pip install --no-cache-dir autoawq bitsandbytes datasets accelerate transformers
 
 COPY launcher.py /app/launcher.py
 WORKDIR /app
