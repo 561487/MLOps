@@ -48,7 +48,7 @@ from myapp import app
 with app.app_context():
     from myapp.utils.py.py_k8s import K8s
     k8s = K8s(KC)
-    api = k8s.CoreV1Api
+    api = k8s.v1
 
     NS = 'pipeline'
     PVC = 'kubeflow-user-workspace'
