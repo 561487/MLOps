@@ -1,9 +1,9 @@
 FROM nvidia/cuda:12.1.0-runtime-ubuntu22.04
 
-RUN apt-get update && apt-get install -y python3 python3-pip git && \
+RUN apt-get update && apt-get install -y python3 python3-pip && \
     ln -sf /usr/bin/python3 /usr/bin/python
 
-# 先装 PyTorch（GPTQModel 编译 CUDA kernel 需要）
+# 安装 CUDA 版 PyTorch
 RUN pip3 install torch --index-url https://download.pytorch.org/whl/cu121
 
 # 量化依赖
