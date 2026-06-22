@@ -4,8 +4,9 @@ ENV TZ=Asia/Shanghai
 ENV DEBIAN_FRONTEND=noninteractive
 RUN pip config set global.index-url https://mirrors.aliyun.com/pypi/simple
 RUN pip install pysnooper psutil requests huggingface_hub hf_transfer
+RUN apt-get update && apt-get install -y git-lfs && git lfs install && rm -rf /var/lib/apt/lists/*
 RUN pip install modelscope
-COPY job/dataset/ /app/
+COPY job-template/job/dataset/ /app/
 
 WORKDIR /app
 ENV PYTHONPATH=/app:${PYTHONPATH:-}
