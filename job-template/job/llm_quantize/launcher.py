@@ -9,7 +9,12 @@ import argparse
 import json
 import os
 import shutil
+import subprocess
 import sys
+
+# 自动安装依赖（容器启动时可能没有预装）
+subprocess.run(['pip', 'install', '-q', 'gptqmodel', 'datasets', 'accelerate',
+                'transformers', 'autoawq', 'bitsandbytes'], capture_output=True)
 
 # 指定数据集缓存路径（PVC 持久化，避免每次重复下载）
 os.environ['HF_DATASETS_CACHE'] = '/mnt/storage/models-storage/datasets/quantization-dataset/'
