@@ -20,6 +20,8 @@ python myapp/create_db.py
 # myapp db init    # 生成migrations文件夹，不再需要操作
 # myapp db migrate   # 生成对应版本数据库表的升级文件到versions文件夹下，需要你的数据库是已经upgrade的
 myapp db upgrade     # 数据库表同步更新到mysql
+# 修改 entrypoint 字段为 TEXT，支持长命令（base64 内联）
+python3 -c "from myapp import app, db; db.engine.execute('ALTER TABLE job_template MODIFY entrypoint TEXT')" 2>/dev/null || true
 # 创建admin相关的用户，权限，角色，视图
 myapp fab create-admin --username admin --firstname admin --lastname admin --email admin@tencent.com --password admin
 # 会创建默认的角色和权限。会创建自定义的menu权限，也才能显示自定义menu。
