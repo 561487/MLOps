@@ -93,14 +93,15 @@ def quantize_gptq(model_path: str, output: str, bits: int, group_size: int,
 
     calib_encoded = calib_data.map(tokenize_calib, batched=True, remove_columns=calib_data.column_names)
 
-    # GPTQ 量化配置
+    # GPTQ 量化配置（LLM Compressor v0.12+ API）
     scheme = f"W{bits}A16"
     print(f"[LLMC] 开始 GPTQ 量化: {scheme}, group_size={group_size}")
+    from compressed_tensors.quantization import preset_name_to_scheme
+    quant_scheme = preset_name_to_scheme(scheme, ["Linear"])
+    quant_scheme.weights.group_size = group_size
     recipe = GPTQModifier(
-        scheme=scheme,
-        targets="Linear",
+        config_groups={"group_0": quant_scheme},
         ignore=["lm_head"],
-        group_size=group_size,
     )
     oneshot(model=model, dataset=calib_encoded, recipe=recipe, max_seq_length=2048)
 
