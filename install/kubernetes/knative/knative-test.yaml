@@ -1,0 +1,19 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: hello-knative-cpu
+  namespace: service
+  labels:
+    deploy-track: knative-cpu
+spec:
+  template:
+    metadata:
+      annotations:
+        autoscaling.knative.dev/min-scale: "0"
+        autoscaling.knative.dev/max-scale: "3"
+    spec:
+      containers:
+      - image: gcr.m.daocloud.io/knative-samples/helloworld-go
+        resources:
+          limits: { cpu: "500m", memory: "256Mi" }
+        ports: [{ containerPort: 8080 }]
