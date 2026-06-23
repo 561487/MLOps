@@ -41,16 +41,32 @@ def quantize_gptq(model_path: str, output: str, bits: int, group_size: int,
         model_path, device_map="auto", trust_remote_code=True
     )
 
-    # 构建校准数据（优先从本地缓存加载，避免联网下载）
+    # 构建校准数据（内嵌样本，无需联网下载）
     print(f"[LLMC] 加载校准数据: {dataset}, {nsamples} 条")
-    local_path = f"/app/datasets/{dataset}"
-    if dataset == "wikitext2" and os.path.isdir(local_path):
+    if dataset == "wikitext2":
+        # 内嵌校准样本，避免联网下载
+        from datasets import Dataset
+        sample_texts = [
+            "The quick brown fox jumps over the lazy dog. This sentence contains every letter of the alphabet.",
+            "Machine learning is a subset of artificial intelligence that enables systems to learn and improve from experience.",
+            "Large language models are trained on vast amounts of text data to understand and generate human-like text.",
+            "Quantization is the process of mapping continuous infinite values to a finite set of discrete values.",
+            "The Transformer architecture revolutionized natural language processing with its attention mechanism.",
+            "Deep learning models require significant computational resources for both training and inference.",
+            "Natural language processing enables computers to understand, interpret, and generate human language.",
+            "The attention mechanism allows the model to focus on relevant parts of the input when generating output.",
+            "Model compression techniques include pruning, quantization, and knowledge distillation.",
+            "GPTQ is a post-training quantization method that uses second-order information to compress neural networks.",
+            "AWQ stands for Activation-aware Weight Quantization, which identifies important weights for better compression.",
+            "The calibration dataset is used to compute the optimal quantization parameters for each layer.",
+            "Transfer learning allows pre-trained models to be adapted to specific tasks with minimal additional training.",
+            "Gradient descent is an optimization algorithm used to minimize the loss function in machine learning.",
+            "Neural networks consist of layers of interconnected neurons that process information hierarchically.",
+        ]
+        calib_data = Dataset.from_dict({"text": sample_texts[:min(nsamples, len(sample_texts))]})
+    elif os.path.isdir(f"/app/datasets/{dataset}"):
         from datasets import load_from_disk
-        calib_data = load_from_disk(local_path).select(range(nsamples))
-    elif dataset == "wikitext2":
-        from datasets import load_dataset
-        calib_data = load_dataset("wikitext2", "wikitext-2-raw-v1", split="train",
-                                  trust_remote_code=True).select(range(nsamples))
+        calib_data = load_from_disk(f"/app/datasets/{dataset}").select(range(nsamples))
     else:
         from datasets import load_dataset
         calib_data = load_dataset(dataset, split="train",
