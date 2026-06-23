@@ -46,6 +46,7 @@ def quantize_gptq(model_path: str, output: str, bits: int, group_size: int,
 
     # 搜索路径优先级：PVC 共享存储 > 镜像内缓存 > HuggingFace 在线
     dataset_paths = [
+        f"/mnt/storage/models-storage/datasets/{dataset}",
         f"/mnt/storage/datasets/{dataset}",
         f"/app/datasets/{dataset}",
     ]
