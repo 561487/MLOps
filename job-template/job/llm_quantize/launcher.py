@@ -41,12 +41,18 @@ def quantize_gptq(model_path: str, output: str, bits: int, group_size: int,
         model_path, device_map="auto", trust_remote_code=True
     )
 
-    # 构建校准数据
+    # 构建校准数据（优先从本地缓存加载，避免联网下载）
     print(f"[LLMC] 加载校准数据: {dataset}, {nsamples} 条")
-    if dataset == "wikitext2":
+    local_path = f"/app/datasets/{dataset}"
+    if dataset == "wikitext2" and os.path.isdir(local_path):
+        from datasets import load_from_disk
+        calib_data = load_from_disk(local_path).select(range(nsamples))
+    elif dataset == "wikitext2":
+        from datasets import load_dataset
         calib_data = load_dataset("wikitext2", "wikitext-2-raw-v1", split="train",
                                   trust_remote_code=True).select(range(nsamples))
     else:
+        from datasets import load_dataset
         calib_data = load_dataset(dataset, split="train",
                                   trust_remote_code=True).select(range(nsamples))
 
