@@ -7,10 +7,6 @@ RUN pip install --no-cache-dir torch
 RUN pip install --no-cache-dir llmcompressor && \
     pip install --no-cache-dir datasets accelerate transformers
 
-# 解压预下载的校准数据集
-COPY datasets.tar.gz /app/datasets.tar.gz
-RUN tar xzf /app/datasets.tar.gz -C /app/ && rm /app/datasets.tar.gz
-
 COPY launcher.py /app/launcher.py
 WORKDIR /app
 
