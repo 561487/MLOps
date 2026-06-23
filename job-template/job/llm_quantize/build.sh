@@ -8,7 +8,7 @@ IMAGE=${IMAGE:-10.121.177.20:8082/mlops/gptqmodel:1.9.0}
 docker login 10.121.177.20:8082 -u admin -p Harbor@12345
 
 # 构建镜像（--network=host 使用宿主机网络）
-docker build --network=host -t "${IMAGE}" -f Dockerfile .
+docker build --no-cache --network=host -t "${IMAGE}" -f Dockerfile .
 
 # 推送到仓库
 docker push "${IMAGE}"
