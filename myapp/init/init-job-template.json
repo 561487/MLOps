@@ -1312,21 +1312,164 @@
   },
   "lightgbm": {
     "project_name": "机器学习算法",
-    "image_name": "python:3.9",
+    "image_name": "10.121.177.20:8082/mlops/lightgbm:20260618",
     "gitpath": "/job-template/job/lightgbm",
-    "image_describe": "lightgbm算法",
+    "image_describe": "LightGBM机器学习算法镜像",
     "job_template_name": "lightgbm",
-    "job_template_describe": "lightgbm算法(企业版)",
+    "job_template_describe": "lightgbm算法",
+    "job_template_version": "Release",
+    "job_template_workdir": "/app",
     "job_template_command": "python3 launcher.py",
     "job_template_volume": "",
     "job_template_account": "",
     "job_template_env": "",
     "job_template_expand": {
       "index": 2,
-      "rec_job_template": "自定义镜像",
+      "rec_job_template": "机器学习算法",
       "help_url": "/job-template/job/lightgbm"
     },
-    "job_template_args": {}
+    "job_template_args": {
+      "数据配置": {
+        "--input_csv": {
+          "type": "str",
+          "item_type": "str",
+          "label": "训练数据路径",
+          "require": 1,
+          "choice": [],
+          "range": "",
+          "default": "",
+          "placeholder": "",
+          "describe": "训练数据 CSV 文件路径，请填写容器内可访问的实际路径",
+          "editable": 1
+        },
+        "--label_col": {
+          "type": "str",
+          "item_type": "str",
+          "label": "标签列",
+          "require": 0,
+          "choice": [],
+          "range": "",
+          "default": "label",
+          "placeholder": "label",
+          "describe": "标签列名称，默认为label",
+          "editable": 1
+        }
+      },
+      "训练参数": {
+        "--task_type": {
+          "type": "str",
+          "item_type": "str",
+          "label": "任务类型",
+          "require": 0,
+          "choice": ["classification", "regression"],
+          "range": "",
+          "default": "classification",
+          "placeholder": "classification",
+          "describe": "任务类型：classification（分类）或 regression（回归）",
+          "editable": 1
+        },
+        "--test_size": {
+          "type": "float",
+          "item_type": "float",
+          "label": "测试集比例",
+          "require": 0,
+          "choice": [],
+          "range": "0.01,0.99",
+          "default": "0.2",
+          "placeholder": "0.2",
+          "describe": "测试集占比，0.2 表示 20% 数据用于测试",
+          "editable": 1
+        },
+        "--random_state": {
+          "type": "int",
+          "item_type": "int",
+          "label": "随机种子",
+          "require": 0,
+          "choice": [],
+          "range": "0,99999",
+          "default": "42",
+          "placeholder": "42",
+          "describe": "随机种子，保证结果可复现",
+          "editable": 1
+        }
+      },
+      "模型参数": {
+        "--n_estimators": {
+          "type": "int",
+          "item_type": "int",
+          "label": "树数量",
+          "require": 0,
+          "choice": [],
+          "range": "1,10000",
+          "default": "100",
+          "placeholder": "100",
+          "describe": "LightGBM 树的数量（n_estimators）",
+          "editable": 1
+        },
+        "--learning_rate": {
+          "type": "float",
+          "item_type": "float",
+          "label": "学习率",
+          "require": 0,
+          "choice": [],
+          "range": "0.001,1",
+          "default": "0.1",
+          "placeholder": "0.1",
+          "describe": "LightGBM 学习率（learning_rate）",
+          "editable": 1
+        },
+        "--num_leaves": {
+          "type": "int",
+          "item_type": "int",
+          "label": "叶子节点数",
+          "require": 0,
+          "choice": [],
+          "range": "2,10000",
+          "default": "31",
+          "placeholder": "31",
+          "describe": "LightGBM 叶子节点数量（num_leaves）",
+          "editable": 1
+        },
+        "--max_depth": {
+          "type": "int",
+          "item_type": "int",
+          "label": "最大深度",
+          "require": 0,
+          "choice": [],
+          "range": "-1,1000",
+          "default": "-1",
+          "placeholder": "-1",
+          "describe": "LightGBM 最大深度（max_depth），-1 表示不限制",
+          "editable": 1
+        }
+      },
+      "输出配置": {
+        "--output_model_path": {
+          "type": "str",
+          "item_type": "str",
+          "label": "模型输出路径",
+          "require": 1,
+          "choice": [],
+          "range": "",
+          "default": "",
+          "placeholder": "",
+          "describe": "模型文件输出路径，请填写容器内可访问的实际路径",
+          "editable": 1
+        },
+        "--output_metrics_path": {
+          "type": "str",
+          "item_type": "str",
+          "label": "指标输出路径",
+          "require": 1,
+          "choice": [],
+          "range": "",
+          "default": "",
+          "placeholder": "",
+          "describe": "指标文件输出路径，请填写容器内可访问的实际路径",
+          "editable": 1
+        }
+      }
+    }
   },
   "lr": {
     "project_name": "机器学习算法",
