@@ -1797,7 +1797,7 @@
           "choice": {
             "gptq": "GPTQ（精度好，需校准数据）",
             "awq": "AWQ（速度快精度高）",
-            "rtn": "RTN（无需校准，快速试用）"
+            "bnb": "bitsandbytes（无需校准，快速试用）"
           },
           "editable": 1
         },
