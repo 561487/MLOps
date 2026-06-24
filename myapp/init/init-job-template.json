@@ -1794,7 +1794,6 @@
           "type": "str",
           "default": "gptq",
           "describe": "选择量化算法",
-          "item_type": "select-input",
           "choice": {
             "gptq": "GPTQ（精度好，需校准数据）",
             "awq": "AWQ（速度快精度高）",
