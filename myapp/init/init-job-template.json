@@ -1755,104 +1755,6 @@
     },
     "job_template_args": {}
   },
-  "llm-quantize": {
-    "project_name": "模型处理",
-    "image_name": "python:3.9",
-    "gitpath": "/job-template/job/llm_quantize",
-    "image_describe": "LLM量化(GPTQModel)",
-    "job_template_name": "llm-quantize",
-    "job_template_describe": "LLM量化：GPTQ/AWQ/bitsandbytes，支持主流大模型",
-    "job_template_command": "python3 -c exec(__import__(\"base64\").b64decode(\"IyEvdXNyL2Jpbi9lbnYgcHl0aG9uMwoiIiIKTExNIOmHj+WMluS7u+WKoeaooeadvyDigJQgR1BUUU1vZGVsCuaUr+aMgTogR1BUUSAvIEFXUSAvIGJpdHNhbmRieXRlcwrlj4LmlbDpgJrov4fnjq/looPlj5jph4/miJblkb3ku6TooYzkvKDlhaUKIiIiCgppbXBvcnQgYXJncGFyc2UKaW1wb3J0IGpzb24KaW1wb3J0IG9zCmltcG9ydCBzaHV0aWwKaW1wb3J0IHN1YnByb2Nlc3MKaW1wb3J0IHN5cwoKIyDoh6rliqjlronoo4Xkvp3otZbvvIjlrrnlmajlkK/liqjml7blj6/og73msqHmnInpooToo4XvvIkKc3VicHJvY2Vzcy5ydW4oWydwaXAnLCAnaW5zdGFsbCcsICctcScsICdncHRxbW9kZWwnLCAnZGF0YXNldHMnLCAnYWNjZWxlcmF0ZScsCiAgICAgICAgICAgICAgICAndHJhbnNmb3JtZXJzJywgJ2F1dG9hd3EnLCAnYml0c2FuZGJ5dGVzJ10sIGNhcHR1cmVfb3V0cHV0PVRydWUpCgojIOaMh+WumuaVsOaNrumbhue8k+WtmOi3r+W+hO+8iFBWQyDmjIHkuYXljJbvvIzpgb/lhY3mr4/mrKHph43lpI3kuIvovb3vvIkKb3MuZW52aXJvblsnSEZfREFUQVNFVFNfQ0FDSEUnXSA9ICcvbW50L3N0b3JhZ2UvbW9kZWxzLXN0b3JhZ2UvZGF0YXNldHMvcXVhbnRpemF0aW9uLWRhdGFzZXQvJwoKCmRlZiBfY29weV90b2tlbml6ZXIoc3JjOiBzdHIsIGRzdDogc3RyKToKICAgICIiIuS7jua6kOaooeWei+ebruW9leWkjeWItiB0b2tlbml6ZXIg5paH5Lu25Yiw6L6T5Ye655uu5b2VIiIiCiAgICB0b2tlbml6ZXJfZmlsZXMgPSBbCiAgICAgICAgInRva2VuaXplci5qc29uIiwgInRva2VuaXplcl9jb25maWcuanNvbiIsICJ0b2tlbml6ZXIubW9kZWwiLAogICAgICAgICJ2b2NhYi5qc29uIiwgIm1lcmdlcy50eHQiLCAiYWRkZWRfdG9rZW5zLmpzb24iLAogICAgICAgICJzcGVjaWFsX3Rva2Vuc19tYXAuanNvbiIsICJzZW50ZW5jZXBpZWNlLmJwZS5tb2RlbCIsCiAgICBdCiAgICBmb3IgZm5hbWUgaW4gdG9rZW5pemVyX2ZpbGVzOgogICAgICAgIHNyY19wYXRoID0gb3MucGF0aC5qb2luKHNyYywgZm5hbWUpCiAgICAgICAgaWYgb3MucGF0aC5pc2ZpbGUoc3JjX3BhdGgpOgogICAgICAgICAgICBzaHV0aWwuY29weTIoc3JjX3BhdGgsIG9zLnBhdGguam9pbihkc3QsIGZuYW1lKSkKICAgICMg5Lmf5aSN5Yi26YWN572u5paH5Lu2CiAgICBmb3IgZm5hbWUgaW4gWyJjb25maWcuanNvbiIsICJnZW5lcmF0aW9uX2NvbmZpZy5qc29uIl06CiAgICAgICAgc3JjX3BhdGggPSBvcy5wYXRoLmpvaW4oc3JjLCBmbmFtZSkKICAgICAgICBpZiBvcy5wYXRoLmlzZmlsZShzcmNfcGF0aCk6CiAgICAgICAgICAgIHNodXRpbC5jb3B5MihzcmNfcGF0aCwgb3MucGF0aC5qb2luKGRzdCwgZm5hbWUpKQoKCmRlZiBxdWFudGl6ZV9ncHRxKG1vZGVsX3BhdGg6IHN0ciwgb3V0cHV0OiBzdHIsIGJpdHM6IGludCwgZ3JvdXBfc2l6ZTogaW50LAogICAgICAgICAgICAgICAgICBkYXRhc2V0OiBzdHIgPSAiYzQiLCBuc2FtcGxlczogaW50ID0gMTI4KToKICAgICIiIuS9v+eUqCBHUFRRTW9kZWwg6L+b6KGMIEdQVFEg6YeP5YyWIiIiCiAgICBmcm9tIGdwdHFtb2RlbCBpbXBvcnQgR1BUUU1vZGVsLCBRdWFudGl6ZUNvbmZpZwogICAgZnJvbSBkYXRhc2V0cyBpbXBvcnQgbG9hZF9kYXRhc2V0CgogICAgcHJpbnQoZiJbR1BUUU1vZGVsXSDliqDovb3mqKHlnos6IHttb2RlbF9wYXRofSIpCiAgICBxdWFudF9jb25maWcgPSBRdWFudGl6ZUNvbmZpZygKICAgICAgICBiaXRzPWJpdHMsCiAgICAgICAgZ3JvdXBfc2l6ZT1ncm91cF9zaXplLAogICAgICAgIGRlc2NfYWN0PUZhbHNlLAogICAgKQogICAgbW9kZWwgPSBHUFRRTW9kZWwubG9hZChtb2RlbF9wYXRoLCBxdWFudF9jb25maWcpCgogICAgcHJpbnQoZiJbR1BUUU1vZGVsXSDliqDovb3moKHlh4bmlbDmja46IHtkYXRhc2V0fSwge25zYW1wbGVzfSDmnaEiKQogICAgIyDmoLnmja7mlbDmja7pm4blkI3np7Doh6rliqjpgInmi6nphY3nva4KICAgIGlmIGRhdGFzZXQgPT0gIndpa2l0ZXh0MiI6CiAgICAgICAgY2FsaWIgPSBsb2FkX2RhdGFzZXQoIndpa2l0ZXh0MiIsICJ3aWtpdGV4dC0yLXJhdy12MSIsIHNwbGl0PSJ0cmFpbiIsCiAgICAgICAgICAgICAgICAgICAgICAgICAgICAgdHJ1c3RfcmVtb3RlX2NvZGU9VHJ1ZSkuc2VsZWN0KHJhbmdlKG5zYW1wbGVzKSlbInRleHQiXQogICAgZWxzZToKICAgICAgICBjYWxpYiA9IGxvYWRfZGF0YXNldChkYXRhc2V0LCAiZW4iLCBzcGxpdD0idHJhaW4iLAogICAgICAgICAgICAgICAgICAgICAgICAgICAgIHRydXN0X3JlbW90ZV9jb2RlPVRydWUpLnNlbGVjdChyYW5nZShuc2FtcGxlcykpWyJ0ZXh0Il0KCiAgICBwcmludChmIltHUFRRTW9kZWxdIOW8gOWni+mHj+WMliAoe2JpdHN9Yml0LCBncm91cF9zaXplPXtncm91cF9zaXplfSkuLi4iKQogICAgbW9kZWwucXVhbnRpemUoY2FsaWIsIGJhdGNoX3NpemU9MikKCiAgICBvcy5tYWtlZGlycyhvdXRwdXQsIGV4aXN0X29rPVRydWUpCiAgICBtb2RlbC5zYXZlKG91dHB1dCkKICAgICMg5aSN5Yi2IHRva2VuaXplciDlkozphY3nva7mlofku7YKICAgIF9jb3B5X3Rva2VuaXplcihtb2RlbF9wYXRoLCBvdXRwdXQpCiAgICBwcmludChmIltHUFRRTW9kZWxdIOmHj+WMluWujOaIkO+8jOS/neWtmOiHszoge291dHB1dH0iKQogICAgcmV0dXJuIHsiZW5naW5lIjogImdwdHFtb2RlbCIsICJiaXRzIjogYml0cywgImdyb3VwX3NpemUiOiBncm91cF9zaXplLCAib3V0cHV0Ijogb3V0cHV0fQoKCmRlZiBxdWFudGl6ZV9hd3EobW9kZWxfcGF0aDogc3RyLCBvdXRwdXQ6IHN0ciwgYml0czogaW50KToKICAgICIiIuS9v+eUqCBBdXRvQVdRIOmHj+WMliIiIgogICAgZnJvbSBhd3EgaW1wb3J0IEF1dG9BV1FGb3JDYXVzYWxMTQogICAgZnJvbSB0cmFuc2Zvcm1lcnMgaW1wb3J0IEF1dG9Ub2tlbml6ZXIKCiAgICBwcmludChmIltBV1FdIOWKoOi9veaooeWeizoge21vZGVsX3BhdGh9IikKICAgIG1vZGVsID0gQXV0b0FXUUZvckNhdXNhbExNLmZyb21fcHJldHJhaW5lZChtb2RlbF9wYXRoKQogICAgdG9rZW5pemVyID0gQXV0b1Rva2VuaXplci5mcm9tX3ByZXRyYWluZWQobW9kZWxfcGF0aCwgdHJ1c3RfcmVtb3RlX2NvZGU9VHJ1ZSkKCiAgICBwcmludChmIltBV1FdIOW8gOWni+mHj+WMliAoe2JpdHN9Yml0KS4uLiIpCiAgICBtb2RlbC5xdWFudGl6ZSh0b2tlbml6ZXIsIHF1YW50X2NvbmZpZz17IndfYml0IjogYml0cywgInZlcnNpb24iOiAiR0VNTSJ9KQoKICAgIG9zLm1ha2VkaXJzKG91dHB1dCwgZXhpc3Rfb2s9VHJ1ZSkKICAgIG1vZGVsLnNhdmVfcXVhbnRpemVkKG91dHB1dCkKICAgIHRva2VuaXplci5zYXZlX3ByZXRyYWluZWQob3V0cHV0KQogICAgcHJpbnQoZiJbQVdRXSDph4/ljJblrozmiJDvvIzkv53lrZjoh7M6IHtvdXRwdXR9IikKICAgIHJldHVybiB7ImVuZ2luZSI6ICJhd3EiLCAiYml0cyI6IGJpdHMsICJvdXRwdXQiOiBvdXRwdXR9CgoKZGVmIHF1YW50aXplX2JuYihtb2RlbF9wYXRoOiBzdHIsIG91dHB1dDogc3RyLCBiaXRzOiBpbnQpOgogICAgIiIi5L2/55SoIGJpdHNhbmRieXRlcyDov5DooYzml7bph4/ljJbvvIjku4XmlK/mjIEgNGJpdCDlkowgOGJpdO+8iSIiIgogICAgaWYgYml0cyBub3QgaW4gKDQsIDgpOgogICAgICAgIHJhaXNlIFZhbHVlRXJyb3IoZiJiaXRzYW5kYnl0ZXMg5LuF5pSv5oyBIDRiaXQg5ZKMIDhiaXTvvIzlvZPliY3lgLw6IHtiaXRzfSIpCgogICAgaW1wb3J0IHRvcmNoCiAgICBmcm9tIHRyYW5zZm9ybWVycyBpbXBvcnQgQXV0b01vZGVsRm9yQ2F1c2FsTE0sIEF1dG9Ub2tlbml6ZXIsIEJpdHNBbmRCeXRlc0NvbmZpZwoKICAgIHByaW50KGYiW0JOQl0g5Yqg6L295qih5Z6LIChORntiaXRzfSkuLi4iKQogICAgYm5iX2NvbmZpZyA9IEJpdHNBbmRCeXRlc0NvbmZpZygKICAgICAgICBsb2FkX2luXzRiaXQ9KGJpdHMgPT0gNCksCiAgICAgICAgbG9hZF9pbl84Yml0PShiaXRzID09IDgpLAogICAgICAgIGJuYl80Yml0X2NvbXB1dGVfZHR5cGU9dG9yY2guZmxvYXQxNiwKICAgICAgICBibmJfNGJpdF91c2VfZG91YmxlX3F1YW50PVRydWUsCiAgICApCiAgICB0b2tlbml6ZXIgPSBBdXRvVG9rZW5pemVyLmZyb21fcHJldHJhaW5lZChtb2RlbF9wYXRoLCB0cnVzdF9yZW1vdGVfY29kZT1UcnVlKQogICAgbW9kZWwgPSBBdXRvTW9kZWxGb3JDYXVzYWxMTS5mcm9tX3ByZXRyYWluZWQoCiAgICAgICAgbW9kZWxfcGF0aCwKICAgICAgICBxdWFudGl6YXRpb25fY29uZmlnPWJuYl9jb25maWcsCiAgICAgICAgZGV2aWNlX21hcD0iYXV0byIsCiAgICAgICAgdHJ1c3RfcmVtb3RlX2NvZGU9VHJ1ZSwKICAgICkKCiAgICBvcy5tYWtlZGlycyhvdXRwdXQsIGV4aXN0X29rPVRydWUpCiAgICBtb2RlbC5zYXZlX3ByZXRyYWluZWQob3V0cHV0KQogICAgdG9rZW5pemVyLnNhdmVfcHJldHJhaW5lZChvdXRwdXQpCiAgICBwcmludChmIltCTkJdIOmHj+WMluWujOaIkO+8jOS/neWtmOiHszoge291dHB1dH0iKQogICAgcmV0dXJuIHsiZW5naW5lIjogImJpdHNhbmRieXRlcyIsICJiaXRzIjogYml0cywgIm91dHB1dCI6IG91dHB1dH0KCgpkZWYgbWFpbigpOgogICAgcGFyc2VyID0gYXJncGFyc2UuQXJndW1lbnRQYXJzZXIoZGVzY3JpcHRpb249IkxMTSDph4/ljJbmqKHmnb8iKQogICAgcGFyc2VyLmFkZF9hcmd1bWVudCgiLS1tZXRob2QiLCB0eXBlPXN0ciwgZGVmYXVsdD1vcy5nZXRlbnYoIlFVQU5UX01FVEhPRCIsICJncHRxIiksCiAgICAgICAgICAgICAgICAgICAgICAgIGNob2ljZXM9WyJncHRxIiwgImF3cSIsICJibmIiXSwKICAgICAgICAgICAgICAgICAgICAgICAgaGVscD0i6YeP5YyW5pa55rOVOiBncHRxIC8gYXdxIC8gYm5iIikKICAgIHBhcnNlci5hZGRfYXJndW1lbnQoIi0tYml0cyIsIHR5cGU9aW50LCBkZWZhdWx0PWludChvcy5nZXRlbnYoIlFVQU5UX0JJVFMiLCAiNCIpKSwKICAgICAgICAgICAgICAgICAgICAgICAgaGVscD0i6YeP5YyW5L2N5pWwOiAyLCAzLCA0LCA4IikKICAgIHBhcnNlci5hZGRfYXJndW1lbnQoIi0tZ3JvdXBfc2l6ZSIsIHR5cGU9aW50LCBkZWZhdWx0PWludChvcy5nZXRlbnYoIlFVQU5UX0dST1VQX1NJWkUiLCAiMTI4IikpLAogICAgICAgICAgICAgICAgICAgICAgICBoZWxwPSJHUFRRIGdyb3VwIHNpemU6IDMyLzY0LzEyOC8yNTYiKQogICAgcGFyc2VyLmFkZF9hcmd1bWVudCgiLS1tb2RlbCIsIHR5cGU9c3RyLCBkZWZhdWx0PW9zLmdldGVudigiTU9ERUxfUEFUSCIsICIiKSwKICAgICAgICAgICAgICAgICAgICAgICAgaGVscD0i5b6F6YeP5YyW5qih5Z6L6Lev5b6E5oiWIEh1Z2dpbmdGYWNlIG1vZGVsIElEIikKICAgIHBhcnNlci5hZGRfYXJndW1lbnQoIi0tb3V0cHV0IiwgdHlwZT1zdHIsIGRlZmF1bHQ9b3MuZ2V0ZW52KCJPVVRQVVRfUEFUSCIsICIvbW50L2FkbWluL21vZGVscy9xdWFudCIpLAogICAgICAgICAgICAgICAgICAgICAgICBoZWxwPSLph4/ljJblkI7mqKHlnovkv53lrZjot6/lvoQiKQogICAgcGFyc2VyLmFkZF9hcmd1bWVudCgiLS1kYXRhc2V0IiwgdHlwZT1zdHIsIGRlZmF1bHQ9b3MuZ2V0ZW52KCJRVUFOVF9EQVRBU0VUIiwgIndpa2l0ZXh0MiIpLAogICAgICAgICAgICAgICAgICAgICAgICBoZWxwPSJHUFRRIOagoeWHhuaVsOaNrumbhu+8iOm7mOiupCB3aWtpdGV4dDLvvIzku4XpnIAgfjEwTULvvIkiKQogICAgcGFyc2VyLmFkZF9hcmd1bWVudCgiLS1uc2FtcGxlcyIsIHR5cGU9aW50LCBkZWZhdWx0PWludChvcy5nZXRlbnYoIlFVQU5UX05TQU1QTEVTIiwgIjEyOCIpKSwKICAgICAgICAgICAgICAgICAgICAgICAgaGVscD0iR1BUUSDmoKHlh4bmoLfmnKzmlbAiKQogICAgYXJncyA9IHBhcnNlci5wYXJzZV9hcmdzKCkKCiAgICBpZiBub3QgYXJncy5tb2RlbDoKICAgICAgICBwcmludChqc29uLmR1bXBzKHsic3RhdHVzIjogImZhaWxlZCIsICJlcnJvciI6ICJNT0RFTF9QQVRIIOacquiuvue9riJ9KSkKICAgICAgICBzeXMuZXhpdCgxKQoKICAgICMg5aaC5p6c5piv5pys5Zyw6Lev5b6E77yM5qOA5p+l5piv5ZCm5a2Y5ZyoCiAgICBpZiBvcy5wYXRoLmlzYWJzKGFyZ3MubW9kZWwpIGFuZCBub3Qgb3MucGF0aC5leGlzdHMoYXJncy5tb2RlbCk6CiAgICAgICAgcHJpbnQoanNvbi5kdW1wcyh7InN0YXR1cyI6ICJmYWlsZWQiLCAiZXJyb3IiOiBmIuaooeWei+i3r+W+hOS4jeWtmOWcqDoge2FyZ3MubW9kZWx9In0pKQogICAgICAgIHN5cy5leGl0KDEpCgogICAgdHJ5OgogICAgICAgIGlmIGFyZ3MubWV0aG9kID09ICJncHRxIjoKICAgICAgICAgICAgbWV0YSA9IHF1YW50aXplX2dwdHEoYXJncy5tb2RlbCwgYXJncy5vdXRwdXQsIGFyZ3MuYml0cywKICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgYXJncy5ncm91cF9zaXplLCBhcmdzLmRhdGFzZXQsIGFyZ3MubnNhbXBsZXMpCiAgICAgICAgZWxpZiBhcmdzLm1ldGhvZCA9PSAiYXdxIjoKICAgICAgICAgICAgbWV0YSA9IHF1YW50aXplX2F3cShhcmdzLm1vZGVsLCBhcmdzLm91dHB1dCwgYXJncy5iaXRzKQogICAgICAgIGVsaWYgYXJncy5tZXRob2QgPT0gImJuYiI6CiAgICAgICAgICAgIG1ldGEgPSBxdWFudGl6ZV9ibmIoYXJncy5tb2RlbCwgYXJncy5vdXRwdXQsIGFyZ3MuYml0cykKICAgICAgICBlbHNlOgogICAgICAgICAgICByYWlzZSBWYWx1ZUVycm9yKGYi5LiN5pSv5oyB55qE6YeP5YyW5pa55rOVOiB7YXJncy5tZXRob2R9IikKCiAgICAgICAgbWV0YVsic3RhdHVzIl0gPSAic3VjY2VzcyIKICAgICAgICBtZXRhWyJtZXRob2QiXSA9IGFyZ3MubWV0aG9kCgogICAgZXhjZXB0IEV4Y2VwdGlvbiBhcyBlOgogICAgICAgIG1ldGEgPSB7InN0YXR1cyI6ICJmYWlsZWQiLCAiZXJyb3IiOiBzdHIoZSksICJtZXRob2QiOiBhcmdzLm1ldGhvZH0KCiAgICAjIOWGmeWFpemHj+WMlua4heWNlQogICAgbWFuaWZlc3RfcGF0aCA9IG9zLnBhdGguam9pbihhcmdzLm91dHB1dCwgInF1YW50X21hbmlmZXN0Lmpzb24iKQogICAgb3MubWFrZWRpcnMoYXJncy5vdXRwdXQsIGV4aXN0X29rPVRydWUpCiAgICB3aXRoIG9wZW4obWFuaWZlc3RfcGF0aCwgInciLCBlbmNvZGluZz0idXRmLTgiKSBhcyBmOgogICAgICAgIGpzb24uZHVtcChtZXRhLCBmLCBpbmRlbnQ9MikKCiAgICBwcmludChqc29uLmR1bXBzKG1ldGEsIGVuc3VyZV9hc2NpaT1GYWxzZSkpCiAgICBpZiBtZXRhWyJzdGF0dXMiXSA9PSAiZmFpbGVkIjoKICAgICAgICBzeXMuZXhpdCgxKQoKCmlmIF9fbmFtZV9fID09ICJfX21haW5fXyI6CiAgICBtYWluKCkK\").decode())",
-    "job_template_volume": "",
-    "job_template_account": "",
-    "job_template_env": "",
-    "job_template_expand": {
-      "index": 4,
-      "rec_job_template": "自定义镜像",
-      "help_url": "/job-template/job/llm_quantize"
-    },
-    "job_template_args": {
-      "模型参数": {
-        "--model": {
-          "type": "str",
-          "default": "",
-          "describe": "待量化模型路径或 HuggingFace Model ID（必填）",
-          "item_type": "str",
-          "require": 1,
-          "editable": 1
-        },
-        "--output": {
-          "type": "str",
-          "default": "/mnt/admin/models/quant",
-          "describe": "量化后模型保存路径",
-          "item_type": "str",
-          "editable": 1
-        }
-      },
-      "量化配置": {
-        "--method": {
-          "type": "str",
-          "default": "gptq",
-          "describe": "选择量化算法",
-          "choice": {
-            "gptq": "GPTQ（精度好，需校准数据）",
-            "awq": "AWQ（速度快精度高）",
-            "bnb": "bitsandbytes（无需校准，快速试用）"
-          },
-          "editable": 1
-        },
-        "--bits": {
-          "type": "int",
-          "default": 4,
-          "range": "2,8",
-          "step": 1,
-          "describe": "量化位数，推荐 4bit",
-          "editable": 1
-        },
-        "--group_size": {
-          "type": "int",
-          "default": 128,
-          "range": "32,256",
-          "step": 32,
-          "describe": "GPTQ 分组大小，128 是标准值",
-          "editable": 1
-        },
-        "--dataset": {
-          "type": "str",
-          "default": "wikitext2",
-          "describe": "GPTQ 校准数据集名称（推荐 wikitext2，仅需 ~10MB）",
-          "item_type": "str",
-          "editable": 1
-        },
-        "--nsamples": {
-          "type": "int",
-          "default": 128,
-          "range": "16,1024",
-          "step": 16,
-          "describe": "GPTQ 校准使用的样本数量",
-          "editable": 1
-        }
-      }
-    }
-  },
-  "model-quantization": {
-    "project_name": "模型处理",
-    "image_name": "python:3.9",
-    "gitpath": "/job-template/job/model-quantization",
-    "image_describe": "大模型量化",
-    "job_template_name": "model-quantization",
-    "job_template_describe": "大模型量化(企业版)",
-    "job_template_command": "python3 launcher.py",
-    "job_template_volume": "",
-    "job_template_account": "",
-    "job_template_env": "",
-    "job_template_expand": {
-      "index": 4,
-      "rec_job_template": "自定义镜像",
-      "help_url": "/job-template/job/model-quantization"
-    },
-    "job_template_args": {}
-  },
   "model-distillation": {
     "project_name": "模型处理",
     "image_name": "10.121.177.20:8082/mlops/model-distillation:20260611",
@@ -4688,5 +4590,85 @@
       "help_url": "/job-template/job/voice-process"
     },
     "job_template_args": {}
+  },
+  "model-quantization": {
+    "project_name": "模型处理",
+    "image_name": "10.121.177.20:8082/mlops/gptqmodel:2.0.0",
+    "gitpath": "/job-template/job/llm_quantize",
+    "image_describe": "LLM量化(GPTQModel)",
+    "job_template_name": "model-quantization",
+    "job_template_describe": "LLM量化：GPTQ/AWQ/bitsandbytes，支持主流大模型",
+    "job_template_command": "python3 /app/launcher.py",
+    "job_template_volume": "",
+    "job_template_account": "",
+    "job_template_env": "",
+    "job_template_expand": {
+      "index": 4,
+      "rec_job_template": "自定义镜像",
+      "help_url": "/job-template/job/llm_quantize"
+    },
+    "job_template_args": {
+      "模型参数": {
+        "--model": {
+          "type": "str",
+          "default": "",
+          "describe": "待量化模型路径或 HuggingFace Model ID（必填）",
+          "item_type": "str",
+          "require": 1,
+          "editable": 1
+        },
+        "--output": {
+          "type": "str",
+          "default": "/mnt/admin/models/quant",
+          "describe": "量化后模型保存路径",
+          "item_type": "str",
+          "editable": 1
+        }
+      },
+      "量化配置": {
+        "--method": {
+          "type": "str",
+          "default": "gptq",
+          "describe": "选择量化算法",
+          "choice": {
+            "gptq": "GPTQ（精度好，需校准数据）",
+            "awq": "AWQ（速度快精度高）",
+            "bnb": "bitsandbytes（无需校准，快速试用）"
+          },
+          "editable": 1
+        },
+        "--bits": {
+          "type": "int",
+          "default": 4,
+          "range": "2,8",
+          "step": 1,
+          "describe": "量化位数，推荐 4bit",
+          "editable": 1
+        },
+        "--group_size": {
+          "type": "int",
+          "default": 128,
+          "range": "32,256",
+          "step": 32,
+          "describe": "GPTQ 分组大小，128 是标准值",
+          "editable": 1
+        },
+        "--dataset": {
+          "type": "str",
+          "default": "wikitext2",
+          "describe": "GPTQ 校准数据集名称（推荐 wikitext2，仅需 ~10MB）",
+          "item_type": "str",
+          "editable": 1
+        },
+        "--nsamples": {
+          "type": "int",
+          "default": 128,
+          "range": "16,1024",
+          "step": 16,
+          "describe": "GPTQ 校准使用的样本数量",
+          "editable": 1
+        }
+      }
+    }
   }
 }
