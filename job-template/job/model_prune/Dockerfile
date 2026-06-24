@@ -1,14 +1,13 @@
-FROM nvidia/cuda:12.1.0-runtime-ubuntu22.04
+FROM python:3.11-slim
 
-RUN apt-get update && apt-get install -y python3 python3-pip && \
-    ln -sf /usr/bin/python3 /usr/bin/python
+# 升级 pip
+RUN pip install --upgrade pip
 
-# 安装 PyTorch
-RUN pip3 install torch --index-url https://download.pytorch.org/whl/cu121
+# CUDA 版 PyTorch
+RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cu121
 
-# 安装剪枝依赖
-RUN pip3 install torch-pruning --upgrade && \
-    pip3 install transformers[sentencepiece] datasets accelerate
+# 剪枝依赖
+RUN pip install --no-cache-dir torch-pruning transformers accelerate datasets
 
 COPY launcher.py /app/launcher.py
 WORKDIR /app

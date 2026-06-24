@@ -7,13 +7,8 @@ LLM 模型剪枝任务模板 — Torch-Pruning (DepGraph)
 import argparse
 import json
 import os
-import subprocess
 import sys
 import shutil
-
-# 自动安装依赖（容器启动时可能没有预装）
-subprocess.run(['pip', 'install', '-q', 'torch-pruning', 'transformers', 'accelerate',
-                'datasets'], capture_output=True)
 
 
 def _copy_config(src: str, dst: str):
