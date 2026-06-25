@@ -144,7 +144,14 @@ def build_opencompass_cmd(args: argparse.Namespace) -> list:
         os.makedirs(args.datasets_cache_dir, exist_ok=True)
         os.environ['MODELSCOPE_CACHE'] = args.datasets_cache_dir
         os.environ['HF_DATASETS_CACHE'] = args.datasets_cache_dir
-        print(f'[INFO] 数据集缓存目录: {args.datasets_cache_dir}')
+        # 诊断：检查缓存目录是否已有数据
+        existing = []
+        for root, dirs, files in os.walk(args.datasets_cache_dir):
+            for f in files:
+                existing.append(os.path.join(root, f))
+        cache_hit = len(existing) > 0
+        print(f'[INFO] 数据集缓存目录: {args.datasets_cache_dir} (已有{len(existing)}个文件)' if cache_hit
+              else f'[INFO] 数据集缓存目录: {args.datasets_cache_dir} (空，将下载)')
 
     # 样本数限制 → 通过环境变量传给 wrapper
     if args.max_samples > 0:

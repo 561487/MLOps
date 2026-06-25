@@ -21,6 +21,7 @@ export interface ITaskEdit {
   resource_gpu?: string;
   resource_rdma?: string;
   resource_memory?: string;
+  outputs?: string;
   retry?: string;
   timeout?: string;
   volume_mount?: string;
