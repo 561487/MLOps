@@ -614,7 +614,7 @@
   },
   "dataset": {
     "project_name": "数据导入导出",
-    "image_name": "ccr.ccs.tencentyun.com/cube-studio/dataset:20250301",
+    "image_name": "10.121.177.20:8082/mlops/dataset:20260624",
     "gitpath": "/job-template/job/dataset",
     "image_describe": "数据集导入",
     "job_template_name": "dataset",
@@ -691,6 +691,17 @@
           "default": "/mnt/{{creator}}/pipeline/example/dataset/",
           "placeholder": "",
           "describe": "数据集的保存地址",
+          "editable": 1
+        },
+        "--download_limit": {
+          "type": "str",
+          "item_type": "str",
+          "label": "下载数量限制",
+          "require": 0,
+          "choice": [],
+          "default": "0",
+          "placeholder": "100",
+          "describe": "限制数据数量，0=全部。「当前平台」按文件数限制；「modelscope」按parquet行数限制",
           "editable": 1
         }
       }
