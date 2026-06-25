@@ -73,7 +73,7 @@ RUN OPENCOMPASS_DIR=$(python3 -c "import opencompass; import os; print(os.path.d
     fi
 
 # ── 6. 复制入口脚本 ──
-COPY job-template/job/model-evaluate-opencompass/src/ /app/
+COPY job-template/job/model-evaluate/src/ /app/
 RUN chmod +x /app/*.py
 
 # ── 7. 安装 sitecustomize.py 到 site-packages（Python 启动时自动加载） ──
