@@ -1737,24 +1737,6 @@
     },
     "job_template_args": {}
   },
-  "opencompass": {
-    "project_name": "模型处理",
-    "image_name": "python:3.9",
-    "gitpath": "/job-template/job/opencompass",
-    "image_describe": "大模型评测",
-    "job_template_name": "opencompass",
-    "job_template_describe": "大模型评测(企业版)",
-    "job_template_command": "python3 launcher.py",
-    "job_template_volume": "",
-    "job_template_account": "",
-    "job_template_env": "",
-    "job_template_expand": {
-      "index": 3,
-      "rec_job_template": "自定义镜像",
-      "help_url": "/job-template/job/opencompass"
-    },
-    "job_template_args": {}
-  },
   "model-quantization": {
     "project_name": "模型处理",
     "image_name": "python:3.9",
@@ -1952,13 +1934,13 @@
     },
     "job_template_args": {}
   },
-  "model-evaluate-opencompass": {
+  "model-evaluate": {
     "project_name": "模型处理",
-    "image_name": "10.121.177.20:8082/mlops/model-evaluate-opencompass:latest",
-    "gitpath": "/job-template/job/model-evaluate-opencompass",
-    "image_describe": "OpenCompass LLM模型评测",
-    "job_template_name": "model-evaluate-opencompass",
-    "job_template_describe": "OpenCompass LLM模型评测",
+    "image_name": "10.121.177.20:8082/mlops/model-evaluate:latest",
+    "gitpath": "/job-template/job/model-evaluate",
+    "image_describe": "大模型评测",
+    "job_template_name": "model-evaluate",
+    "job_template_describe": "大模型评测",
     "job_template_command": "python3 /app/run_evaluation.py",
     "job_template_volume": "models-storage(storage):/mnt/storage/models-storage",
     "job_template_account": "",
@@ -1966,7 +1948,7 @@
     "job_template_expand": {
       "index": 7,
       "rec_job_template": "自定义镜像",
-      "help_url": "/job-template/job/model-evaluate-opencompass"
+      "help_url": "/job-template/job/model-evaluate"
     },
     "job_template_args": {
       "模型配置": {
