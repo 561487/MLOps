@@ -40,49 +40,6 @@ import datetime, json
 conf = app.config
 
 
-def _metric_to_echart(metric_dict):
-    """将评测结果 {dataset: {metric: value, ...}, ...} 转为 ECharts option"""
-    if not isinstance(metric_dict, dict) or not metric_dict:
-        return None
-    rows = []
-    datasets = []
-    for ds_name, metrics in metric_dict.items():
-        if isinstance(metrics, dict):
-            for m_name, m_val in metrics.items():
-                if isinstance(m_val, (int, float)):
-                    rows.append((ds_name, m_name, m_val))
-                    if ds_name not in datasets:
-                        datasets.append(ds_name)
-    if not rows:
-        return None
-
-    if len(datasets) > 1:
-        metric_names = list(dict.fromkeys(r[1] for r in rows))
-        series = []
-        for mn in metric_names:
-            series.append({
-                "name": mn, "type": "bar",
-                "data": [next((r[2] for r in rows if r[0] == ds and r[1] == mn), 0) for ds in datasets]
-            })
-        return {
-            "title": {"text": "评测结果", "left": "center"},
-            "tooltip": {},
-            "xAxis": {"type": "category", "data": datasets},
-            "yAxis": {"type": "value"},
-            "series": series
-        }
-    else:
-        ds_name = datasets[0]
-        pairs = [(r[1], r[2]) for r in rows if r[0] == ds_name]
-        return {
-            "title": {"text": f"{ds_name} 评测结果", "left": "center"},
-            "tooltip": {},
-            "xAxis": {"type": "category", "data": [m for m, _ in pairs]},
-            "yAxis": {"type": "value"},
-            "series": [{"type": "bar", "data": [v for _, v in pairs], "itemStyle": {"color": "#5470c6"}}]
-        }
-
-
 class Workflow_Filter(MyappFilter):
     # @pysnooper.snoop()
     def apply(self, query, func):
