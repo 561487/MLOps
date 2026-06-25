@@ -425,10 +425,31 @@ def dag_to_pipeline(pipeline, dbsession, workflow_label=None, **kwargs):
             resources_requests = None
             resources_limits = None
 
+        # 构建 outputs.artifacts：将 task.outputs 中定义的输出文件声明为 Argo artifact
+        # PVC 挂载路径 Argo 不会捕获，统一复制到 /tmp/cube_outputs/ 再让 Argo 抓
+        artifacts = []
+        if file_outputs:
+            copy_cmds = ['mkdir -p /tmp/cube_outputs']
+            for artifact_name, file_path in file_outputs.items():
+                tmp_path = f'/tmp/cube_outputs/{artifact_name}'
+                copy_cmds.append(f'cp -r {file_path} {tmp_path}')
+                artifacts.append({
+                    "name": artifact_name,
+                    "path": tmp_path,
+                })
+            # 把原命令和复制命令拼接成 bash -c 单行脚本
+            primary = ' '.join(command) if command else ''
+            if arguments:
+                primary += ' ' + ' '.join(arguments)
+            if primary:
+                primary += ' && '
+            command = ['bash', '-c', primary + ' && '.join(copy_cmds)]
+            arguments = []
+
         task_template = {
             "name": task.name,  # 因为同一个
             "outputs": {
-                "artifacts": []
+                "artifacts": artifacts
             },
             "container": {
                 "name": task.name + "-" + uuid.uuid4().hex[:4],

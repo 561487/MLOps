@@ -1,0 +1,795 @@
+06/16 07:18:00 - OpenCompass - WARNING - Found ambiguous patterns, using the first matched config.
++----------------------+-----------------------------------------------------------------------------------------+
+| Ambiguous patterns   | Matched files                                                                           |
+|----------------------+-----------------------------------------------------------------------------------------|
+| mmlu_gen             | configs/datasets/mmlu/mmlu_gen.py                                                       |
+|                      | /usr/local/lib/python3.10/dist-packages/opencompass/configs/./datasets/mmlu/mmlu_gen.py |
++----------------------+-----------------------------------------------------------------------------------------+
+06/16 07:18:00 - OpenCompass - INFO - Loading mmlu_gen: configs/datasets/mmlu/mmlu_gen.py
+06/16 07:18:00 - OpenCompass - WARNING - Found ambiguous patterns, using the first matched config.
++----------------------+--------------------------------------------------------------------------------------+
+| Ambiguous patterns   | Matched files                                                                        |
+|----------------------+--------------------------------------------------------------------------------------|
+| example              | configs/summarizers/example.py                                                       |
+|                      | /usr/local/lib/python3.10/dist-packages/opencompass/configs/./summarizers/example.py |
++----------------------+--------------------------------------------------------------------------------------+
+06/16 07:18:00 - OpenCompass - INFO - Loading example: configs/summarizers/example.py
+06/16 07:18:00 - OpenCompass - INFO - Current exp folder: /models/eval_output/opencompass_results/20260616_071800
+06/16 07:18:00 - OpenCompass - WARNING - SlurmRunner is not used, so the partition argument is ignored.
+2026-06-16 07:18:07,506 - modelscope - INFO - [MS_DOWNLOAD] get_from_cache_ms downloading: url=https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=README.md&View=False
+
+Downloading [README.md]: 0.00B [00:00, ?B/s]
+Downloading [README.md]: 53.2kB [00:00, 3.45MB/s]
+2026-06-16 07:18:10,583 - modelscope - INFO - storing https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=README.md&View=False in cache at /root/.cache/modelscope/hub/datasets/ed67dbd7859ca3d5e66c72ec15425348097305001de649f842733a7e7ac4d578
+2026-06-16 07:18:10,583 - modelscope - INFO - creating metadata file for /root/.cache/modelscope/hub/datasets/ed67dbd7859ca3d5e66c72ec15425348097305001de649f842733a7e7ac4d578
+2026-06-16 07:18:19,182 - modelscope - INFO - [MS_DOWNLOAD] get_from_cache_ms downloading: url=https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=college_biology%2Fdev-00000-of-00001.parquet
+
+Downloading data:   0%|          | 0.00/4.27k [00:00<?, ?B/s]
+Downloading data: 100%|██████████| 4.27k/4.27k [00:00<00:00, 13.8MB/s]
+2026-06-16 07:18:21,541 - modelscope - INFO - storing https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=college_biology%2Fdev-00000-of-00001.parquet in cache at /root/.cache/modelscope/hub/datasets/downloads/b1729325721d0b03273036291e1b0e18627f7470abde98076bc84be16756dd32
+2026-06-16 07:18:21,541 - modelscope - INFO - creating metadata file for /root/.cache/modelscope/hub/datasets/downloads/b1729325721d0b03273036291e1b0e18627f7470abde98076bc84be16756dd32
+
+Generating dev split:   0%|          | 0/5 [00:00<?, ? examples/s]
+Generating dev split: 100%|██████████| 5/5 [00:00<00:00, 312.14 examples/s]
+2026-06-16 07:18:35,103 - modelscope - INFO - [MS_DOWNLOAD] get_from_cache_ms downloading: url=https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=college_biology%2Ftest-00000-of-00001.parquet
+
+Downloading data:   0%|          | 0.00/31.8k [00:00<?, ?B/s]
+Downloading data: 100%|██████████| 31.8k/31.8k [00:00<00:00, 34.9MB/s]
+2026-06-16 07:18:36,057 - modelscope - INFO - storing https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=college_biology%2Ftest-00000-of-00001.parquet in cache at /root/.cache/modelscope/hub/datasets/downloads/9ea56e693e14564ea967e2e0b34e52eef5ccdb86f1f9384e8958c36489f86ef7
+2026-06-16 07:18:36,058 - modelscope - INFO - creating metadata file for /root/.cache/modelscope/hub/datasets/downloads/9ea56e693e14564ea967e2e0b34e52eef5ccdb86f1f9384e8958c36489f86ef7
+
+Generating test split:   0%|          | 0/144 [00:00<?, ? examples/s]
+Generating test split: 100%|██████████| 144/144 [00:00<00:00, 21869.06 examples/s]
+
+Map:   0%|          | 0/5 [00:00<?, ? examples/s]
+Map: 100%|██████████| 5/5 [00:00<00:00, 1206.44 examples/s]
+
+Map:   0%|          | 0/144 [00:00<?, ? examples/s]
+Map: 100%|██████████| 144/144 [00:00<00:00, 17120.58 examples/s]
+2026-06-16 07:18:50,947 - modelscope - INFO - [MS_DOWNLOAD] get_from_cache_ms downloading: url=https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=college_chemistry%2Fdev-00000-of-00001.parquet
+
+Downloading data:   0%|          | 0.00/4.04k [00:00<?, ?B/s]
+Downloading data: 100%|██████████| 4.04k/4.04k [00:00<00:00, 22.6MB/s]
+2026-06-16 07:18:52,279 - modelscope - INFO - storing https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=college_chemistry%2Fdev-00000-of-00001.parquet in cache at /root/.cache/modelscope/hub/datasets/downloads/f7879a1f4f0770045a516ae56e2c11e7464244b950827834dbfc74d2c85af323
+2026-06-16 07:18:52,279 - modelscope - INFO - creating metadata file for /root/.cache/modelscope/hub/datasets/downloads/f7879a1f4f0770045a516ae56e2c11e7464244b950827834dbfc74d2c85af323
+
+Generating dev split:   0%|          | 0/5 [00:00<?, ? examples/s]
+Generating dev split: 100%|██████████| 5/5 [00:00<00:00, 1535.03 examples/s]
+2026-06-16 07:19:03,442 - modelscope - INFO - [MS_DOWNLOAD] get_from_cache_ms downloading: url=https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=college_chemistry%2Ftest-00000-of-00001.parquet
+
+Downloading data:   0%|          | 0.00/17.9k [00:00<?, ?B/s]
+Downloading data: 100%|██████████| 17.9k/17.9k [00:00<00:00, 17.3MB/s]
+2026-06-16 07:19:04,187 - modelscope - INFO - storing https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=college_chemistry%2Ftest-00000-of-00001.parquet in cache at /root/.cache/modelscope/hub/datasets/downloads/1c7b23c2dc5397b21b6fb309dfdc8ce0cc4c944a74c87d6e59878ddf72b5cba5
+2026-06-16 07:19:04,187 - modelscope - INFO - creating metadata file for /root/.cache/modelscope/hub/datasets/downloads/1c7b23c2dc5397b21b6fb309dfdc8ce0cc4c944a74c87d6e59878ddf72b5cba5
+
+Generating test split:   0%|          | 0/100 [00:00<?, ? examples/s]
+Generating test split: 100%|██████████| 100/100 [00:00<00:00, 27413.75 examples/s]
+
+Map:   0%|          | 0/5 [00:00<?, ? examples/s]
+Map: 100%|██████████| 5/5 [00:00<00:00, 1231.81 examples/s]
+
+Map:   0%|          | 0/100 [00:00<?, ? examples/s]
+Map: 100%|██████████| 100/100 [00:00<00:00, 13311.45 examples/s]
+2026-06-16 07:19:14,851 - modelscope - INFO - [MS_DOWNLOAD] get_from_cache_ms downloading: url=https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=college_computer_science%2Fdev-00000-of-00001.parquet
+
+Downloading data:   0%|          | 0.00/6.81k [00:00<?, ?B/s]
+Downloading data: 100%|██████████| 6.81k/6.81k [00:00<00:00, 17.0MB/s]
+2026-06-16 07:19:15,687 - modelscope - INFO - storing https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=college_computer_science%2Fdev-00000-of-00001.parquet in cache at /root/.cache/modelscope/hub/datasets/downloads/5e5e07ba8a246826b87a4e26ca419d1bef4035cb57f0ce433dacd4b7c95ce980
+2026-06-16 07:19:15,688 - modelscope - INFO - creating metadata file for /root/.cache/modelscope/hub/datasets/downloads/5e5e07ba8a246826b87a4e26ca419d1bef4035cb57f0ce433dacd4b7c95ce980
+
+Generating dev split:   0%|          | 0/5 [00:00<?, ? examples/s]
+Generating dev split: 100%|██████████| 5/5 [00:00<00:00, 1186.64 examples/s]
+2026-06-16 07:19:27,278 - modelscope - INFO - [MS_DOWNLOAD] get_from_cache_ms downloading: url=https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=college_computer_science%2Ftest-00000-of-00001.parquet
+
+Downloading data:   0%|          | 0.00/28.1k [00:00<?, ?B/s]
+Downloading data: 100%|██████████| 28.1k/28.1k [00:00<00:00, 27.1MB/s]
+2026-06-16 07:19:28,009 - modelscope - INFO - storing https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=college_computer_science%2Ftest-00000-of-00001.parquet in cache at /root/.cache/modelscope/hub/datasets/downloads/d9d8fc0a61c2613724eb9dfdad9119370b09ec8a802d244d23e86fe28f782001
+2026-06-16 07:19:28,009 - modelscope - INFO - creating metadata file for /root/.cache/modelscope/hub/datasets/downloads/d9d8fc0a61c2613724eb9dfdad9119370b09ec8a802d244d23e86fe28f782001
+
+Generating test split:   0%|          | 0/100 [00:00<?, ? examples/s]
+Generating test split: 100%|██████████| 100/100 [00:00<00:00, 18569.55 examples/s]
+
+Map:   0%|          | 0/5 [00:00<?, ? examples/s]
+Map: 100%|██████████| 5/5 [00:00<00:00, 1640.07 examples/s]
+
+Map:   0%|          | 0/100 [00:00<?, ? examples/s]
+Map: 100%|██████████| 100/100 [00:00<00:00, 13191.29 examples/s]
+2026-06-16 07:19:41,888 - modelscope - INFO - [MS_DOWNLOAD] get_from_cache_ms downloading: url=https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=college_mathematics%2Fdev-00000-of-00001.parquet
+
+Downloading data:   0%|          | 0.00/5.16k [00:00<?, ?B/s]
+Downloading data: 100%|██████████| 5.16k/5.16k [00:00<00:00, 11.2MB/s]
+2026-06-16 07:19:43,015 - modelscope - INFO - storing https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=college_mathematics%2Fdev-00000-of-00001.parquet in cache at /root/.cache/modelscope/hub/datasets/downloads/301d72aaf2b33a4ee2ba9bbacf14272b6a888a4bc67d80b069047b12ae9f280b
+2026-06-16 07:19:43,016 - modelscope - INFO - creating metadata file for /root/.cache/modelscope/hub/datasets/downloads/301d72aaf2b33a4ee2ba9bbacf14272b6a888a4bc67d80b069047b12ae9f280b
+
+Generating dev split:   0%|          | 0/5 [00:00<?, ? examples/s]
+Generating dev split: 100%|██████████| 5/5 [00:00<00:00, 1764.39 examples/s]
+2026-06-16 07:19:53,928 - modelscope - INFO - [MS_DOWNLOAD] get_from_cache_ms downloading: url=https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=college_mathematics%2Ftest-00000-of-00001.parquet
+
+Downloading data:   0%|          | 0.00/16.6k [00:00<?, ?B/s]
+Downloading data: 100%|██████████| 16.6k/16.6k [00:00<00:00, 18.8MB/s]
+2026-06-16 07:19:55,006 - modelscope - INFO - storing https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=college_mathematics%2Ftest-00000-of-00001.parquet in cache at /root/.cache/modelscope/hub/datasets/downloads/0389af2feb8e4b303ecb443537d6eb09942a35d2b8e1cf3266eb06c4802ba61b
+2026-06-16 07:19:55,006 - modelscope - INFO - creating metadata file for /root/.cache/modelscope/hub/datasets/downloads/0389af2feb8e4b303ecb443537d6eb09942a35d2b8e1cf3266eb06c4802ba61b
+
+Generating test split:   0%|          | 0/100 [00:00<?, ? examples/s]
+Generating test split: 100%|██████████| 100/100 [00:00<00:00, 23720.76 examples/s]
+
+Map:   0%|          | 0/5 [00:00<?, ? examples/s]
+Map: 100%|██████████| 5/5 [00:00<00:00, 1787.24 examples/s]
+
+Map:   0%|          | 0/100 [00:00<?, ? examples/s]
+Map: 100%|██████████| 100/100 [00:00<00:00, 14093.76 examples/s]
+2026-06-16 07:20:05,174 - modelscope - INFO - [MS_DOWNLOAD] get_from_cache_ms downloading: url=https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=college_physics%2Fdev-00000-of-00001.parquet
+
+Downloading data:   0%|          | 0.00/4.51k [00:00<?, ?B/s]
+Downloading data: 100%|██████████| 4.51k/4.51k [00:00<00:00, 18.3MB/s]
+2026-06-16 07:20:06,135 - modelscope - INFO - storing https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=college_physics%2Fdev-00000-of-00001.parquet in cache at /root/.cache/modelscope/hub/datasets/downloads/50df927b6c40f687dfe8208432a434f931ecf32a74e35da43c682f8231d15f9c
+2026-06-16 07:20:06,135 - modelscope - INFO - creating metadata file for /root/.cache/modelscope/hub/datasets/downloads/50df927b6c40f687dfe8208432a434f931ecf32a74e35da43c682f8231d15f9c
+
+Generating dev split:   0%|          | 0/5 [00:00<?, ? examples/s]
+Generating dev split: 100%|██████████| 5/5 [00:00<00:00, 1192.31 examples/s]
+2026-06-16 07:20:17,333 - modelscope - INFO - [MS_DOWNLOAD] get_from_cache_ms downloading: url=https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=college_physics%2Ftest-00000-of-00001.parquet
+
+Downloading data:   0%|          | 0.00/18.6k [00:00<?, ?B/s]
+Downloading data: 100%|██████████| 18.6k/18.6k [00:00<00:00, 53.2MB/s]
+2026-06-16 07:20:17,815 - modelscope - INFO - storing https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=college_physics%2Ftest-00000-of-00001.parquet in cache at /root/.cache/modelscope/hub/datasets/downloads/22c8c0cc9a3df57c05c506bd8802a444fcbdb758a08af79ab23e501e83db87b5
+2026-06-16 07:20:17,816 - modelscope - INFO - creating metadata file for /root/.cache/modelscope/hub/datasets/downloads/22c8c0cc9a3df57c05c506bd8802a444fcbdb758a08af79ab23e501e83db87b5
+
+Generating test split:   0%|          | 0/102 [00:00<?, ? examples/s]
+Generating test split: 100%|██████████| 102/102 [00:00<00:00, 26753.74 examples/s]
+
+Map:   0%|          | 0/5 [00:00<?, ? examples/s]
+Map: 100%|██████████| 5/5 [00:00<00:00, 1150.57 examples/s]
+
+Map:   0%|          | 0/102 [00:00<?, ? examples/s]
+Map: 100%|██████████| 102/102 [00:00<00:00, 8668.38 examples/s]
+2026-06-16 07:20:28,291 - modelscope - INFO - [MS_DOWNLOAD] get_from_cache_ms downloading: url=https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=electrical_engineering%2Fdev-00000-of-00001.parquet
+
+Downloading data:   0%|          | 0.00/4.08k [00:00<?, ?B/s]
+Downloading data: 100%|██████████| 4.08k/4.08k [00:00<00:00, 16.7MB/s]
+2026-06-16 07:20:29,029 - modelscope - INFO - storing https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=electrical_engineering%2Fdev-00000-of-00001.parquet in cache at /root/.cache/modelscope/hub/datasets/downloads/dbd7fa4708b8615ec1d769980e5390c2afc8c1774e5ce1009abfae7492a7cf0b
+2026-06-16 07:20:29,029 - modelscope - INFO - creating metadata file for /root/.cache/modelscope/hub/datasets/downloads/dbd7fa4708b8615ec1d769980e5390c2afc8c1774e5ce1009abfae7492a7cf0b
+
+Generating dev split:   0%|          | 0/5 [00:00<?, ? examples/s]
+Generating dev split: 100%|██████████| 5/5 [00:00<00:00, 974.02 examples/s]
+2026-06-16 07:20:38,363 - modelscope - INFO - [MS_DOWNLOAD] get_from_cache_ms downloading: url=https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=electrical_engineering%2Ftest-00000-of-00001.parquet
+
+Downloading data:   0%|          | 0.00/17.6k [00:00<?, ?B/s]
+Downloading data: 100%|██████████| 17.6k/17.6k [00:00<00:00, 20.6MB/s]
+2026-06-16 07:20:38,912 - modelscope - INFO - storing https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=electrical_engineering%2Ftest-00000-of-00001.parquet in cache at /root/.cache/modelscope/hub/datasets/downloads/8c67e78bdd0b6d50e986727314e67ce13768cda68d11bb5208e8c24d1041df89
+2026-06-16 07:20:38,913 - modelscope - INFO - creating metadata file for /root/.cache/modelscope/hub/datasets/downloads/8c67e78bdd0b6d50e986727314e67ce13768cda68d11bb5208e8c24d1041df89
+
+Generating test split:   0%|          | 0/145 [00:00<?, ? examples/s]
+Generating test split: 100%|██████████| 145/145 [00:00<00:00, 43924.17 examples/s]
+
+Map:   0%|          | 0/5 [00:00<?, ? examples/s]
+Map: 100%|██████████| 5/5 [00:00<00:00, 1887.97 examples/s]
+
+Map:   0%|          | 0/145 [00:00<?, ? examples/s]
+Map: 100%|██████████| 145/145 [00:00<00:00, 16543.10 examples/s]
+2026-06-16 07:20:47,083 - modelscope - INFO - [MS_DOWNLOAD] get_from_cache_ms downloading: url=https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=astronomy%2Fdev-00000-of-00001.parquet
+
+Downloading data:   0%|          | 0.00/4.94k [00:00<?, ?B/s]
+Downloading data: 100%|██████████| 4.94k/4.94k [00:00<00:00, 11.5MB/s]
+2026-06-16 07:20:47,680 - modelscope - INFO - storing https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=astronomy%2Fdev-00000-of-00001.parquet in cache at /root/.cache/modelscope/hub/datasets/downloads/bdab92bbd1b297841ba258293731c1fb195c82be85da12d719b11ae2270a667c
+2026-06-16 07:20:47,681 - modelscope - INFO - creating metadata file for /root/.cache/modelscope/hub/datasets/downloads/bdab92bbd1b297841ba258293731c1fb195c82be85da12d719b11ae2270a667c
+
+Generating dev split:   0%|          | 0/5 [00:00<?, ? examples/s]
+Generating dev split: 100%|██████████| 5/5 [00:00<00:00, 1678.66 examples/s]
+2026-06-16 07:20:57,361 - modelscope - INFO - [MS_DOWNLOAD] get_from_cache_ms downloading: url=https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=astronomy%2Ftest-00000-of-00001.parquet
+
+Downloading data:   0%|          | 0.00/28.3k [00:00<?, ?B/s]
+Downloading data: 100%|██████████| 28.3k/28.3k [00:00<00:00, 26.7MB/s]
+2026-06-16 07:20:58,018 - modelscope - INFO - storing https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=astronomy%2Ftest-00000-of-00001.parquet in cache at /root/.cache/modelscope/hub/datasets/downloads/ed813da4e739037c0ebb4df998be18854ad83b154c388504cad15c4d8292daa4
+2026-06-16 07:20:58,019 - modelscope - INFO - creating metadata file for /root/.cache/modelscope/hub/datasets/downloads/ed813da4e739037c0ebb4df998be18854ad83b154c388504cad15c4d8292daa4
+
+Generating test split:   0%|          | 0/152 [00:00<?, ? examples/s]
+Generating test split: 100%|██████████| 152/152 [00:00<00:00, 38136.88 examples/s]
+
+Map:   0%|          | 0/5 [00:00<?, ? examples/s]
+Map: 100%|██████████| 5/5 [00:00<00:00, 1731.32 examples/s]
+
+Map:   0%|          | 0/152 [00:00<?, ? examples/s]
+Map: 100%|██████████| 152/152 [00:00<00:00, 16604.18 examples/s]
+2026-06-16 07:21:07,396 - modelscope - INFO - [MS_DOWNLOAD] get_from_cache_ms downloading: url=https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=anatomy%2Fdev-00000-of-00001.parquet
+
+Downloading data:   0%|          | 0.00/3.50k [00:00<?, ?B/s]
+Downloading data: 100%|██████████| 3.50k/3.50k [00:00<00:00, 8.01MB/s]
+2026-06-16 07:21:08,118 - modelscope - INFO - storing https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=anatomy%2Fdev-00000-of-00001.parquet in cache at /root/.cache/modelscope/hub/datasets/downloads/b5fca3fce27179378242c05c24a0c3ffd2e2b53f39fb5a3bdcb899a02456b0f8
+2026-06-16 07:21:08,119 - modelscope - INFO - creating metadata file for /root/.cache/modelscope/hub/datasets/downloads/b5fca3fce27179378242c05c24a0c3ffd2e2b53f39fb5a3bdcb899a02456b0f8
+
+Generating dev split:   0%|          | 0/5 [00:00<?, ? examples/s]
+Generating dev split: 100%|██████████| 5/5 [00:00<00:00, 1255.70 examples/s]
+2026-06-16 07:21:17,695 - modelscope - INFO - [MS_DOWNLOAD] get_from_cache_ms downloading: url=https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=anatomy%2Ftest-00000-of-00001.parquet
+
+Downloading data:   0%|          | 0.00/20.1k [00:00<?, ?B/s]
+Downloading data: 100%|██████████| 20.1k/20.1k [00:00<00:00, 35.9MB/s]
+2026-06-16 07:21:18,207 - modelscope - INFO - storing https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=anatomy%2Ftest-00000-of-00001.parquet in cache at /root/.cache/modelscope/hub/datasets/downloads/9e7dd8ec3c0e105011178346c90d7ee3b755fd8db68b50150b6255cac2579002
+2026-06-16 07:21:18,208 - modelscope - INFO - creating metadata file for /root/.cache/modelscope/hub/datasets/downloads/9e7dd8ec3c0e105011178346c90d7ee3b755fd8db68b50150b6255cac2579002
+
+Generating test split:   0%|          | 0/135 [00:00<?, ? examples/s]
+Generating test split: 100%|██████████| 135/135 [00:00<00:00, 28211.40 examples/s]
+
+Map:   0%|          | 0/5 [00:00<?, ? examples/s]
+Map: 100%|██████████| 5/5 [00:00<00:00, 1065.36 examples/s]
+
+Map:   0%|          | 0/135 [00:00<?, ? examples/s]
+Map: 100%|██████████| 135/135 [00:00<00:00, 8626.84 examples/s]
+2026-06-16 07:21:27,720 - modelscope - INFO - [MS_DOWNLOAD] get_from_cache_ms downloading: url=https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=abstract_algebra%2Fdev-00000-of-00001.parquet
+
+Downloading data:   0%|          | 0.00/3.45k [00:00<?, ?B/s]
+Downloading data: 100%|██████████| 3.45k/3.45k [00:00<00:00, 7.48MB/s]
+2026-06-16 07:21:28,437 - modelscope - INFO - storing https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=abstract_algebra%2Fdev-00000-of-00001.parquet in cache at /root/.cache/modelscope/hub/datasets/downloads/119334346cffbae1238da15de885aed4791d03789943389e5a9e5e8f5ff44f6d
+2026-06-16 07:21:28,438 - modelscope - INFO - creating metadata file for /root/.cache/modelscope/hub/datasets/downloads/119334346cffbae1238da15de885aed4791d03789943389e5a9e5e8f5ff44f6d
+
+Generating dev split:   0%|          | 0/5 [00:00<?, ? examples/s]
+Generating dev split: 100%|██████████| 5/5 [00:00<00:00, 1234.13 examples/s]
+2026-06-16 07:21:37,034 - modelscope - INFO - [MS_DOWNLOAD] get_from_cache_ms downloading: url=https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=abstract_algebra%2Ftest-00000-of-00001.parquet
+
+Downloading data:   0%|          | 0.00/9.96k [00:00<?, ?B/s]
+Downloading data: 100%|██████████| 9.96k/9.96k [00:00<00:00, 34.4MB/s]
+2026-06-16 07:21:37,713 - modelscope - INFO - storing https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=abstract_algebra%2Ftest-00000-of-00001.parquet in cache at /root/.cache/modelscope/hub/datasets/downloads/dff8ea57200693ca5a2c0e88be689fb4282d581c354a2b8e7bd48a8f5c86b9b7
+2026-06-16 07:21:37,713 - modelscope - INFO - creating metadata file for /root/.cache/modelscope/hub/datasets/downloads/dff8ea57200693ca5a2c0e88be689fb4282d581c354a2b8e7bd48a8f5c86b9b7
+
+Generating test split:   0%|          | 0/100 [00:00<?, ? examples/s]
+Generating test split: 100%|██████████| 100/100 [00:00<00:00, 40098.51 examples/s]
+
+Map:   0%|          | 0/5 [00:00<?, ? examples/s]
+Map: 100%|██████████| 5/5 [00:00<00:00, 1315.41 examples/s]
+
+Map:   0%|          | 0/100 [00:00<?, ? examples/s]
+Map: 100%|██████████| 100/100 [00:00<00:00, 13653.78 examples/s]
+2026-06-16 07:21:45,272 - modelscope - INFO - [MS_DOWNLOAD] get_from_cache_ms downloading: url=https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=machine_learning%2Fdev-00000-of-00001.parquet
+
+Downloading data:   0%|          | 0.00/5.25k [00:00<?, ?B/s]
+Downloading data: 100%|██████████| 5.25k/5.25k [00:00<00:00, 23.7MB/s]
+2026-06-16 07:21:46,047 - modelscope - INFO - storing https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=machine_learning%2Fdev-00000-of-00001.parquet in cache at /root/.cache/modelscope/hub/datasets/downloads/e0ac74ac3bdea77af434ece090a7aeaeabf534b6b6f3096314556c271ca77767
+2026-06-16 07:21:46,047 - modelscope - INFO - creating metadata file for /root/.cache/modelscope/hub/datasets/downloads/e0ac74ac3bdea77af434ece090a7aeaeabf534b6b6f3096314556c271ca77767
+
+Generating dev split:   0%|          | 0/5 [00:00<?, ? examples/s]
+Generating dev split: 100%|██████████| 5/5 [00:00<00:00, 1976.21 examples/s]
+2026-06-16 07:21:54,664 - modelscope - INFO - [MS_DOWNLOAD] get_from_cache_ms downloading: url=https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=machine_learning%2Ftest-00000-of-00001.parquet
+
+Downloading data:   0%|          | 0.00/19.7k [00:00<?, ?B/s]
+Downloading data: 100%|██████████| 19.7k/19.7k [00:00<00:00, 16.9MB/s]
+2026-06-16 07:21:55,143 - modelscope - INFO - storing https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=machine_learning%2Ftest-00000-of-00001.parquet in cache at /root/.cache/modelscope/hub/datasets/downloads/607f169f6da40fb8b0410a4395ef18a9bfb9719146128aac16ef0e2dcf5e51d8
+2026-06-16 07:21:55,143 - modelscope - INFO - creating metadata file for /root/.cache/modelscope/hub/datasets/downloads/607f169f6da40fb8b0410a4395ef18a9bfb9719146128aac16ef0e2dcf5e51d8
+
+Generating test split:   0%|          | 0/112 [00:00<?, ? examples/s]
+Generating test split: 100%|██████████| 112/112 [00:00<00:00, 25887.91 examples/s]
+
+Map:   0%|          | 0/5 [00:00<?, ? examples/s]
+Map: 100%|██████████| 5/5 [00:00<00:00, 1751.13 examples/s]
+
+Map:   0%|          | 0/112 [00:00<?, ? examples/s]
+Map: 100%|██████████| 112/112 [00:00<00:00, 15220.88 examples/s]
+2026-06-16 07:22:03,011 - modelscope - INFO - [MS_DOWNLOAD] get_from_cache_ms downloading: url=https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=clinical_knowledge%2Fdev-00000-of-00001.parquet
+
+Downloading data:   0%|          | 0.00/3.67k [00:00<?, ?B/s]
+Downloading data: 100%|██████████| 3.67k/3.67k [00:00<00:00, 16.7MB/s]
+2026-06-16 07:22:03,920 - modelscope - INFO - storing https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=clinical_knowledge%2Fdev-00000-of-00001.parquet in cache at /root/.cache/modelscope/hub/datasets/downloads/f3742660c374a59e755a794feb2e95949d2b4c065b9af352e9b35ad8a40f3700
+2026-06-16 07:22:03,921 - modelscope - INFO - creating metadata file for /root/.cache/modelscope/hub/datasets/downloads/f3742660c374a59e755a794feb2e95949d2b4c065b9af352e9b35ad8a40f3700
+
+Generating dev split:   0%|          | 0/5 [00:00<?, ? examples/s]
+Generating dev split: 100%|██████████| 5/5 [00:00<00:00, 1516.05 examples/s]
+2026-06-16 07:22:13,010 - modelscope - INFO - [MS_DOWNLOAD] get_from_cache_ms downloading: url=https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=clinical_knowledge%2Ftest-00000-of-00001.parquet
+
+Downloading data:   0%|          | 0.00/40.5k [00:00<?, ?B/s]
+Downloading data: 100%|██████████| 40.5k/40.5k [00:00<00:00, 40.1MB/s]
+2026-06-16 07:22:13,726 - modelscope - INFO - storing https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=clinical_knowledge%2Ftest-00000-of-00001.parquet in cache at /root/.cache/modelscope/hub/datasets/downloads/01b8abaffa69d74660a373cddb07142e614f5e55a78b4b8d7b4f8b57a1484bf7
+2026-06-16 07:22:13,727 - modelscope - INFO - creating metadata file for /root/.cache/modelscope/hub/datasets/downloads/01b8abaffa69d74660a373cddb07142e614f5e55a78b4b8d7b4f8b57a1484bf7
+
+Generating test split:   0%|          | 0/265 [00:00<?, ? examples/s]
+Generating test split: 100%|██████████| 265/265 [00:00<00:00, 60950.35 examples/s]
+
+Map:   0%|          | 0/5 [00:00<?, ? examples/s]
+Map: 100%|██████████| 5/5 [00:00<00:00, 1802.30 examples/s]
+
+Map:   0%|          | 0/265 [00:00<?, ? examples/s]
+Map: 100%|██████████| 265/265 [00:00<00:00, 20004.15 examples/s]
+2026-06-16 07:22:25,442 - modelscope - INFO - [MS_DOWNLOAD] get_from_cache_ms downloading: url=https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=global_facts%2Fdev-00000-of-00001.parquet
+
+Downloading data:   0%|          | 0.00/3.58k [00:00<?, ?B/s]
+Downloading data: 100%|██████████| 3.58k/3.58k [00:00<00:00, 7.52MB/s]
+2026-06-16 07:22:26,272 - modelscope - INFO - storing https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=global_facts%2Fdev-00000-of-00001.parquet in cache at /root/.cache/modelscope/hub/datasets/downloads/8513cd005b8c6c7575f73adc1f9ed461cbf9ac1a30c228bcf5843e91d4470db1
+2026-06-16 07:22:26,273 - modelscope - INFO - creating metadata file for /root/.cache/modelscope/hub/datasets/downloads/8513cd005b8c6c7575f73adc1f9ed461cbf9ac1a30c228bcf5843e91d4470db1
+
+Generating dev split:   0%|          | 0/5 [00:00<?, ? examples/s]
+Generating dev split: 100%|██████████| 5/5 [00:00<00:00, 1193.80 examples/s]
+2026-06-16 07:22:35,117 - modelscope - INFO - [MS_DOWNLOAD] get_from_cache_ms downloading: url=https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=global_facts%2Ftest-00000-of-00001.parquet
+
+Downloading data:   0%|          | 0.00/11.5k [00:00<?, ?B/s]
+Downloading data: 100%|██████████| 11.5k/11.5k [00:00<00:00, 8.56MB/s]
+2026-06-16 07:22:35,917 - modelscope - INFO - storing https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=global_facts%2Ftest-00000-of-00001.parquet in cache at /root/.cache/modelscope/hub/datasets/downloads/3a68812612a97d3e3a557ddb1c64d2d0a4e5885806f557100426d19693412275
+2026-06-16 07:22:35,918 - modelscope - INFO - creating metadata file for /root/.cache/modelscope/hub/datasets/downloads/3a68812612a97d3e3a557ddb1c64d2d0a4e5885806f557100426d19693412275
+
+Generating test split:   0%|          | 0/100 [00:00<?, ? examples/s]
+Generating test split: 100%|██████████| 100/100 [00:00<00:00, 22626.66 examples/s]
+
+Map:   0%|          | 0/5 [00:00<?, ? examples/s]
+Map: 100%|██████████| 5/5 [00:00<00:00, 1760.39 examples/s]
+
+Map:   0%|          | 0/100 [00:00<?, ? examples/s]
+Map: 100%|██████████| 100/100 [00:00<00:00, 12230.43 examples/s]
+2026-06-16 07:22:47,633 - modelscope - INFO - [MS_DOWNLOAD] get_from_cache_ms downloading: url=https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=management%2Fdev-00000-of-00001.parquet
+
+Downloading data:   0%|          | 0.00/3.61k [00:00<?, ?B/s]
+Downloading data: 100%|██████████| 3.61k/3.61k [00:00<00:00, 21.5MB/s]
+2026-06-16 07:22:48,726 - modelscope - INFO - storing https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=management%2Fdev-00000-of-00001.parquet in cache at /root/.cache/modelscope/hub/datasets/downloads/86b2f32f462537585e5523a640cc1559f120d1e8bd05c1f213dba3c39ffd10fb
+2026-06-16 07:22:48,726 - modelscope - INFO - creating metadata file for /root/.cache/modelscope/hub/datasets/downloads/86b2f32f462537585e5523a640cc1559f120d1e8bd05c1f213dba3c39ffd10fb
+
+Generating dev split:   0%|          | 0/5 [00:00<?, ? examples/s]
+Generating dev split: 100%|██████████| 5/5 [00:00<00:00, 1920.82 examples/s]
+2026-06-16 07:23:01,067 - modelscope - INFO - [MS_DOWNLOAD] get_from_cache_ms downloading: url=https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=management%2Ftest-00000-of-00001.parquet
+
+Downloading data:   0%|          | 0.00/14.7k [00:00<?, ?B/s]
+Downloading data: 100%|██████████| 14.7k/14.7k [00:00<00:00, 23.6MB/s]
+2026-06-16 07:23:02,095 - modelscope - INFO - storing https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=management%2Ftest-00000-of-00001.parquet in cache at /root/.cache/modelscope/hub/datasets/downloads/fa46e6b4ff97b1e0bc26430ed67fecc504a4a18930642ca7c9375ba4b6ebe0d0
+2026-06-16 07:23:02,095 - modelscope - INFO - creating metadata file for /root/.cache/modelscope/hub/datasets/downloads/fa46e6b4ff97b1e0bc26430ed67fecc504a4a18930642ca7c9375ba4b6ebe0d0
+
+Generating test split:   0%|          | 0/103 [00:00<?, ? examples/s]
+Generating test split: 100%|██████████| 103/103 [00:00<00:00, 22911.19 examples/s]
+
+Map:   0%|          | 0/5 [00:00<?, ? examples/s]
+Map: 100%|██████████| 5/5 [00:00<00:00, 1762.46 examples/s]
+
+Map:   0%|          | 0/103 [00:00<?, ? examples/s]
+Map: 100%|██████████| 103/103 [00:00<00:00, 15268.19 examples/s]
+2026-06-16 07:23:12,146 - modelscope - INFO - [MS_DOWNLOAD] get_from_cache_ms downloading: url=https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=nutrition%2Fdev-00000-of-00001.parquet
+
+Downloading data:   0%|          | 0.00/4.99k [00:00<?, ?B/s]
+Downloading data: 100%|██████████| 4.99k/4.99k [00:00<00:00, 9.00MB/s]
+2026-06-16 07:23:12,786 - modelscope - INFO - storing https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=nutrition%2Fdev-00000-of-00001.parquet in cache at /root/.cache/modelscope/hub/datasets/downloads/1d3cb39c8d427910866b49c922a0dc91f611cd53c9fab150b045eb988b5ae3ff
+2026-06-16 07:23:12,787 - modelscope - INFO - creating metadata file for /root/.cache/modelscope/hub/datasets/downloads/1d3cb39c8d427910866b49c922a0dc91f611cd53c9fab150b045eb988b5ae3ff
+
+Generating dev split:   0%|          | 0/5 [00:00<?, ? examples/s]
+Generating dev split: 100%|██████████| 5/5 [00:00<00:00, 1227.34 examples/s]
+2026-06-16 07:23:26,775 - modelscope - INFO - [MS_DOWNLOAD] get_from_cache_ms downloading: url=https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=nutrition%2Ftest-00000-of-00001.parquet
+
+Downloading data:   0%|          | 0.00/55.0k [00:00<?, ?B/s]
+Downloading data: 100%|██████████| 55.0k/55.0k [00:00<00:00, 27.6MB/s]
+2026-06-16 07:23:29,327 - modelscope - INFO - storing https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=nutrition%2Ftest-00000-of-00001.parquet in cache at /root/.cache/modelscope/hub/datasets/downloads/598d2f835dae356763e021e10f523914cf56b9519e65d4078a9442b01d89b3a6
+2026-06-16 07:23:29,328 - modelscope - INFO - creating metadata file for /root/.cache/modelscope/hub/datasets/downloads/598d2f835dae356763e021e10f523914cf56b9519e65d4078a9442b01d89b3a6
+
+Generating test split:   0%|          | 0/306 [00:00<?, ? examples/s]
+Generating test split: 100%|██████████| 306/306 [00:00<00:00, 51614.94 examples/s]
+
+Map:   0%|          | 0/5 [00:00<?, ? examples/s]
+Map: 100%|██████████| 5/5 [00:00<00:00, 1802.76 examples/s]
+
+Map:   0%|          | 0/306 [00:00<?, ? examples/s]
+Map: 100%|██████████| 306/306 [00:00<00:00, 19710.62 examples/s]
+2026-06-16 07:23:49,188 - modelscope - INFO - [MS_DOWNLOAD] get_from_cache_ms downloading: url=https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=marketing%2Fdev-00000-of-00001.parquet
+
+Downloading data:   0%|          | 0.00/4.28k [00:00<?, ?B/s]
+Downloading data: 100%|██████████| 4.28k/4.28k [00:00<00:00, 5.53MB/s]
+2026-06-16 07:23:50,571 - modelscope - INFO - storing https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=marketing%2Fdev-00000-of-00001.parquet in cache at /root/.cache/modelscope/hub/datasets/downloads/3a2b97194eee7ee36e42aa205560db10648f765b4cc375f356c47aa2f95b9850
+2026-06-16 07:23:50,572 - modelscope - INFO - creating metadata file for /root/.cache/modelscope/hub/datasets/downloads/3a2b97194eee7ee36e42aa205560db10648f765b4cc375f356c47aa2f95b9850
+
+Generating dev split:   0%|          | 0/5 [00:00<?, ? examples/s]
+Generating dev split: 100%|██████████| 5/5 [00:00<00:00, 1336.70 examples/s]
+2026-06-16 07:24:03,115 - modelscope - INFO - [MS_DOWNLOAD] get_from_cache_ms downloading: url=https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=marketing%2Ftest-00000-of-00001.parquet
+
+Downloading data:   0%|          | 0.00/37.3k [00:00<?, ?B/s]
+Downloading data: 100%|██████████| 37.3k/37.3k [00:00<00:00, 33.9MB/s]
+2026-06-16 07:24:03,755 - modelscope - INFO - storing https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=marketing%2Ftest-00000-of-00001.parquet in cache at /root/.cache/modelscope/hub/datasets/downloads/67ffc6713378095b29d2022632ff8ec081c6ca39b423825cb417822d1b733425
+2026-06-16 07:24:03,756 - modelscope - INFO - creating metadata file for /root/.cache/modelscope/hub/datasets/downloads/67ffc6713378095b29d2022632ff8ec081c6ca39b423825cb417822d1b733425
+
+Generating test split:   0%|          | 0/234 [00:00<?, ? examples/s]
+Generating test split: 100%|██████████| 234/234 [00:00<00:00, 56010.22 examples/s]
+
+Map:   0%|          | 0/5 [00:00<?, ? examples/s]
+Map: 100%|██████████| 5/5 [00:00<00:00, 1605.05 examples/s]
+
+Map:   0%|          | 0/234 [00:00<?, ? examples/s]
+Map: 100%|██████████| 234/234 [00:00<00:00, 18782.26 examples/s]
+2026-06-16 07:24:20,748 - modelscope - INFO - [MS_DOWNLOAD] get_from_cache_ms downloading: url=https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=professional_accounting%2Fdev-00000-of-00001.parquet
+
+Downloading data:   0%|          | 0.00/4.89k [00:00<?, ?B/s]
+Downloading data: 100%|██████████| 4.89k/4.89k [00:00<00:00, 10.9MB/s]
+2026-06-16 07:24:21,209 - modelscope - INFO - storing https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=professional_accounting%2Fdev-00000-of-00001.parquet in cache at /root/.cache/modelscope/hub/datasets/downloads/8a78fda2a7f21c398cb18da9a0fbedffd7d1a2aa6cb8c09b8a41a7eb0b256292
+2026-06-16 07:24:21,210 - modelscope - INFO - creating metadata file for /root/.cache/modelscope/hub/datasets/downloads/8a78fda2a7f21c398cb18da9a0fbedffd7d1a2aa6cb8c09b8a41a7eb0b256292
+
+Generating dev split:   0%|          | 0/5 [00:00<?, ? examples/s]
+Generating dev split: 100%|██████████| 5/5 [00:00<00:00, 1091.47 examples/s]
+2026-06-16 07:24:41,480 - modelscope - INFO - [MS_DOWNLOAD] get_from_cache_ms downloading: url=https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=professional_accounting%2Ftest-00000-of-00001.parquet
+
+Downloading data:   0%|          | 0.00/69.5k [00:00<?, ?B/s]
+Downloading data: 100%|██████████| 69.5k/69.5k [00:00<00:00, 8.41MB/s]
+2026-06-16 07:24:41,997 - modelscope - INFO - storing https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=professional_accounting%2Ftest-00000-of-00001.parquet in cache at /root/.cache/modelscope/hub/datasets/downloads/40e1be84d304576fce3abb1234f3b03f8e7e12f8f9e73e670c0f6fbb5b3ee8d5
+2026-06-16 07:24:41,998 - modelscope - INFO - creating metadata file for /root/.cache/modelscope/hub/datasets/downloads/40e1be84d304576fce3abb1234f3b03f8e7e12f8f9e73e670c0f6fbb5b3ee8d5
+
+Generating test split:   0%|          | 0/282 [00:00<?, ? examples/s]
+Generating test split: 100%|██████████| 282/282 [00:00<00:00, 58331.79 examples/s]
+
+Map:   0%|          | 0/5 [00:00<?, ? examples/s]
+Map: 100%|██████████| 5/5 [00:00<00:00, 1581.56 examples/s]
+
+Map:   0%|          | 0/282 [00:00<?, ? examples/s]
+Map: 100%|██████████| 282/282 [00:00<00:00, 18177.53 examples/s]
+2026-06-16 07:24:55,958 - modelscope - INFO - [MS_DOWNLOAD] get_from_cache_ms downloading: url=https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=high_school_geography%2Fdev-00000-of-00001.parquet
+
+Downloading data:   0%|          | 0.00/3.93k [00:00<?, ?B/s]
+Downloading data: 100%|██████████| 3.93k/3.93k [00:00<00:00, 22.5MB/s]
+2026-06-16 07:24:56,725 - modelscope - INFO - storing https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=high_school_geography%2Fdev-00000-of-00001.parquet in cache at /root/.cache/modelscope/hub/datasets/downloads/70130d6e531d639a4bb4c668d94d39ee8d65a188a980d1168d6364f0ede97d15
+2026-06-16 07:24:56,726 - modelscope - INFO - creating metadata file for /root/.cache/modelscope/hub/datasets/downloads/70130d6e531d639a4bb4c668d94d39ee8d65a188a980d1168d6364f0ede97d15
+
+Generating dev split:   0%|          | 0/5 [00:00<?, ? examples/s]
+Generating dev split: 100%|██████████| 5/5 [00:00<00:00, 1056.50 examples/s]
+2026-06-16 07:25:09,577 - modelscope - INFO - [MS_DOWNLOAD] get_from_cache_ms downloading: url=https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=high_school_geography%2Ftest-00000-of-00001.parquet
+
+Downloading data:   0%|          | 0.00/28.2k [00:00<?, ?B/s]
+Downloading data: 100%|██████████| 28.2k/28.2k [00:00<00:00, 21.3MB/s]
+2026-06-16 07:25:09,985 - modelscope - INFO - storing https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=high_school_geography%2Ftest-00000-of-00001.parquet in cache at /root/.cache/modelscope/hub/datasets/downloads/3c2fa074028fb2db2047f7a515df5332ba95c0dd2b285ada2aeaa5e585bd34c7
+2026-06-16 07:25:09,986 - modelscope - INFO - creating metadata file for /root/.cache/modelscope/hub/datasets/downloads/3c2fa074028fb2db2047f7a515df5332ba95c0dd2b285ada2aeaa5e585bd34c7
+
+Generating test split:   0%|          | 0/198 [00:00<?, ? examples/s]
+Generating test split: 100%|██████████| 198/198 [00:00<00:00, 51292.21 examples/s]
+
+Map:   0%|          | 0/5 [00:00<?, ? examples/s]
+Map: 100%|██████████| 5/5 [00:00<00:00, 1899.77 examples/s]
+
+Map:   0%|          | 0/198 [00:00<?, ? examples/s]
+Map: 100%|██████████| 198/198 [00:00<00:00, 18979.62 examples/s]
+2026-06-16 07:25:23,727 - modelscope - INFO - [MS_DOWNLOAD] get_from_cache_ms downloading: url=https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=international_law%2Fdev-00000-of-00001.parquet
+
+Downloading data:   0%|          | 0.00/4.96k [00:00<?, ?B/s]
+Downloading data: 100%|██████████| 4.96k/4.96k [00:00<00:00, 11.2MB/s]
+2026-06-16 07:25:24,821 - modelscope - INFO - storing https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=international_law%2Fdev-00000-of-00001.parquet in cache at /root/.cache/modelscope/hub/datasets/downloads/e7316d8795b3691a0c1979495d6be71b4f92ba85f451dea5571eabf334e4c8a9
+2026-06-16 07:25:24,822 - modelscope - INFO - creating metadata file for /root/.cache/modelscope/hub/datasets/downloads/e7316d8795b3691a0c1979495d6be71b4f92ba85f451dea5571eabf334e4c8a9
+
+Generating dev split:   0%|          | 0/5 [00:00<?, ? examples/s]
+Generating dev split: 100%|██████████| 5/5 [00:00<00:00, 958.35 examples/s]
+2026-06-16 07:25:39,117 - modelscope - INFO - [MS_DOWNLOAD] get_from_cache_ms downloading: url=https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=international_law%2Ftest-00000-of-00001.parquet
+
+Downloading data:   0%|          | 0.00/29.5k [00:00<?, ?B/s]
+Downloading data: 100%|██████████| 29.5k/29.5k [00:00<00:00, 41.5MB/s]
+2026-06-16 07:25:40,091 - modelscope - INFO - storing https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=international_law%2Ftest-00000-of-00001.parquet in cache at /root/.cache/modelscope/hub/datasets/downloads/8b3ef32c1297aa5501f8e73dffa646748bb35195bc7a8909519f6c7ee326b9b9
+2026-06-16 07:25:40,092 - modelscope - INFO - creating metadata file for /root/.cache/modelscope/hub/datasets/downloads/8b3ef32c1297aa5501f8e73dffa646748bb35195bc7a8909519f6c7ee326b9b9
+
+Generating test split:   0%|          | 0/121 [00:00<?, ? examples/s]
+Generating test split: 100%|██████████| 121/121 [00:00<00:00, 14997.81 examples/s]
+
+Map:   0%|          | 0/5 [00:00<?, ? examples/s]
+Map: 100%|██████████| 5/5 [00:00<00:00, 1046.95 examples/s]
+
+Map:   0%|          | 0/121 [00:00<?, ? examples/s]
+Map: 100%|██████████| 121/121 [00:00<00:00, 13291.54 examples/s]
+2026-06-16 07:26:03,786 - modelscope - INFO - [MS_DOWNLOAD] get_from_cache_ms downloading: url=https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=moral_scenarios%2Fdev-00000-of-00001.parquet
+
+Downloading data:   0%|          | 0.00/5.14k [00:00<?, ?B/s]
+Downloading data: 100%|██████████| 5.14k/5.14k [00:00<00:00, 5.76MB/s]
+2026-06-16 07:26:04,265 - modelscope - INFO - storing https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=moral_scenarios%2Fdev-00000-of-00001.parquet in cache at /root/.cache/modelscope/hub/datasets/downloads/2518e7c51bf4c4cb5d817db713ae021be38a667667250f59531dc9dfb43c80f2
+2026-06-16 07:26:04,266 - modelscope - INFO - creating metadata file for /root/.cache/modelscope/hub/datasets/downloads/2518e7c51bf4c4cb5d817db713ae021be38a667667250f59531dc9dfb43c80f2
+
+Generating dev split:   0%|          | 0/5 [00:00<?, ? examples/s]
+Generating dev split: 100%|██████████| 5/5 [00:00<00:00, 1245.93 examples/s]
+2026-06-16 07:26:16,127 - modelscope - INFO - [MS_DOWNLOAD] get_from_cache_ms downloading: url=https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=moral_scenarios%2Ftest-00000-of-00001.parquet
+
+Downloading data:   0%|          | 0.00/89.8k [00:00<?, ?B/s]
+Downloading data: 100%|██████████| 89.8k/89.8k [00:00<00:00, 6.83MB/s]
+2026-06-16 07:26:16,997 - modelscope - INFO - storing https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=moral_scenarios%2Ftest-00000-of-00001.parquet in cache at /root/.cache/modelscope/hub/datasets/downloads/70688289f0b237a850613e4ef86db39c188d6343988789b97e90a177589ca61f
+2026-06-16 07:26:16,998 - modelscope - INFO - creating metadata file for /root/.cache/modelscope/hub/datasets/downloads/70688289f0b237a850613e4ef86db39c188d6343988789b97e90a177589ca61f
+
+Generating test split:   0%|          | 0/895 [00:00<?, ? examples/s]
+Generating test split: 100%|██████████| 895/895 [00:00<00:00, 160849.35 examples/s]
+
+Map:   0%|          | 0/5 [00:00<?, ? examples/s]
+Map: 100%|██████████| 5/5 [00:00<00:00, 1740.09 examples/s]
+
+Map:   0%|          | 0/895 [00:00<?, ? examples/s]
+Map: 100%|██████████| 895/895 [00:00<00:00, 20722.62 examples/s]
+2026-06-16 07:28:10,683 - modelscope - ERROR - [MS_DOWNLOAD] _request_with_retry_ms ReadTimeout: method=HEAD, url=https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=computer_security%2Fdev-00000-of-00001.parquet, timeout=100, error=HTTPSConnectionPool(host='www.modelscope.cn', port=443): Read timed out. (read timeout=100)
+2026-06-16 07:28:10,684 - modelscope - INFO - HEAD request to https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=computer_security%2Fdev-00000-of-00001.parquet timed out, retrying... [0.3333333333333333]
+2026-06-16 07:28:13,008 - modelscope - INFO - [MS_DOWNLOAD] get_from_cache_ms downloading: url=https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=computer_security%2Fdev-00000-of-00001.parquet
+
+Downloading data:   0%|          | 0.00/4.33k [00:00<?, ?B/s]
+Downloading data: 100%|██████████| 4.33k/4.33k [00:00<00:00, 10.3MB/s]
+2026-06-16 07:28:14,030 - modelscope - INFO - storing https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=computer_security%2Fdev-00000-of-00001.parquet in cache at /root/.cache/modelscope/hub/datasets/downloads/d9d6f4e1e23c5c03532ef8d6ec2693f6050e41003e26b837c95c9dc3196094ff
+2026-06-16 07:28:14,030 - modelscope - INFO - creating metadata file for /root/.cache/modelscope/hub/datasets/downloads/d9d6f4e1e23c5c03532ef8d6ec2693f6050e41003e26b837c95c9dc3196094ff
+
+Generating dev split:   0%|          | 0/5 [00:00<?, ? examples/s]
+Generating dev split: 100%|██████████| 5/5 [00:00<00:00, 559.48 examples/s]
+2026-06-16 07:28:25,031 - modelscope - INFO - [MS_DOWNLOAD] get_from_cache_ms downloading: url=https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=computer_security%2Ftest-00000-of-00001.parquet
+
+Downloading data:   0%|          | 0.00/19.1k [00:00<?, ?B/s]
+Downloading data: 100%|██████████| 19.1k/19.1k [00:00<00:00, 41.3MB/s]
+2026-06-16 07:28:26,102 - modelscope - INFO - storing https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=computer_security%2Ftest-00000-of-00001.parquet in cache at /root/.cache/modelscope/hub/datasets/downloads/b7336315f8b379a2c2ac73de9af5b8ad798689dbb5ccbfff6c95b9be0794c441
+2026-06-16 07:28:26,103 - modelscope - INFO - creating metadata file for /root/.cache/modelscope/hub/datasets/downloads/b7336315f8b379a2c2ac73de9af5b8ad798689dbb5ccbfff6c95b9be0794c441
+
+Generating test split:   0%|          | 0/100 [00:00<?, ? examples/s]
+Generating test split: 100%|██████████| 100/100 [00:00<00:00, 32696.48 examples/s]
+
+Map:   0%|          | 0/5 [00:00<?, ? examples/s]
+Map: 100%|██████████| 5/5 [00:00<00:00, 1742.25 examples/s]
+
+Map:   0%|          | 0/100 [00:00<?, ? examples/s]
+Map: 100%|██████████| 100/100 [00:00<00:00, 14530.26 examples/s]
+2026-06-16 07:28:37,968 - modelscope - INFO - [MS_DOWNLOAD] get_from_cache_ms downloading: url=https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=high_school_microeconomics%2Fdev-00000-of-00001.parquet
+
+Downloading data:   0%|          | 0.00/3.83k [00:00<?, ?B/s]
+Downloading data: 100%|██████████| 3.83k/3.83k [00:00<00:00, 9.73MB/s]
+2026-06-16 07:28:39,081 - modelscope - INFO - storing https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=high_school_microeconomics%2Fdev-00000-of-00001.parquet in cache at /root/.cache/modelscope/hub/datasets/downloads/71cbb0d7af2d6eac612c8bfab37db2fb004962f249d00986a7922668ebd90503
+2026-06-16 07:28:39,082 - modelscope - INFO - creating metadata file for /root/.cache/modelscope/hub/datasets/downloads/71cbb0d7af2d6eac612c8bfab37db2fb004962f249d00986a7922668ebd90503
+
+Generating dev split:   0%|          | 0/5 [00:00<?, ? examples/s]
+Generating dev split: 100%|██████████| 5/5 [00:00<00:00, 991.05 examples/s]
+2026-06-16 07:28:52,153 - modelscope - INFO - [MS_DOWNLOAD] get_from_cache_ms downloading: url=https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=high_school_microeconomics%2Ftest-00000-of-00001.parquet
+
+Downloading data:   0%|          | 0.00/38.8k [00:00<?, ?B/s]
+Downloading data: 100%|██████████| 38.8k/38.8k [00:00<00:00, 42.0MB/s]
+2026-06-16 07:28:53,271 - modelscope - INFO - storing https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=high_school_microeconomics%2Ftest-00000-of-00001.parquet in cache at /root/.cache/modelscope/hub/datasets/downloads/0c5f0d5a05f67a0953d3d56ef782650a89b790f834ddb10f40e1d3ef71dd7b2d
+2026-06-16 07:28:53,272 - modelscope - INFO - creating metadata file for /root/.cache/modelscope/hub/datasets/downloads/0c5f0d5a05f67a0953d3d56ef782650a89b790f834ddb10f40e1d3ef71dd7b2d
+
+Generating test split:   0%|          | 0/238 [00:00<?, ? examples/s]
+Generating test split: 100%|██████████| 238/238 [00:00<00:00, 46063.60 examples/s]
+
+Map:   0%|          | 0/5 [00:00<?, ? examples/s]
+Map: 100%|██████████| 5/5 [00:00<00:00, 1671.70 examples/s]
+
+Map:   0%|          | 0/238 [00:00<?, ? examples/s]
+Map: 100%|██████████| 238/238 [00:00<00:00, 17699.37 examples/s]
+2026-06-16 07:29:07,217 - modelscope - INFO - [MS_DOWNLOAD] get_from_cache_ms downloading: url=https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=professional_law%2Fdev-00000-of-00001.parquet
+
+Downloading data:   0%|          | 0.00/15.1k [00:00<?, ?B/s]
+Downloading data: 100%|██████████| 15.1k/15.1k [00:00<00:00, 32.6MB/s]
+2026-06-16 07:29:08,477 - modelscope - INFO - storing https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=professional_law%2Fdev-00000-of-00001.parquet in cache at /root/.cache/modelscope/hub/datasets/downloads/f909081768f788f7c97f40e45ea8a51c0d7b60324279969e320feb1f487898dc
+2026-06-16 07:29:08,478 - modelscope - INFO - creating metadata file for /root/.cache/modelscope/hub/datasets/downloads/f909081768f788f7c97f40e45ea8a51c0d7b60324279969e320feb1f487898dc
+
+Generating dev split:   0%|          | 0/5 [00:00<?, ? examples/s]
+Generating dev split: 100%|██████████| 5/5 [00:00<00:00, 1053.37 examples/s]
+2026-06-16 07:29:23,423 - modelscope - INFO - [MS_DOWNLOAD] get_from_cache_ms downloading: url=https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=professional_law%2Ftest-00000-of-00001.parquet
+
+Downloading data:   0%|          | 0.00/1.04M [00:00<?, ?B/s]
+Downloading data:  38%|███▊      | 392k/1.04M [00:00<00:00, 3.87MB/s]
+Downloading data:  75%|███████▌  | 779k/1.04M [00:00<00:00, 3.78MB/s]
+Downloading data: 100%|██████████| 1.04M/1.04M [00:00<00:00, 3.76MB/s]
+2026-06-16 07:29:24,540 - modelscope - INFO - storing https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=professional_law%2Ftest-00000-of-00001.parquet in cache at /root/.cache/modelscope/hub/datasets/downloads/95744d62bcd2311b5bce83e16f01ea060df6cc0b3ffc0c74f46f14a732a15688
+2026-06-16 07:29:24,540 - modelscope - INFO - creating metadata file for /root/.cache/modelscope/hub/datasets/downloads/95744d62bcd2311b5bce83e16f01ea060df6cc0b3ffc0c74f46f14a732a15688
+
+Generating test split:   0%|          | 0/1534 [00:00<?, ? examples/s]
+Generating test split: 100%|██████████| 1534/1534 [00:00<00:00, 72283.90 examples/s]
+
+Map:   0%|          | 0/5 [00:00<?, ? examples/s]
+Map: 100%|██████████| 5/5 [00:00<00:00, 1700.30 examples/s]
+
+Map:   0%|          | 0/1534 [00:00<?, ? examples/s]
+Map: 100%|██████████| 1534/1534 [00:00<00:00, 22639.29 examples/s]
+2026-06-16 07:29:38,514 - modelscope - INFO - [MS_DOWNLOAD] get_from_cache_ms downloading: url=https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=medical_genetics%2Fdev-00000-of-00001.parquet
+
+Downloading data:   0%|          | 0.00/3.77k [00:00<?, ?B/s]
+Downloading data: 100%|██████████| 3.77k/3.77k [00:00<00:00, 8.04MB/s]
+2026-06-16 07:29:39,491 - modelscope - INFO - storing https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=medical_genetics%2Fdev-00000-of-00001.parquet in cache at /root/.cache/modelscope/hub/datasets/downloads/625a81b27ca5d4e4a552ed724118ab89bc6d394a69ee511c827a3daf99364968
+2026-06-16 07:29:39,491 - modelscope - INFO - creating metadata file for /root/.cache/modelscope/hub/datasets/downloads/625a81b27ca5d4e4a552ed724118ab89bc6d394a69ee511c827a3daf99364968
+
+Generating dev split:   0%|          | 0/5 [00:00<?, ? examples/s]
+Generating dev split: 100%|██████████| 5/5 [00:00<00:00, 1277.74 examples/s]
+2026-06-16 07:29:53,487 - modelscope - INFO - [MS_DOWNLOAD] get_from_cache_ms downloading: url=https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=medical_genetics%2Ftest-00000-of-00001.parquet
+
+Downloading data:   0%|          | 0.00/16.4k [00:00<?, ?B/s]
+Downloading data: 100%|██████████| 16.4k/16.4k [00:00<00:00, 27.5MB/s]
+2026-06-16 07:29:54,531 - modelscope - INFO - storing https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=medical_genetics%2Ftest-00000-of-00001.parquet in cache at /root/.cache/modelscope/hub/datasets/downloads/3125409e1b28294b4fe0648518e84a09e3235a8ae4fc7ed91481540c95875b79
+2026-06-16 07:29:54,532 - modelscope - INFO - creating metadata file for /root/.cache/modelscope/hub/datasets/downloads/3125409e1b28294b4fe0648518e84a09e3235a8ae4fc7ed91481540c95875b79
+
+Generating test split:   0%|          | 0/100 [00:00<?, ? examples/s]
+Generating test split: 100%|██████████| 100/100 [00:00<00:00, 19875.39 examples/s]
+
+Map:   0%|          | 0/5 [00:00<?, ? examples/s]
+Map: 100%|██████████| 5/5 [00:00<00:00, 1504.20 examples/s]
+
+Map:   0%|          | 0/100 [00:00<?, ? examples/s]
+Map: 100%|██████████| 100/100 [00:00<00:00, 7854.80 examples/s]
+2026-06-16 07:30:10,847 - modelscope - INFO - [MS_DOWNLOAD] get_from_cache_ms downloading: url=https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=professional_psychology%2Fdev-00000-of-00001.parquet
+
+Downloading data:   0%|          | 0.00/4.69k [00:00<?, ?B/s]
+Downloading data: 100%|██████████| 4.69k/4.69k [00:00<00:00, 10.5MB/s]
+2026-06-16 07:30:11,366 - modelscope - INFO - storing https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=professional_psychology%2Fdev-00000-of-00001.parquet in cache at /root/.cache/modelscope/hub/datasets/downloads/29bcc6161dc20135bf81b8f3a76b6cdfaaa7fd6a5c0c3375b84205ded2684f31
+2026-06-16 07:30:11,367 - modelscope - INFO - creating metadata file for /root/.cache/modelscope/hub/datasets/downloads/29bcc6161dc20135bf81b8f3a76b6cdfaaa7fd6a5c0c3375b84205ded2684f31
+
+Generating dev split:   0%|          | 0/5 [00:00<?, ? examples/s]
+Generating dev split: 100%|██████████| 5/5 [00:00<00:00, 1167.61 examples/s]
+2026-06-16 07:30:27,804 - modelscope - INFO - [MS_DOWNLOAD] get_from_cache_ms downloading: url=https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=professional_psychology%2Ftest-00000-of-00001.parquet
+
+Downloading data:   0%|          | 0.00/133k [00:00<?, ?B/s]
+Downloading data: 100%|██████████| 133k/133k [00:00<00:00, 6.06MB/s]
+2026-06-16 07:30:29,212 - modelscope - INFO - storing https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=professional_psychology%2Ftest-00000-of-00001.parquet in cache at /root/.cache/modelscope/hub/datasets/downloads/e0031df91838d57b8bd0b4e7dad75853cb6ae0a3bfbeb5e23d440228a55bebcb
+2026-06-16 07:30:29,213 - modelscope - INFO - creating metadata file for /root/.cache/modelscope/hub/datasets/downloads/e0031df91838d57b8bd0b4e7dad75853cb6ae0a3bfbeb5e23d440228a55bebcb
+
+Generating test split:   0%|          | 0/612 [00:00<?, ? examples/s]
+Generating test split: 100%|██████████| 612/612 [00:00<00:00, 106145.39 examples/s]
+
+Map:   0%|          | 0/5 [00:00<?, ? examples/s]
+Map: 100%|██████████| 5/5 [00:00<00:00, 1459.19 examples/s]
+
+Map:   0%|          | 0/612 [00:00<?, ? examples/s]
+Map: 100%|██████████| 612/612 [00:00<00:00, 19644.40 examples/s]
+2026-06-16 07:30:45,016 - modelscope - INFO - [MS_DOWNLOAD] get_from_cache_ms downloading: url=https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=jurisprudence%2Fdev-00000-of-00001.parquet
+
+Downloading data:   0%|          | 0.00/4.05k [00:00<?, ?B/s]
+Downloading data: 100%|██████████| 4.05k/4.05k [00:00<00:00, 18.9MB/s]
+2026-06-16 07:30:46,428 - modelscope - INFO - storing https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=jurisprudence%2Fdev-00000-of-00001.parquet in cache at /root/.cache/modelscope/hub/datasets/downloads/d3de7c0f0f38373d989fdbb13583c8453ffde9c58f5d79dedccab0bf04ad9901
+2026-06-16 07:30:46,429 - modelscope - INFO - creating metadata file for /root/.cache/modelscope/hub/datasets/downloads/d3de7c0f0f38373d989fdbb13583c8453ffde9c58f5d79dedccab0bf04ad9901
+
+Generating dev split:   0%|          | 0/5 [00:00<?, ? examples/s]
+Generating dev split: 100%|██████████| 5/5 [00:00<00:00, 1018.93 examples/s]
+2026-06-16 07:31:04,045 - modelscope - INFO - [MS_DOWNLOAD] get_from_cache_ms downloading: url=https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=jurisprudence%2Ftest-00000-of-00001.parquet
+
+Downloading data:   0%|          | 0.00/23.3k [00:00<?, ?B/s]
+Downloading data: 100%|██████████| 23.3k/23.3k [00:00<00:00, 42.9MB/s]
+2026-06-16 07:31:05,320 - modelscope - INFO - storing https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=jurisprudence%2Ftest-00000-of-00001.parquet in cache at /root/.cache/modelscope/hub/datasets/downloads/a251f3b7b7788131d4377adf7e5a54529d8bd772167ceaef5023d2860bc3b664
+2026-06-16 07:31:05,320 - modelscope - INFO - creating metadata file for /root/.cache/modelscope/hub/datasets/downloads/a251f3b7b7788131d4377adf7e5a54529d8bd772167ceaef5023d2860bc3b664
+
+Generating test split:   0%|          | 0/108 [00:00<?, ? examples/s]
+Generating test split: 100%|██████████| 108/108 [00:00<00:00, 21187.32 examples/s]
+
+Map:   0%|          | 0/5 [00:00<?, ? examples/s]
+Map: 100%|██████████| 5/5 [00:00<00:00, 762.05 examples/s]
+
+Map:   0%|          | 0/108 [00:00<?, ? examples/s]
+Map: 100%|██████████| 108/108 [00:00<00:00, 7793.56 examples/s]
+2026-06-16 07:31:18,467 - modelscope - INFO - [MS_DOWNLOAD] get_from_cache_ms downloading: url=https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=world_religions%2Fdev-00000-of-00001.parquet
+
+Downloading data:   0%|          | 0.00/3.30k [00:00<?, ?B/s]
+Downloading data: 100%|██████████| 3.30k/3.30k [00:00<00:00, 7.42MB/s]
+2026-06-16 07:31:19,496 - modelscope - INFO - storing https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=world_religions%2Fdev-00000-of-00001.parquet in cache at /root/.cache/modelscope/hub/datasets/downloads/7a0b9c27109c0723b01edd60ce969113c5463f0e6c5576fead13219feefb30b6
+2026-06-16 07:31:19,497 - modelscope - INFO - creating metadata file for /root/.cache/modelscope/hub/datasets/downloads/7a0b9c27109c0723b01edd60ce969113c5463f0e6c5576fead13219feefb30b6
+
+Generating dev split:   0%|          | 0/5 [00:00<?, ? examples/s]
+Generating dev split: 100%|██████████| 5/5 [00:00<00:00, 1467.46 examples/s]
+2026-06-16 07:31:30,218 - modelscope - INFO - [MS_DOWNLOAD] get_from_cache_ms downloading: url=https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=world_religions%2Ftest-00000-of-00001.parquet
+
+Downloading data:   0%|          | 0.00/18.9k [00:00<?, ?B/s]
+Downloading data: 100%|██████████| 18.9k/18.9k [00:00<00:00, 34.4MB/s]
+2026-06-16 07:31:30,908 - modelscope - INFO - storing https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=world_religions%2Ftest-00000-of-00001.parquet in cache at /root/.cache/modelscope/hub/datasets/downloads/a121da6fd58b6b1f47ce5745a2982d513e0f0623273cdb0f93e40f383e7ed74f
+2026-06-16 07:31:30,909 - modelscope - INFO - creating metadata file for /root/.cache/modelscope/hub/datasets/downloads/a121da6fd58b6b1f47ce5745a2982d513e0f0623273cdb0f93e40f383e7ed74f
+
+Generating test split:   0%|          | 0/171 [00:00<?, ? examples/s]
+Generating test split: 100%|██████████| 171/171 [00:00<00:00, 38716.65 examples/s]
+
+Map:   0%|          | 0/5 [00:00<?, ? examples/s]
+Map: 100%|██████████| 5/5 [00:00<00:00, 1884.06 examples/s]
+
+Map:   0%|          | 0/171 [00:00<?, ? examples/s]
+Map: 100%|██████████| 171/171 [00:00<00:00, 17969.73 examples/s]
+2026-06-16 07:31:47,989 - modelscope - INFO - [MS_DOWNLOAD] get_from_cache_ms downloading: url=https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=philosophy%2Fdev-00000-of-00001.parquet
+
+Downloading data:   0%|          | 0.00/4.20k [00:00<?, ?B/s]
+Downloading data: 100%|██████████| 4.20k/4.20k [00:00<00:00, 11.8MB/s]
+2026-06-16 07:31:49,436 - modelscope - INFO - storing https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=philosophy%2Fdev-00000-of-00001.parquet in cache at /root/.cache/modelscope/hub/datasets/downloads/7810c855bfcf47d859c92a8dfabca5de99e276e9bee174d60550e2cf24fb6b7b
+2026-06-16 07:31:49,437 - modelscope - INFO - creating metadata file for /root/.cache/modelscope/hub/datasets/downloads/7810c855bfcf47d859c92a8dfabca5de99e276e9bee174d60550e2cf24fb6b7b
+
+Generating dev split:   0%|          | 0/5 [00:00<?, ? examples/s]
+Generating dev split: 100%|██████████| 5/5 [00:00<00:00, 692.43 examples/s]
+2026-06-16 07:32:05,713 - modelscope - INFO - [MS_DOWNLOAD] get_from_cache_ms downloading: url=https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=philosophy%2Ftest-00000-of-00001.parquet
+
+Downloading data:   0%|          | 0.00/48.6k [00:00<?, ?B/s]
+Downloading data: 100%|██████████| 48.6k/48.6k [00:00<00:00, 42.8MB/s]
+2026-06-16 07:32:06,130 - modelscope - INFO - storing https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=philosophy%2Ftest-00000-of-00001.parquet in cache at /root/.cache/modelscope/hub/datasets/downloads/fb7d9697945796f9e27a56191885bc8de733cdd132bf38549f6ce99ed6bb99da
+2026-06-16 07:32:06,131 - modelscope - INFO - creating metadata file for /root/.cache/modelscope/hub/datasets/downloads/fb7d9697945796f9e27a56191885bc8de733cdd132bf38549f6ce99ed6bb99da
+
+Generating test split:   0%|          | 0/311 [00:00<?, ? examples/s]
+Generating test split: 100%|██████████| 311/311 [00:00<00:00, 46575.09 examples/s]
+
+Map:   0%|          | 0/5 [00:00<?, ? examples/s]
+Map: 100%|██████████| 5/5 [00:00<00:00, 1707.64 examples/s]
+
+Map:   0%|          | 0/311 [00:00<?, ? examples/s]
+Map: 100%|██████████| 311/311 [00:00<00:00, 19857.64 examples/s]
+2026-06-16 07:32:19,662 - modelscope - INFO - [MS_DOWNLOAD] get_from_cache_ms downloading: url=https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=virology%2Fdev-00000-of-00001.parquet
+
+Downloading data:   0%|          | 0.00/3.87k [00:00<?, ?B/s]
+Downloading data: 100%|██████████| 3.87k/3.87k [00:00<00:00, 9.36MB/s]
+2026-06-16 07:32:20,772 - modelscope - INFO - storing https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=virology%2Fdev-00000-of-00001.parquet in cache at /root/.cache/modelscope/hub/datasets/downloads/1d509215622fcf240c6c39a50a63a34a37a317f55a8db81dd1c4ac501ae55ae7
+2026-06-16 07:32:20,773 - modelscope - INFO - creating metadata file for /root/.cache/modelscope/hub/datasets/downloads/1d509215622fcf240c6c39a50a63a34a37a317f55a8db81dd1c4ac501ae55ae7
+
+Generating dev split:   0%|          | 0/5 [00:00<?, ? examples/s]
+Generating dev split: 100%|██████████| 5/5 [00:00<00:00, 1027.21 examples/s]
+2026-06-16 07:32:41,453 - modelscope - INFO - [MS_DOWNLOAD] get_from_cache_ms downloading: url=https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=virology%2Ftest-00000-of-00001.parquet
+
+Downloading data:   0%|          | 0.00/27.3k [00:00<?, ?B/s]
+Downloading data: 100%|██████████| 27.3k/27.3k [00:00<00:00, 38.9MB/s]
+2026-06-16 07:32:42,178 - modelscope - INFO - storing https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=virology%2Ftest-00000-of-00001.parquet in cache at /root/.cache/modelscope/hub/datasets/downloads/c7ab4479eb92c8fc7c95297a03f2a95e2faa912cbed17bf93ece3fc62a7a4aaa
+2026-06-16 07:32:42,179 - modelscope - INFO - creating metadata file for /root/.cache/modelscope/hub/datasets/downloads/c7ab4479eb92c8fc7c95297a03f2a95e2faa912cbed17bf93ece3fc62a7a4aaa
+
+Generating test split:   0%|          | 0/166 [00:00<?, ? examples/s]
+Generating test split: 100%|██████████| 166/166 [00:00<00:00, 28311.08 examples/s]
+
+Map:   0%|          | 0/5 [00:00<?, ? examples/s]
+Map: 100%|██████████| 5/5 [00:00<00:00, 1241.80 examples/s]
+
+Map:   0%|          | 0/166 [00:00<?, ? examples/s]
+Map: 100%|██████████| 166/166 [00:00<00:00, 11264.07 examples/s]
+2026-06-16 07:32:57,520 - modelscope - INFO - [MS_DOWNLOAD] get_from_cache_ms downloading: url=https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=high_school_chemistry%2Fdev-00000-of-00001.parquet
+
+Downloading data:   0%|          | 0.00/4.16k [00:00<?, ?B/s]
+Downloading data: 100%|██████████| 4.16k/4.16k [00:00<00:00, 16.6MB/s]
+2026-06-16 07:32:58,580 - modelscope - INFO - storing https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=high_school_chemistry%2Fdev-00000-of-00001.parquet in cache at /root/.cache/modelscope/hub/datasets/downloads/f5445086476abdf1db7967571f4d924f1161f89e988952578f7193001a1c3a7e
+2026-06-16 07:32:58,581 - modelscope - INFO - creating metadata file for /root/.cache/modelscope/hub/datasets/downloads/f5445086476abdf1db7967571f4d924f1161f89e988952578f7193001a1c3a7e
+
+Generating dev split:   0%|          | 0/5 [00:00<?, ? examples/s]
+Generating dev split: 100%|██████████| 5/5 [00:00<00:00, 1278.28 examples/s]
+2026-06-16 07:33:13,428 - modelscope - INFO - [MS_DOWNLOAD] get_from_cache_ms downloading: url=https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=high_school_chemistry%2Ftest-00000-of-00001.parquet
+
+Downloading data:   0%|          | 0.00/33.3k [00:00<?, ?B/s]
+Downloading data: 100%|██████████| 33.3k/33.3k [00:00<00:00, 13.1MB/s]
+2026-06-16 07:33:14,799 - modelscope - INFO - storing https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=high_school_chemistry%2Ftest-00000-of-00001.parquet in cache at /root/.cache/modelscope/hub/datasets/downloads/a615102f66cce4ca455d100e8d241c075a1ba46594da3962c2a7b8ebaccadc49
+2026-06-16 07:33:14,799 - modelscope - INFO - creating metadata file for /root/.cache/modelscope/hub/datasets/downloads/a615102f66cce4ca455d100e8d241c075a1ba46594da3962c2a7b8ebaccadc49
+
+Generating test split:   0%|          | 0/203 [00:00<?, ? examples/s]
+Generating test split: 100%|██████████| 203/203 [00:00<00:00, 25336.06 examples/s]
+
+Map:   0%|          | 0/5 [00:00<?, ? examples/s]
+Map: 100%|██████████| 5/5 [00:00<00:00, 1594.79 examples/s]
+
+Map:   0%|          | 0/203 [00:00<?, ? examples/s]
+Map: 100%|██████████| 203/203 [00:00<00:00, 16744.88 examples/s]
+2026-06-16 07:33:31,935 - modelscope - INFO - [MS_DOWNLOAD] get_from_cache_ms downloading: url=https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=public_relations%2Fdev-00000-of-00001.parquet
+
+Downloading data:   0%|          | 0.00/4.43k [00:00<?, ?B/s]
+Downloading data: 100%|██████████| 4.43k/4.43k [00:00<00:00, 8.19MB/s]
+2026-06-16 07:33:32,971 - modelscope - INFO - storing https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=public_relations%2Fdev-00000-of-00001.parquet in cache at /root/.cache/modelscope/hub/datasets/downloads/c52fbdcdbb2c3483a4b18bcfb12a84122650350099a7037742cb2f844b99dd40
+2026-06-16 07:33:32,972 - modelscope - INFO - creating metadata file for /root/.cache/modelscope/hub/datasets/downloads/c52fbdcdbb2c3483a4b18bcfb12a84122650350099a7037742cb2f844b99dd40
+
+Generating dev split:   0%|          | 0/5 [00:00<?, ? examples/s]
+Generating dev split: 100%|██████████| 5/5 [00:00<00:00, 947.61 examples/s]
+2026-06-16 07:33:51,756 - modelscope - INFO - [MS_DOWNLOAD] get_from_cache_ms downloading: url=https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=public_relations%2Ftest-00000-of-00001.parquet
+
+Downloading data:   0%|          | 0.00/20.6k [00:00<?, ?B/s]
+Downloading data: 100%|██████████| 20.6k/20.6k [00:00<00:00, 25.3MB/s]
+2026-06-16 07:33:52,555 - modelscope - INFO - storing https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=public_relations%2Ftest-00000-of-00001.parquet in cache at /root/.cache/modelscope/hub/datasets/downloads/6a1f0d5a910e214a9ce0873a2b43f4858fa605d9bcaf1ff20ba7286ff4f7f8f0
+2026-06-16 07:33:52,556 - modelscope - INFO - creating metadata file for /root/.cache/modelscope/hub/datasets/downloads/6a1f0d5a910e214a9ce0873a2b43f4858fa605d9bcaf1ff20ba7286ff4f7f8f0
+
+Generating test split:   0%|          | 0/110 [00:00<?, ? examples/s]
+Generating test split: 100%|██████████| 110/110 [00:00<00:00, 19906.52 examples/s]
+
+Map:   0%|          | 0/5 [00:00<?, ? examples/s]
+Map: 100%|██████████| 5/5 [00:00<00:00, 1595.88 examples/s]
+
+Map:   0%|          | 0/110 [00:00<?, ? examples/s]
+Map: 100%|██████████| 110/110 [00:00<00:00, 15075.59 examples/s]
+2026-06-16 07:34:06,939 - modelscope - INFO - [MS_DOWNLOAD] get_from_cache_ms downloading: url=https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=high_school_macroeconomics%2Fdev-00000-of-00001.parquet
+
+Downloading data:   0%|          | 0.00/4.04k [00:00<?, ?B/s]
+Downloading data: 100%|██████████| 4.04k/4.04k [00:00<00:00, 4.01MB/s]
+2026-06-16 07:34:07,552 - modelscope - INFO - storing https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=high_school_macroeconomics%2Fdev-00000-of-00001.parquet in cache at /root/.cache/modelscope/hub/datasets/downloads/5eadae399b01f906e991c3e038006ab53cb72c83cce2ad36765360d392d0b90f
+2026-06-16 07:34:07,553 - modelscope - INFO - creating metadata file for /root/.cache/modelscope/hub/datasets/downloads/5eadae399b01f906e991c3e038006ab53cb72c83cce2ad36765360d392d0b90f
+
+Generating dev split:   0%|          | 0/5 [00:00<?, ? examples/s]
+Generating dev split: 100%|██████████| 5/5 [00:00<00:00, 898.29 examples/s]
+2026-06-16 07:34:40,487 - modelscope - INFO - [MS_DOWNLOAD] get_from_cache_ms downloading: url=https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=high_school_macroeconomics%2Ftest-00000-of-00001.parquet
+
+Downloading data:   0%|          | 0.00/54.8k [00:00<?, ?B/s]
+Downloading data: 100%|██████████| 54.8k/54.8k [00:00<00:00, 14.2MB/s]
+2026-06-16 07:34:44,895 - modelscope - INFO - storing https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=high_school_macroeconomics%2Ftest-00000-of-00001.parquet in cache at /root/.cache/modelscope/hub/datasets/downloads/cf1488cd7d472cbc0027434a53f7b99f1d0e9eb6f87977a78a24b6f9424b8e1f
+2026-06-16 07:34:44,895 - modelscope - INFO - creating metadata file for /root/.cache/modelscope/hub/datasets/downloads/cf1488cd7d472cbc0027434a53f7b99f1d0e9eb6f87977a78a24b6f9424b8e1f
+
+Generating test split:   0%|          | 0/390 [00:00<?, ? examples/s]
+Generating test split: 100%|██████████| 390/390 [00:00<00:00, 57015.63 examples/s]
+
+Map:   0%|          | 0/5 [00:00<?, ? examples/s]
+Map: 100%|██████████| 5/5 [00:00<00:00, 1683.51 examples/s]
+
+Map:   0%|          | 0/390 [00:00<?, ? examples/s]
+Map: 100%|██████████| 390/390 [00:00<00:00, 19351.68 examples/s]
+2026-06-16 07:35:04,765 - modelscope - INFO - [MS_DOWNLOAD] get_from_cache_ms downloading: url=https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=human_sexuality%2Fdev-00000-of-00001.parquet
+
+Downloading data:   0%|          | 0.00/4.08k [00:00<?, ?B/s]
+Downloading data: 100%|██████████| 4.08k/4.08k [00:00<00:00, 10.4MB/s]
+2026-06-16 07:35:06,086 - modelscope - INFO - storing https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=human_sexuality%2Fdev-00000-of-00001.parquet in cache at /root/.cache/modelscope/hub/datasets/downloads/9c17dad76a38d785562bd4d6d90f692775290c57996b63a08fa17cf438041cf8
+2026-06-16 07:35:06,086 - modelscope - INFO - creating metadata file for /root/.cache/modelscope/hub/datasets/downloads/9c17dad76a38d785562bd4d6d90f692775290c57996b63a08fa17cf438041cf8
+
+Generating dev split:   0%|          | 0/5 [00:00<?, ? examples/s]
+Generating dev split: 100%|██████████| 5/5 [00:00<00:00, 1046.80 examples/s]
+2026-06-16 07:35:24,484 - modelscope - INFO - [MS_DOWNLOAD] get_from_cache_ms downloading: url=https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=human_sexuality%2Ftest-00000-of-00001.parquet
+
+Downloading data:   0%|          | 0.00/23.2k [00:00<?, ?B/s]
+Downloading data: 100%|██████████| 23.2k/23.2k [00:00<00:00, 49.3MB/s]
+2026-06-16 07:35:25,219 - modelscope - INFO - storing https://www.modelscope.cn/api/v1/datasets/opencompass/mmlu/repo?Source=SDK&Revision=master&FilePath=human_sexuality%2Ftest-00000-of-00001.parquet in cache at /root/.cache/modelscope/hub/datasets/downloads/4506fcfededac0178a2fa6bb9dd6d7f7a24082efea9b5a91109e537b16548fb0
+2026-06-16 07:35:25,220 - modelscope - INFO - creating metadata file for /root/.cache/modelscope/hub/datasets/downloads/4506fcfededac0178a2fa6bb9dd6d7f7a24082efea9b5a91109e537b16548fb0
+
+Generating test split:   0%|          | 0/131 [00:00<?, ? examples/s]
+Generating test split: 100%|██████████| 131/131 [00:00<00:00, 27745.99 examples/s]
+
+Map:   0%|          | 0/5 [00:00<?, ? examples/s]
+Map: 100%|██████████| 5/5 [00:00<00:00, 1583.59 examples/s]
+
+Map:   0%|          | 0/131 [00:00<?, ? examples/s]

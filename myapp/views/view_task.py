@@ -966,7 +966,7 @@ class Task_ModelView_Api(Task_ModelView_Base, MyappModelRestApi):
                    'node_selector', 'resource_memory', 'resource_cpu', 'resource_gpu', 'resource_rdma', 'timeout', 'retry', 'skip',
                    'expand']
     edit_columns = ['name', 'label', 'working_dir', 'command', 'args', 'volume_mount', 'resource_memory',
-                    'resource_cpu', 'resource_gpu', 'resource_rdma', 'timeout', 'retry', 'skip', 'expand']
+                    'resource_cpu', 'resource_gpu', 'resource_rdma', 'timeout', 'retry', 'skip', 'outputs', 'expand']
     show_columns = ['name', 'label', 'pipeline', 'job_template', 'volume_mount', 'node_selector', 'command',
                     'overwrite_entrypoint', 'working_dir', 'args', 'resource_memory', 'resource_cpu', 'resource_gpu', 'resource_rdma',
                     'timeout', 'retry', 'skip', 'created_by', 'changed_by', 'created_on', 'changed_on', 'monitoring',
