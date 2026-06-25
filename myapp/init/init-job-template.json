@@ -2140,6 +2140,31 @@
           "placeholder": "",
           "describe": "少样本提示数量，0 表示零样本评测(Zero-Shot)",
           "editable": 1
+        },
+        "--max_samples": {
+          "type": "int",
+          "item_type": "int",
+          "label": "每数据集样本数上限",
+          "require": 0,
+          "choice": [],
+          "range": [0, 999999],
+          "default": 0,
+          "step": 100,
+          "placeholder": "0=全量，设N则每个数据集取前N条",
+          "describe": "每个数据集最多取前N条样本。0=全量评测；设100则每个数据集只取前100条。数据集不足N条则全取。用于快速验证或节省评测时间",
+          "editable": 1
+        },
+        "--datasets_cache_dir": {
+          "type": "str",
+          "item_type": "str",
+          "label": "数据集缓存目录",
+          "require": 0,
+          "choice": [],
+          "range": "",
+          "default": "",
+          "placeholder": "/mnt/storage/datasets-cache",
+          "describe": "数据集缓存目录(挂载卷路径)。有数据集则直接复用，没有则下载到此目录。留空则使用容器内置缓存(Pod销毁即丢失)",
+          "editable": 1
         }
       },
       "高级配置": {

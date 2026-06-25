@@ -15,7 +15,6 @@ import os
 import subprocess
 import sys
 import textwrap
-import threading
 import time
 
 # ---- Monkey-patch: 为 MsDataset.load 自动注入 trust_remote_code=True ----
@@ -140,6 +139,15 @@ def build_opencompass_cmd(args: argparse.Namespace) -> list:
         print(f'[INFO] Few-shot 设置为 {args.few_shot}，'
               '请确保数据集配置中引用了该环境变量')
 
+    # 数据集缓存目录 → 通过环境变量传给 wrapper
+    if args.datasets_cache_dir:
+        os.environ['OC_CACHE_DIR'] = args.datasets_cache_dir
+
+    # 样本数限制 → 通过环境变量传给 wrapper
+    if args.max_samples > 0:
+        print(f'[INFO] 样本数限制: 每个数据集最多取 {args.max_samples} 条')
+        os.environ['OC_MAX_SAMPLES'] = str(args.max_samples)
+
     # 额外的模型加载参数
     if args.model_kwargs:
         try:
@@ -169,27 +177,68 @@ def build_opencompass_cmd(args: argparse.Namespace) -> list:
             os.environ['CUDA_VISIBLE_DEVICES'] = _cuda_devices
             print(f'[wrapper] CUDA_VISIBLE_DEVICES={_cuda_devices}')
 
+        # ---- 数据集缓存目录 ----
+        _cache_dir = os.environ.get('OC_CACHE_DIR', '')
+        if _cache_dir:
+            os.makedirs(_cache_dir, exist_ok=True)
+            os.environ['MODELSCOPE_CACHE'] = _cache_dir
+            os.environ['HF_DATASETS_CACHE'] = _cache_dir
+            print(f'[wrapper] 数据集缓存目录: {_cache_dir}')
+
+        # ---- 样本数限制 ----
+        _max_samples = int(os.environ.get('OC_MAX_SAMPLES', '0'))
+        if _max_samples > 0:
+            print(f'[wrapper] 样本数限制: 每个数据集最多 {_max_samples} 条')
+
         # ---- Monkey-patch MsDataset.load ----
         from modelscope import MsDataset
-        _original_load = MsDataset.load
+        _ms_original_load = MsDataset.load
 
-        def _patched_load(*pa, **kw):
+        def _ms_patched_load(*pa, **kw):
             kw.setdefault('trust_remote_code', True)
-            return _original_load(*pa, **kw)
+            ds = _ms_original_load(*pa, **kw)
+            if _max_samples > 0:
+                ds = _truncate_dataset(ds, _max_samples)
+            return ds
 
-        MsDataset.load = staticmethod(_patched_load)
-        # 某些 modelscope 版本通过 _load 间接调用，一并 patch
+        MsDataset.load = staticmethod(_ms_patched_load)
         if hasattr(MsDataset, '_load'):
-            _original_load2 = MsDataset._load
-
+            _ms_original_load2 = MsDataset._load
             @staticmethod
-            def _patched_load2(*pa, **kw):
+            def _ms_patched_load2(*pa, **kw):
                 kw.setdefault('trust_remote_code', True)
-                return _original_load2(*pa, **kw)
-
-            MsDataset._load = _patched_load2
+                ds = _ms_original_load2(*pa, **kw)
+                if _max_samples > 0:
+                    ds = _truncate_dataset(ds, _max_samples)
+                return ds
+            MsDataset._load = _ms_patched_load2
 
         print('[wrapper] MsDataset.load patched: trust_remote_code=True')
+
+        # ---- Monkey-patch HuggingFace load_dataset ----
+        try:
+            import datasets as _hf_datasets
+            _hf_original = _hf_datasets.load_dataset
+            def _hf_patched(*pa, **kw):
+                ds = _hf_original(*pa, **kw)
+                if _max_samples > 0:
+                    ds = _truncate_dataset(ds, _max_samples)
+                return ds
+            _hf_datasets.load_dataset = _hf_patched
+            print('[wrapper] HuggingFace load_dataset patched')
+        except ImportError:
+            pass
+
+        # ---- 截断工具函数 ----
+        def _truncate_dataset(ds, limit):
+            """将 dataset 截断到最多 limit 条，不够则全取。"""
+            if isinstance(ds, dict):
+                return {k: _truncate_dataset(v, limit) for k, v in ds.items()}
+            if hasattr(ds, '__len__') and hasattr(ds, 'select'):
+                n = len(ds)
+                if n > limit:
+                    return ds.select(range(limit))
+            return ds
 
         # ---- 将控制权交给 OpenCompass CLI ----
         from opencompass.cli.main import main
@@ -205,49 +254,14 @@ def build_opencompass_cmd(args: argparse.Namespace) -> list:
     return [sys.executable, wrapper_path] + opencompass_args
 
 
-def run_opencompass(cmd: list, log_path: str,
-                    total_timeout: int = 7200,
-                    stall_timeout: int = 600):
-    """执行 OpenCompass 命令，实时输出日志，带超时保护。
-
-    Args:
-        cmd: 要执行的命令（list）
-        log_path: 日志输出路径
-        total_timeout: 总运行时间上限（秒），默认 2 小时
-        stall_timeout: 无输出超时（秒），默认 10 分钟无日志则判定卡死
-    """
+def run_opencompass(cmd: list, log_path: str):
+    """执行 OpenCompass 命令，实时输出日志。"""
     print(f'[INFO] 执行命令: {" ".join(cmd)}')
     print(f'[INFO] 日志输出: {log_path}')
-    print(f'[INFO] 超时设置: 总超时={total_timeout}s, 卡死检测={stall_timeout}s')
     print('=' * 60)
 
     process = None
     start_time = time.time()
-    last_output_time = time.time()
-    stall_event = threading.Event()
-
-    def _watchdog():
-        """后台线程：监控总超时和输出卡死。"""
-        while not stall_event.is_set():
-            time.sleep(15)  # 每 15 秒检查一次
-            if stall_event.is_set():
-                return
-            elapsed_total = time.time() - start_time
-            elapsed_silence = time.time() - last_output_time
-            if elapsed_total > total_timeout:
-                msg = (f'\n[ERROR] 评测总运行时间超过 {total_timeout}s，'
-                       f'正在终止进程...\n')
-                print(msg, flush=True)
-                if process and process.poll() is None:
-                    process.kill()
-                return
-            if elapsed_silence > stall_timeout:
-                msg = (f'\n[ERROR] 超过 {stall_timeout}s 无任何输出！'
-                       f'进程可能卡死（OOM/下载挂起/死锁），正在终止...\n')
-                print(msg, flush=True)
-                if process and process.poll() is None:
-                    process.kill()
-                return
 
     try:
         env = os.environ.copy()
@@ -262,15 +276,10 @@ def run_opencompass(cmd: list, log_path: str,
                 env=env,
             )
 
-            # 启动看门狗线程
-            watchdog = threading.Thread(target=_watchdog, daemon=True)
-            watchdog.start()
-
             # 实时读取输出
             for line in iter(process.stdout.readline, ''):
                 print(line, end='', flush=True)
                 log_f.write(line)
-                last_output_time = time.time()
 
             process.wait()
 
@@ -289,8 +298,6 @@ def run_opencompass(cmd: list, log_path: str,
         with open(log_path, 'a', encoding='utf-8') as log_f:
             log_f.write(f'\n[FATAL] 未知错误: {e}\n')
         sys.exit(1)
-    finally:
-        stall_event.set()  # 停止看门狗
 
     elapsed = time.time() - start_time
     print('=' * 60)
@@ -301,13 +308,9 @@ def run_opencompass(cmd: list, log_path: str,
         sys.exit(1)
 
     returncode = process.returncode
-    if returncode is None:
-        # 被看门狗 kill 了
-        print(f'[ERROR] OpenCompass 被超时机制终止（总耗时 {elapsed:.0f}s），退出码: {-15}')
-        sys.exit(1)
 
     if returncode == -9:
-        print(f'[ERROR] OpenCompass 被 OOM Killer 或看门狗强制终止（SIGKILL）')
+        print(f'[ERROR] OpenCompass 被 OOM Killer 强制终止（SIGKILL）')
         sys.exit(1)
 
     if returncode != 0:
@@ -388,6 +391,12 @@ def main():
                         help='Few-shot 样本数，默认 0')
     parser.add_argument('--model_kwargs', type=str, default='',
                         help='模型加载参数（JSON 字符串），如: {"device_map":"auto"}')
+
+    # ---- 数据集控制 ----
+    parser.add_argument('--max_samples', type=int, default=0,
+                        help='每个数据集最多评测的样本数，0=全量。取前N条，不够则全取')
+    parser.add_argument('--datasets_cache_dir', type=str, default='',
+                        help='数据集缓存目录（挂载卷路径），有则复用，无则下载到此目录')
 
     args = parser.parse_args()
 
