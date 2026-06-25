@@ -721,7 +721,7 @@ GPU_SHARED_NODE_SELECTOR={
 
 # 配置禁用gpu的方法，不然对复合共用型机器，gpu会被共享使用
 GPU_NONE={
-    "gpu":['NVIDIA_VISIBLE_DEVICES','none']
+    "gpu":['NVIDIA_VISIBLE_DEVICES','void']
 }
 
 # vgpu的类型方式
@@ -881,7 +881,7 @@ IMAGE_PULL_POLICY='Always'    # IfNotPresent   Always
 # 任务资源使用情况地址
 GRAFANA_TASK_PATH='http://10.121.177.20/grafana/d/pod-info/pod-info?var-pod='
 # 推理服务监控地址
-GRAFANA_SERVICE_PATH="http://10.121.177.20/grafana/d/istio-service/istio-service?var-namespace=service&var-service="
+GRAFANA_SERVICE_PATH="/grafana/d/istio-service/istio-service?var-namespace=service&var-service="
 # 集群资源监控地址
 GRAFANA_CLUSTER_PATH="http://10.121.177.20/grafana/d/all-node/all-node?var-org="
 # 节点资源监控地址
