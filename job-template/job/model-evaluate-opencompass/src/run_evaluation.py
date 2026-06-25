@@ -139,9 +139,12 @@ def build_opencompass_cmd(args: argparse.Namespace) -> list:
         print(f'[INFO] Few-shot 设置为 {args.few_shot}，'
               '请确保数据集配置中引用了该环境变量')
 
-    # 数据集缓存目录 → 通过环境变量传给 wrapper
+    # 数据集缓存目录 → 直接设 environment，确保在 Python 启动前生效
     if args.datasets_cache_dir:
-        os.environ['OC_CACHE_DIR'] = args.datasets_cache_dir
+        os.makedirs(args.datasets_cache_dir, exist_ok=True)
+        os.environ['MODELSCOPE_CACHE'] = args.datasets_cache_dir
+        os.environ['HF_DATASETS_CACHE'] = args.datasets_cache_dir
+        print(f'[INFO] 数据集缓存目录: {args.datasets_cache_dir}')
 
     # 样本数限制 → 通过环境变量传给 wrapper
     if args.max_samples > 0:
@@ -176,14 +179,6 @@ def build_opencompass_cmd(args: argparse.Namespace) -> list:
         if _cuda_devices:
             os.environ['CUDA_VISIBLE_DEVICES'] = _cuda_devices
             print(f'[wrapper] CUDA_VISIBLE_DEVICES={_cuda_devices}')
-
-        # ---- 数据集缓存目录 ----
-        _cache_dir = os.environ.get('OC_CACHE_DIR', '')
-        if _cache_dir:
-            os.makedirs(_cache_dir, exist_ok=True)
-            os.environ['MODELSCOPE_CACHE'] = _cache_dir
-            os.environ['HF_DATASETS_CACHE'] = _cache_dir
-            print(f'[wrapper] 数据集缓存目录: {_cache_dir}')
 
         # ---- 样本数限制 ----
         _max_samples = int(os.environ.get('OC_MAX_SAMPLES', '0'))
