@@ -1243,21 +1243,215 @@
   },
   "gbdt": {
     "project_name": "机器学习算法",
-    "image_name": "python:3.9",
+    "image_name": "10.121.177.20:8082/mlops/gbdt:20260625",
     "gitpath": "/job-template/job/gbdt",
     "image_describe": "gbdt算法",
     "job_template_name": "gbdt",
-    "job_template_describe": "gbdt算法(企业版)",
+    "job_template_describe": "gbdt算法",
+    "job_template_version": "Release",
+    "job_template_workdir": "/app",
     "job_template_command": "python3 launcher.py",
     "job_template_volume": "",
     "job_template_account": "",
     "job_template_env": "",
     "job_template_expand": {
       "index": 2,
-      "rec_job_template": "自定义镜像",
+      "rec_job_template": "机器学习算法",
       "help_url": "/job-template/job/gbdt"
     },
-    "job_template_args": {}
+    "job_template_args": {
+       "数据配置": {
+      "--input_csv": {
+        "type": "str",
+        "item_type": "str",
+        "label": "训练数据路径",
+        "require": 1,
+        "choice": [],
+        "range": "",
+        "default": "",
+        "placeholder": "",
+        "describe": "训练数据 CSV 文件路径，请填写容器内可访问的实际路径",
+        "editable": 1
+      },
+      "--label_col": {
+        "type": "str",
+        "item_type": "str",
+        "label": "标签列",
+        "require": 0,
+        "choice": [],
+        "range": "",
+        "default": "label",
+        "placeholder": "label",
+        "describe": "标签列名称，默认为 label",
+        "editable": 1
+      },
+      "--drop_cols": {
+        "type": "str",
+        "item_type": "str",
+        "label": "忽略特征列",
+        "require": 0,
+        "choice": [],
+        "range": "",
+        "default": "",
+        "placeholder": "id,date",
+        "describe": "不参与训练的列，多个列名用英文逗号分隔，可为空",
+        "editable": 1
+      }
+    },
+    "训练参数": {
+      "--task_type": {
+        "type": "str",
+        "item_type": "str",
+        "label": "任务类型",
+        "require": 0,
+        "choice": [
+          "classification",
+          "regression"
+        ],
+        "range": "",
+        "default": "classification",
+        "placeholder": "classification",
+        "describe": "任务类型：classification（分类）或 regression（回归）",
+        "editable": 1
+      },
+      "--test_size": {
+        "type": "float",
+        "item_type": "float",
+        "label": "测试集比例",
+        "require": 0,
+        "choice": [],
+        "range": "0.01,0.99",
+        "default": "0.2",
+        "placeholder": "0.2",
+        "describe": "测试集占比，0.2 表示 20% 数据用于测试",
+        "editable": 1
+      },
+      "--random_state": {
+        "type": "int",
+        "item_type": "int",
+        "label": "随机种子",
+        "require": 0,
+        "choice": [],
+        "range": "0,99999",
+        "default": "42",
+        "placeholder": "42",
+        "describe": "随机种子，用于数据切分和模型训练复现",
+        "editable": 1
+      }
+    },
+    "模型参数": {
+      "--n_estimators": {
+        "type": "int",
+        "item_type": "int",
+        "label": "迭代轮数",
+        "require": 0,
+        "choice": [],
+        "range": "1,10000",
+        "default": "100",
+        "placeholder": "100",
+        "describe": "GBDT Boosting 迭代轮数，对应 n_estimators",
+        "editable": 1
+      },
+      "--learning_rate": {
+        "type": "float",
+        "item_type": "float",
+        "label": "学习率",
+        "require": 0,
+        "choice": [],
+        "range": "0.001,1",
+        "default": "0.1",
+        "placeholder": "0.1",
+        "describe": "GBDT 学习率，对应 learning_rate，通常与 n_estimators 配合调整",
+        "editable": 1
+      },
+      "--max_depth": {
+        "type": "int",
+        "item_type": "int",
+        "label": "最大深度",
+        "require": 0,
+        "choice": [],
+        "range": "1,1000",
+        "default": "3",
+        "placeholder": "3",
+        "describe": "单棵弱学习器的最大深度，GBDT 常用 3-5",
+        "editable": 1
+      },
+      "--subsample": {
+        "type": "float",
+        "item_type": "float",
+        "label": "采样比例",
+        "require": 0,
+        "choice": [],
+        "range": "0.01,1",
+        "default": "1.0",
+        "placeholder": "1.0",
+        "describe": "每轮训练使用的样本比例，小于 1 时为随机梯度提升",
+        "editable": 1
+      },
+      "--min_samples_split": {
+        "type": "int",
+        "item_type": "int",
+        "label": "节点最小分裂样本数",
+        "require": 0,
+        "choice": [],
+        "range": "2,100000",
+        "default": "2",
+        "placeholder": "2",
+        "describe": "内部节点继续分裂所需的最小样本数",
+        "editable": 1
+      },
+      "--min_samples_leaf": {
+        "type": "int",
+        "item_type": "int",
+        "label": "叶子节点最小样本数",
+        "require": 0,
+        "choice": [],
+        "range": "1,100000",
+        "default": "1",
+        "placeholder": "1",
+        "describe": "叶子节点需要保留的最小样本数",
+        "editable": 1
+      },
+      "--max_features": {
+        "type": "str",
+        "item_type": "str",
+        "label": "最大特征数",
+        "require": 0,
+        "choice": [],
+        "range": "",
+        "default": "",
+        "placeholder": "sqrt / log2 / 0.8 / 10",
+        "describe": "每次分裂考虑的最大特征数。为空表示使用全部特征，可填写 sqrt、log2、小数比例或整数",
+        "editable": 1
+      }
+    },
+    "输出配置": {
+      "--output_model_path": {
+        "type": "str",
+        "item_type": "str",
+        "label": "模型输出路径",
+        "require": 1,
+        "choice": [],
+        "range": "",
+        "default": "",
+        "placeholder": "",
+        "describe": "模型文件输出路径，请填写容器内可访问的实际路径",
+        "editable": 1
+      },
+      "--output_metrics_path": {
+        "type": "str",
+        "item_type": "str",
+        "label": "指标输出路径",
+        "require": 1,
+        "choice": [],
+        "range": "",
+        "default": "",
+        "placeholder": "",
+        "describe": "指标文件输出路径，请填写容器内可访问的实际路径",
+        "editable": 1
+      }
+    }
+    }
   },
   "hyperparam-search": {
     "project_name": "机器学习算法",
