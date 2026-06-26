@@ -617,12 +617,12 @@ AI:
     # @pysnooper.snoop()
     def chat(self, chat_name, args=None):
         if chat_name == 'chatbi':
-            files = os.listdir('utils/echart/')
+            files = os.listdir('myapp/utils/echart/')
             files = ['area-stack.json', 'rose.json', 'mix-line-bar.json', 'pie-nest.json', 'bar-stack.json',
                    'candlestick-simple.json', 'graph-simple.json', 'tree-polyline.json', 'sankey-simple.json',
                    'radar.json', 'sunburst-visualMap.json', 'parallel-aqi.json', 'funnel.json',
                    'sunburst-visualMap.json', 'scatter-effect.json']
-            files = [os.path.join('utils/echart/',file) for file in files if '.json' in file]
+            files = [os.path.join('myapp/utils/echart/',file) for file in files if '.json' in file]
 
             return {
                 "status": 0,
