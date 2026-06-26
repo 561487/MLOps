@@ -1,0 +1,2 @@
+FROM ccr.ccs.tencentyun.com/cube-studio/notebook:vscode-ubuntu-cpu-base
+RUN pip install tensorboard

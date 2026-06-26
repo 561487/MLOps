@@ -787,6 +787,10 @@ NOTEBOOK_IMAGES=[
     ['ccr.ccs.tencentyun.com/cube-studio/notebook:enterprise-jupyter-ubuntu-cpu-pro', 'jupyter-conda-pro（企业版）'],
     ['ccr.ccs.tencentyun.com/cube-studio/notebook:enterprise-matlab-ubuntu-deeplearning', 'matlab（企业版）'],
     ['ccr.ccs.tencentyun.com/cube-studio/notebook:enterprise-rstudio-ubuntu-bigdata', 'rstudio（企业版）'],
+    ['10.121.177.20:8082/mlops/notebook:tensorboard-jupyter-cpu', 'jupyter-tensorboard（cpu）'],
+    ['10.121.177.20:8082/mlops/notebook:tensorboard-jupyter-bigdata', 'jupyter-tensorboard（bigdata）'],
+    ['10.121.177.20:8082/mlops/notebook:tensorboard-vscode-cpu', 'vscode-tensorboard（cpu）'],
+    ['10.121.177.20:8082/mlops/notebook:tensorboard-vscode-gpu', 'vscode-tensorboard（gpu）'],
 ]
 
 # 定时检查大小的目录列表。需要再celery中启动检查任务
