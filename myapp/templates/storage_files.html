@@ -34,8 +34,9 @@
   <h3>存储资源文件管理：{{ storage.name }}</h3>
   <div>
     <span>项目组：{{ storage.project.name if storage.project else '' }}</span>
-    <span style="margin-left: 16px;">命名空间：{{ namespace }}</span>
-    <span style="margin-left: 16px;">PVC：{{ storage.pvc_name or storage.name }}</span>
+    <span style="margin-left: 16px;">访问入口：{{ namespace }} / {{ file_entry.pvc_name if file_entry else (storage.pvc_name or storage.name) }}</span>
+    <span style="margin-left: 16px;">状态：{{ storage.status }}</span>
+    <span style="margin-left: 16px;">共享校验：{{ file_entry.backend_match_status if file_entry else '' }}</span>
   </div>
 
   <div class="storage-files-toolbar">

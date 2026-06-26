@@ -93,9 +93,11 @@ ml-server：支持sklearn和xgb导出的模型，需按文档设置ml推理服�
 tfserving：仅支持添加了服务签名的saved_model目录地址，例如：/mnt/xx/../saved_model/
 torch-server：torch-model-archiver编译后的mar模型文件，需保存模型结构和模型参数，例如：/mnt/xx/../xx.mar或torch script保存的模型
 triton-server：框架:地址。onnx:模型文件地址model.onnx，pytorch:torchscript模型文件地址model.pt，tf:模型目录地址saved_model，tensorrt:模型文件地址model.plan
+vllm：支持大语言模型 OpenAI API 兼容推理服务，模型地址通常为本地模型目录或模型仓库路径
+sglang：支持大语言模型高性能推理服务，模型地址通常为本地模型目录或模型仓库路径
 '''.strip()
 
-    service_type_choices = [x.replace('_', '-') for x in ['serving','ml-server','tfserving', 'torch-server', 'onnxruntime', 'triton-server']]
+    service_type_choices = [x.replace('_', '-') for x in ['serving','ml-server','tfserving', 'torch-server', 'onnxruntime', 'triton-server', 'vllm', 'sglang']]
 
     add_form_extra_fields = {
         "path": StringField(

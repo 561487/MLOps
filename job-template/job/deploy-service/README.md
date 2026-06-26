@@ -78,10 +78,11 @@
                 "torch-server",
                 "onnxruntime",
                 "triton-server",
-                "vllm"
+                "vllm",
+                "sglang"
             ],
             "range": "",
-            "default": "service",
+            "default": "serving",
             "placeholder": "",
             "describe": "推理服务类型",
             "editable": 1
@@ -209,13 +210,13 @@
         "--volume_mount": {
             "type": "str",
             "item_type": "str",
-            "label": "挂载",
+            "label": "挂载卷",
             "require": 0,
             "choice": [],
             "range": "",
-            "default": "kubeflow-user-workspace(pvc):/mnt",
+            "default": "",
             "placeholder": "",
-            "describe": "容器的挂载，支持pvc/hostpath/configmap三种形式,格式示例:$pvc_name1(pvc):/$container_path1,$hostpath1(hostpath):/$container_path2,注意pvc会自动挂载对应目录下的个人username子目录",
+            "describe": "默认使用流水线选择的挂载卷。需要覆盖时填写挂载表达式，推荐使用存储资源格式：$pvc_name(storage):/$container_path",
             "editable": 1
         },
         "--inference_config": {

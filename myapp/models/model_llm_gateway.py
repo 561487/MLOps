@@ -73,16 +73,68 @@ class LlmGateway(Model, AuditMixinNullable, MyappModelBase):
     def operate_html(self):
         onclick = """
 (function(gatewayId){
+  window.__llmGatewayCopyStore = window.__llmGatewayCopyStore || {};
+  if (!window.__llmGatewayCopyBound) {
+    window.__llmGatewayCopyBound = true;
+    document.addEventListener('click', function(event) {
+      var btn = event.target && event.target.closest ? event.target.closest('.llm-gateway-copy-btn') : null;
+      if (!btn) {
+        return;
+      }
+      event.preventDefault();
+      event.stopPropagation();
+      var text = window.__llmGatewayCopyStore[btn.getAttribute('data-copy-id')] || '';
+      function onCopied() {
+        var oldText = btn.textContent;
+        btn.textContent = '已复制';
+        setTimeout(function() { btn.textContent = oldText; }, 1500);
+      }
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(onCopied).catch(function() {
+          var textarea = document.createElement('textarea');
+          textarea.value = text;
+          textarea.style.position = 'fixed';
+          textarea.style.left = '-9999px';
+          document.body.appendChild(textarea);
+          textarea.select();
+          try {
+            document.execCommand('copy');
+            onCopied();
+          } finally {
+            document.body.removeChild(textarea);
+          }
+        });
+        return;
+      }
+      var textarea = document.createElement('textarea');
+      textarea.value = text;
+      textarea.style.position = 'fixed';
+      textarea.style.left = '-9999px';
+      document.body.appendChild(textarea);
+      textarea.select();
+      try {
+        document.execCommand('copy');
+        onCopied();
+      } finally {
+        document.body.removeChild(textarea);
+      }
+    });
+  }
   function escapeHtml(value) {
     return String(value || '').replace(/[&<>"']/g, function(ch) {
       return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch];
     });
   }
   function codeBlock(text) {
-    var lines = String(text || '').split('\\n');
-    return '<pre style="margin:0;background:#050505;color:#f8f8f2;border-radius:6px;padding:14px 0;font:14px/1.7 Consolas,Monaco,Menlo,monospace;white-space:pre;overflow:auto;counter-reset:llm-line;">' + lines.map(function(line, index) {
-      return '<span style="display:block;padding:0 18px 0 54px;position:relative;"><span style="position:absolute;left:18px;color:#7a7a7a;">' + (index + 1) + '</span>' + escapeHtml(line) + '</span>';
+    var raw = String(text || '');
+    var copyId = 'llm-copy-' + Math.random().toString(36).slice(2);
+    window.__llmGatewayCopyStore[copyId] = raw;
+    var lines = raw.split('\\n');
+    var copyBtn = '<button type="button" class="llm-gateway-copy-btn" data-copy-id="' + copyId + '" style="position:absolute;right:10px;top:10px;z-index:1;border:1px solid #444;background:#1f1f1f;color:#f8f8f2;border-radius:4px;padding:4px 10px;font-size:12px;cursor:pointer;">复制</button>';
+    var pre = '<pre style="margin:0;background:#050505;color:#f8f8f2;border-radius:6px;padding:14px 0 14px;font:14px/1.7 Consolas,Monaco,Menlo,monospace;white-space:pre;overflow:auto;counter-reset:llm-line;">' + lines.map(function(line, index) {
+      return '<span style="display:block;padding:0 72px 0 54px;position:relative;"><span style="position:absolute;left:18px;color:#7a7a7a;user-select:none;-webkit-user-select:none;">' + (index + 1) + '</span>' + escapeHtml(line) + '</span>';
     }).join('') + '</pre>';
+    return '<div style="position:relative;">' + copyBtn + pre + '</div>';
   }
   function ensureDialog() {
     var mask = document.getElementById('llm-example-mask');
@@ -103,14 +155,15 @@ class LlmGateway(Model, AuditMixinNullable, MyappModelBase):
     return mask;
   }
   function renderExample(result) {
-    var env = 'API_SECRET_KEY = "' + result.api_key + '"\\nBASE_URL = "' + result.base_url + '"';
+    var env = 'API_SECRET_KEY = "' + result.api_key + '"\\nBASE_URL = "' + result.base_url + '"\\nMODEL_NAME = "' + result.model + '"';
     var params = '<ul style="line-height:1.8;margin:0 0 0 20px;padding:0;">'
-      + '<li>MODEL_NAME：替换为你的模型名称，当前可访问模型名包含: ' + escapeHtml(result.model) + '</li>'
+      + '<li>MODEL_NAME：必须与网关配置的模型名称完全一致（区分大小写），当前为: ' + escapeHtml(result.model) + '</li>'
       + '<li>messages：对话历史，包含 role（user / assistant / system）和 content（消息内容）</li>'
       + '<li>temperature：控制生成文本的随机性（0-2，值越大越随机）</li>'
       + '</ul>';
     return '<div style="margin:0 0 16px;"><div style="font-size:18px;margin:0 0 10px;">外部平台环境变量配置</div>' + codeBlock(env) + '</div>'
-      + '<div style="margin:0 0 16px;"><div style="font-size:18px;margin:0 0 10px;">API调用示例代码</div>' + codeBlock(result.curl) + '</div>'
+      + '<div style="margin:0 0 16px;"><div style="font-size:18px;margin:0 0 10px;">curl 调用示例</div>' + codeBlock(result.curl) + '</div>'
+      + '<div style="margin:0 0 16px;"><div style="font-size:18px;margin:0 0 10px;">Python 调用示例</div>' + codeBlock(result.python_code || '') + '</div>'
       + '<div style="margin:0 0 16px;"><div style="font-size:18px;margin:0 0 10px;">参数说明：</div>' + params + '</div>';
   }
   var mask = ensureDialog();
