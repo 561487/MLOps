@@ -1259,43 +1259,419 @@
     },
     "job_template_args": {}
   },
-  "hyperparam-search-ray": {
+  "hyperparam-search": {
     "project_name": "机器学习算法",
-    "image_name": "python:3.9",
-    "gitpath": "/job-template/job/hyperparameter-search-ray",
+    "image_name": "10.121.177.20:8082/mlops/hyperparam-search:20260626-v3",
+    "gitpath": "/job-template/job/hyperparam-search",
     "image_describe": "超参搜索算法",
     "job_template_name": "hyperparam-search",
-    "job_template_describe": "超参搜索算法(企业版)",
-    "job_template_command": "python launcher.py",
+    "job_template_describe": "超参搜索算法",
+    "job_template_version": "Release",
+    "job_template_workdir": "/app",
+    "job_template_command": "python3 launcher.py",
     "job_template_volume": "",
     "job_template_account": "",
     "job_template_env": "",
     "job_template_expand": {
       "index": 2,
-      "rec_job_template": "自定义镜像",
-      "help_url": "/job-template/job/hyperparameter-search-ray"
+      "rec_job_template": "机器学习算法",
+      "help_url": "/job-template/job/hyperparam-search"
     },
-    "job_template_args": {}
+    "job_template_args": {
+      "数据配置": {
+        "--input_csv": {
+          "type": "str",
+          "item_type": "str",
+          "label": "训练数据路径",
+          "require": 1,
+          "choice": [],
+          "range": "",
+          "default": "",
+          "placeholder": "/mnt/storage/models-storage/output/datasets/hyperparam-search/train.csv",
+          "describe": "训练数据 CSV 文件路径，请填写容器内可访问的实际路径",
+          "editable": 1
+        },
+        "--label_col": {
+          "type": "str",
+          "item_type": "str",
+          "label": "标签列",
+          "require": 0,
+          "choice": [],
+          "range": "",
+          "default": "label",
+          "placeholder": "label",
+          "describe": "标签列名称，默认为 label",
+          "editable": 1
+        },
+        "--task_type": {
+          "type": "str",
+          "item_type": "str",
+          "label": "任务类型",
+          "require": 0,
+          "choice": ["classification", "regression"],
+          "range": "",
+          "default": "classification",
+          "placeholder": "classification",
+          "describe": "任务类型：classification（分类）或 regression（回归）",
+          "editable": 1
+        },
+        "--test_size": {
+          "type": "float",
+          "item_type": "float",
+          "label": "测试集比例",
+          "require": 0,
+          "choice": [],
+          "range": "0.01,0.99",
+          "default": "0.2",
+          "placeholder": "0.2",
+          "describe": "测试集占比，0.2 表示 20% 数据用于测试",
+          "editable": 1
+        },
+        "--random_state": {
+          "type": "int",
+          "item_type": "int",
+          "label": "随机种子",
+          "require": 0,
+          "choice": [],
+          "range": "0,99999",
+          "default": "42",
+          "placeholder": "42",
+          "describe": "随机种子，用于数据切分和模型训练复现",
+          "editable": 1
+        }
+      },
+      "搜索配置": {
+        "--model_type": {
+          "type": "str",
+          "item_type": "str",
+          "label": "模型类型",
+          "require": 0,
+          "choice": ["gbdt", "random_forest", "extra_trees", "ada_boost", "svm", "logistic_regression", "ridge", "xgboost", "lightgbm"],
+          "range": "",
+          "default": "gbdt",
+          "placeholder": "gbdt",
+          "describe": "模型类型，默认 gbdt。classification: gbdt/random_forest/extra_trees/ada_boost/svm/logistic_regression/xgboost/lightgbm；regression: gbdt/random_forest/extra_trees/ada_boost/svm/ridge/xgboost/lightgbm",
+          "editable": 1
+        },
+        "--search_method": {
+          "type": "str",
+          "item_type": "str",
+          "label": "搜索方法",
+          "require": 0,
+          "choice": ["random", "grid"],
+          "range": "",
+          "default": "random",
+          "placeholder": "random",
+          "describe": "搜索方法：random（随机搜索）或 grid（网格搜索）",
+          "editable": 1
+        },
+        "--param_grid": {
+          "type": "json",
+          "item_type": "str",
+          "label": "自定义搜索空间",
+          "require": 0,
+          "choice": [],
+          "range": "",
+          "default": "",
+          "placeholder": "{\"n_estimators\":[50,100,200],\"learning_rate\":[0.05,0.1],\"max_depth\":[3,5]}",
+          "describe": "自定义搜索空间 JSON，为空则使用默认空间。Key 无需加 model__ 前缀。",
+          "editable": 1
+        },
+        "--cv": {
+          "type": "int",
+          "item_type": "int",
+          "label": "交叉验证折数",
+          "require": 0,
+          "choice": [],
+          "range": "2,20",
+          "default": "3",
+          "placeholder": "3",
+          "describe": "交叉验证折数 cv",
+          "editable": 1
+        },
+        "--n_iter": {
+          "type": "int",
+          "item_type": "int",
+          "label": "随机抽样次数",
+          "require": 0,
+          "choice": [],
+          "range": "1,10000",
+          "default": "10",
+          "placeholder": "10",
+          "describe": "RandomizedSearchCV 的 n_iter，仅随机搜索时生效",
+          "editable": 1
+        },
+        "--scoring": {
+          "type": "str",
+          "item_type": "str",
+          "label": "评分函数",
+          "require": 0,
+          "choice": [],
+          "range": "",
+          "default": "auto",
+          "placeholder": "auto",
+          "describe": "scikit-learn 评分函数名，auto 根据任务类型自动选择",
+          "editable": 1
+        }
+      },
+      "输出配置": {
+        "--output_model_path": {
+          "type": "str",
+          "item_type": "str",
+          "label": "模型输出路径",
+          "require": 1,
+          "choice": [],
+          "range": "",
+          "default": "",
+          "placeholder": "/mnt/storage/models-storage/models/hyperparam-search/best_model.pkl",
+          "describe": "最优模型文件输出路径，请填写容器内可写的实际路径",
+          "editable": 1
+        },
+        "--output_metrics_path": {
+          "type": "str",
+          "item_type": "str",
+          "label": "指标输出路径",
+          "require": 1,
+          "choice": [],
+          "range": "",
+          "default": "",
+          "placeholder": "/mnt/storage/models-storage/output/hyperparam-search/metrics.json",
+          "describe": "指标文件输出路径，请填写容器内可写的实际路径",
+          "editable": 1
+        }
+      }
+    }
   },
   "hyperparam-search-nni": {
     "project_name": "机器学习算法",
-    "image_name": "python:3.9",
-    "gitpath": "/job-template/job/hyperparameter-search-nni",
-    "image_describe": "nni超参搜索算法",
+    "image_name": "10.121.177.20:8082/mlops/hyperparam-search-nni:20260626-v3",
+    "gitpath": "/job-template/job/hyperparam-search-nni",
+    "image_describe": "NNI超参搜索算法",
     "job_template_name": "hyperparam-search-nni",
-    "job_template_describe": "超参搜索算法(企业版)",
+    "job_template_describe": "超参搜索算法",
+    "job_template_version": "Release",
     "job_template_workdir": "/app",
-    "job_template_command": "python launcher.py",
+    "job_template_command": "python3 launcher.py",
     "job_template_volume": "",
     "job_template_account": "",
     "job_template_env": "",
     "job_template_expand": {
       "index": 2,
-      "rec_job_template": "自定义镜像",
-      "help_url": "/job-template/job/hyperparameter-search-nni",
-      "HostNetwork": true
+      "rec_job_template": "机器学习算法",
+      "help_url": "/job-template/job/hyperparam-search-nni"
     },
-    "job_template_args": {}
+    "job_template_args": {
+      "数据配置": {
+        "--input_csv": {
+          "type": "str",
+          "item_type": "str",
+          "label": "训练数据路径",
+          "require": 1,
+          "choice": [],
+          "range": "",
+          "default": "",
+          "placeholder": "/mnt/storage/zzzdn/gbdt/train.csv",
+          "describe": "训练数据 CSV 文件路径，请填写容器内可访问的实际路径",
+          "editable": 1
+        },
+        "--label_col": {
+          "type": "str",
+          "item_type": "str",
+          "label": "标签列",
+          "require": 0,
+          "choice": [],
+          "range": "",
+          "default": "label",
+          "placeholder": "label",
+          "describe": "标签列名称，默认为 label",
+          "editable": 1
+        },
+        "--task_type": {
+          "type": "str",
+          "item_type": "str",
+          "label": "任务类型",
+          "require": 0,
+          "choice": ["classification", "regression"],
+          "range": "",
+          "default": "classification",
+          "placeholder": "classification",
+          "describe": "任务类型：classification（分类）或 regression（回归）",
+          "editable": 1
+        },
+        "--test_size": {
+          "type": "float",
+          "item_type": "float",
+          "label": "测试集比例",
+          "require": 0,
+          "choice": [],
+          "range": "0.01,0.99",
+          "default": "0.2",
+          "placeholder": "0.2",
+          "describe": "测试集占比，0.2 表示 20% 数据用于测试",
+          "editable": 1
+        },
+        "--random_state": {
+          "type": "int",
+          "item_type": "int",
+          "label": "随机种子",
+          "require": 0,
+          "choice": [],
+          "range": "0,99999",
+          "default": "42",
+          "placeholder": "42",
+          "describe": "随机种子，用于数据切分和模型训练复现",
+          "editable": 1
+        }
+      },
+      "NNI搜索配置": {
+        "--model_type": {
+          "type": "str",
+          "item_type": "str",
+          "label": "模型类型",
+          "require": 0,
+          "choice": ["gbdt", "random_forest", "extra_trees", "ada_boost", "svm", "logistic_regression", "ridge", "xgboost", "lightgbm"],
+          "range": "",
+          "default": "gbdt",
+          "placeholder": "gbdt",
+          "describe": "模型类型，默认 gbdt。classification: gbdt/random_forest/extra_trees/ada_boost/svm/logistic_regression/xgboost/lightgbm；regression: gbdt/random_forest/extra_trees/ada_boost/svm/ridge/xgboost/lightgbm",
+          "editable": 1
+        },
+        "--search_space": {
+          "type": "json",
+          "item_type": "str",
+          "label": "搜索空间",
+          "require": 0,
+          "choice": [],
+          "range": "",
+          "default": "",
+          "placeholder": "{\"n_estimators\":{\"_type\":\"choice\",\"_value\":[50,100,200]},\"learning_rate\":{\"_type\":\"choice\",\"_value\":[0.05,0.1]},\"max_depth\":{\"_type\":\"choice\",\"_value\":[3,5]}}",
+          "describe": "NNI 格式搜索空间 JSON，为空则使用默认空间（n_estimators, learning_rate, max_depth, subsample）",
+          "editable": 1
+        },
+        "--tuner_name": {
+          "type": "str",
+          "item_type": "str",
+          "label": "Tuner 类型",
+          "require": 0,
+          "choice": ["TPE", "Random", "Anneal", "GridSearch"],
+          "range": "",
+          "default": "TPE",
+          "placeholder": "TPE",
+          "describe": "调参器类型：TPE/Random/Anneal/GridSearch（TPE/Anneal 当前版本降级为 Random）",
+          "editable": 1
+        },
+        "--max_trial_number": {
+          "type": "int",
+          "item_type": "int",
+          "label": "最大 Trial 数",
+          "require": 0,
+          "choice": [],
+          "range": "1,10000",
+          "default": "10",
+          "placeholder": "10",
+          "describe": "搜索 trial 最大数量",
+          "editable": 1
+        },
+        "--trial_concurrency": {
+          "type": "int",
+          "item_type": "int",
+          "label": "并发数",
+          "require": 0,
+          "choice": [],
+          "range": "1,100",
+          "default": "1",
+          "placeholder": "1",
+          "describe": "Trial 并发数（当前版本单进程串行执行）",
+          "editable": 1
+        },
+        "--max_train_samples": {
+          "type": "int",
+          "item_type": "int",
+          "label": "最大训练样本数",
+          "require": 0,
+          "choice": [],
+          "range": "100,1000000",
+          "default": "10000",
+          "placeholder": "10000",
+          "describe": "单 trial 最大训练样本数。SVM 大数据会自动降采样到此值，避免卡住",
+          "editable": 1
+        },
+        "--trial_timeout_seconds": {
+          "type": "int",
+          "item_type": "int",
+          "label": "Trial 超时(秒)",
+          "require": 0,
+          "choice": [],
+          "range": "60,86400",
+          "default": "600",
+          "placeholder": "600",
+          "describe": "单 trial 超时秒数（当前版本记录耗时，超时逻辑可选）",
+          "editable": 1
+        },
+        "--cv": {
+          "type": "int",
+          "item_type": "int",
+          "label": "交叉验证折数",
+          "require": 0,
+          "choice": [],
+          "range": "2,20",
+          "default": "3",
+          "placeholder": "3",
+          "describe": "每个 trial 的交叉验证折数",
+          "editable": 1
+        },
+        "--scoring": {
+          "type": "str",
+          "item_type": "str",
+          "label": "评分函数",
+          "require": 0,
+          "choice": [],
+          "range": "",
+          "default": "auto",
+          "placeholder": "auto",
+          "describe": "scikit-learn 评分函数名，auto 根据任务类型自动选择",
+          "editable": 1
+        }
+      },
+      "输出配置": {
+        "--output_model_path": {
+          "type": "str",
+          "item_type": "str",
+          "label": "模型输出路径",
+          "require": 1,
+          "choice": [],
+          "range": "",
+          "default": "",
+          "placeholder": "/mnt/storage/zzzdn/hyperparam-search-nni/output/model.pkl",
+          "describe": "最优模型文件输出路径，请填写容器内可写的实际路径",
+          "editable": 1
+        },
+        "--output_metrics_path": {
+          "type": "str",
+          "item_type": "str",
+          "label": "指标输出路径",
+          "require": 1,
+          "choice": [],
+          "range": "",
+          "default": "",
+          "placeholder": "/mnt/storage/zzzdn/hyperparam-search-nni/output/metrics.json",
+          "describe": "指标文件输出路径，请填写容器内可写的实际路径",
+          "editable": 1
+        },
+        "--output_nni_result_path": {
+          "type": "str",
+          "item_type": "str",
+          "label": "NNI 结果路径",
+          "require": 0,
+          "choice": [],
+          "range": "",
+          "default": "",
+          "placeholder": "/mnt/storage/zzzdn/hyperparam-search-nni/output/nni_result.json",
+          "describe": "NNI 实验详细结果输出路径（可选）",
+          "editable": 1
+        }
+      }
+    }
   },
   "kmean": {
     "project_name": "机器学习算法",
