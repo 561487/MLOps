@@ -13,6 +13,7 @@ import urllib.parse
 from sqlalchemy.exc import InvalidRequestError
 from myapp.models.model_job import Job_Template
 from myapp.models.model_job import Task, Pipeline, Workflow, RunHistory
+from myapp.models.model_job import TaskTemplateType, LogicalNodeType
 from myapp.models.model_team import Project
 from myapp.views.view_team import Project_Join_Filter
 from flask_appbuilder.actions import action
@@ -163,6 +164,13 @@ def dag_to_pipeline(pipeline, dbsession, workflow_label=None, **kwargs):
     # 渲染字符串模板变量
     # @pysnooper.snoop()
     def template_str(src_str):
+        import re
+        # 保护 Argo 模板变量 (以 tasks./workflow./steps./inputs./outputs./item./pod. 开头)，
+        # 避免被 Jinja2 误渲染，但不影响 Flask 变量如 {{creator}}/{{uuid.uuid4().hex}}
+        argo_pattern = re.compile(r'\{\{(?:tasks|workflow|steps|inputs|outputs|item|pod)\.[^}]*\}\}')
+        argo_vars = argo_pattern.findall(src_str)
+        for i, var in enumerate(argo_vars):
+            src_str = src_str.replace(var, '__ARGOVAR{}__'.format(i))
         rtemplate = Environment(loader=BaseLoader, undefined=Undefined).from_string(src_str)
         des_str = rtemplate.render(creator=pipeline.created_by.username,
                                    datetime=datetime,
@@ -173,6 +181,9 @@ def dag_to_pipeline(pipeline, dbsession, workflow_label=None, **kwargs):
                                    cluster_name=pipeline.project.cluster['NAME'],
                                    **template_kwargs
                                    )
+        # 恢复 Argo 模板变量
+        for i, var in enumerate(argo_vars):
+            des_str = des_str.replace('__ARGOVAR{}__'.format(i), var)
         return des_str
 
     pipeline_global_env = template_str(pipeline.global_env.strip()) if pipeline.global_env else ''  # 优先渲染，不然里面如果有date就可能存在不一致的问题
@@ -190,15 +201,57 @@ def dag_to_pipeline(pipeline, dbsession, workflow_label=None, **kwargs):
             template_kwargs[key]=value
 
     def make_dag_template():
+        # 先找到所有 branch 逻辑节点，记录其下游任务名
+        branch_downstreams = set()
+        for task_name in dag:
+            task = all_tasks[task_name]
+            if task.template_type == TaskTemplateType.LOGICAL and task.logical_type == LogicalNodeType.BRANCH:
+                # 找所有直接下游任务
+                for other_name in dag:
+                    if task_name in dag[other_name].get('upstream', []):
+                        branch_downstreams.add(other_name)
+
         dag_template = []
         for task_name in dag:
+            task = all_tasks[task_name]
             template_temp = {
                 "name": task_name,
                 "template": task_name,
                 "dependencies": dag[task_name].get('upstream', [])
             }
+            # branch 节点的直接下游: 带上 when 条件
+            if task_name in branch_downstreams:
+                # 找到是哪个 branch 上游
+                for up_name in dag[task_name].get('upstream', []):
+                    up_task = all_tasks.get(up_name)
+                    if up_task and up_task.template_type == TaskTemplateType.LOGICAL and up_task.logical_type == LogicalNodeType.BRANCH:
+                        template_temp['when'] = '{{{{tasks.{}.outputs.parameters.branch_result}}}} == true'.format(up_name)
+                        break
+
+            # 逻辑节点: 根据 logical_type 添加 Argo 控制字段
+            if task.template_type == TaskTemplateType.LOGICAL:
+                logical_type = task.logical_type
+                condition = task.logical_condition
+                if logical_type == LogicalNodeType.LOOP and condition:
+                    try:
+                        parsed = json.loads(condition)
+                        if isinstance(parsed, list):
+                            template_temp['withParam'] = json.dumps(parsed)
+                        else:
+                            template_temp['withParam'] = condition
+                    except (json.JSONDecodeError, TypeError):
+                        template_temp['withParam'] = condition
+                elif logical_type == LogicalNodeType.SUBPIPELINE:
+                    subpipeline_name = task.logical_subpipeline_name
+                    if subpipeline_name:
+                        del template_temp['template']
+                        template_temp['templateRef'] = {
+                            'name': subpipeline_name,
+                            'template': subpipeline_name
+                        }
+                # parallel / merge / end 不需要额外字段
             # 设置了跳过的话，在argo中设置跳过
-            if all_tasks[task_name].skip:
+            if task.skip:
                 template_temp['when']='false'
             dag_template.append(template_temp)
         return dag_template
@@ -206,6 +259,44 @@ def dag_to_pipeline(pipeline, dbsession, workflow_label=None, **kwargs):
     # @pysnooper.snoop()
     def make_container_template(task_name,hubsecret_list=None):
         task = all_tasks[task_name]
+
+        # 计算 volume mounts（逻辑节点也需要）
+        k8s_volumes = []
+        k8s_volume_mounts = []
+        runtime_volume_mount = core.merge_volume_mount(task.volume_mount, pipeline_volume_mount)
+        runtime_volume_mount = runtime_volume_mount.strip() if runtime_volume_mount else ''
+        if runtime_volume_mount:
+            try:
+                k8s_volumes, k8s_volume_mounts = py_k8s.K8s.get_volume_mounts(runtime_volume_mount, pipeline.created_by.username)
+            except Exception as e:
+                print(e)
+
+        # 逻辑节点: 生成轻量控制容器 + 跳过标准容器逻辑
+        if task.template_type == TaskTemplateType.LOGICAL:
+            logical_type = task.logical_type
+            # subpipeline 使用 templateRef 引用外部工作流，无需生成容器模板
+            if logical_type == LogicalNodeType.SUBPIPELINE and task.logical_subpipeline_name:
+                logging.info(
+                    "subpipeline node '%s': using templateRef to pipeline '%s'",
+                    task.name, task.logical_subpipeline_name)
+                return None
+
+            # branch: Python 容器读取 JSON 文件 + 条件判断，输出结果参数
+            if logical_type == LogicalNodeType.BRANCH:
+                input_path = task.logical_input_path or '/tmp/result.json'
+                condition = task.logical_condition or ''
+                return _build_branch_template(task.name, input_path, condition, k8s_volume_mounts, k8s_volumes)
+
+            return {
+                "name": task.name,
+                "container": {
+                    "name": task.name + "-" + uuid.uuid4().hex[:4],
+                    "command": ["sh", "-c"],
+                    "args": [f'echo "logic node: {logical_type}"'],
+                    "image": conf.get('LOGIC_NODE_IMAGE', 'alpine:3.20'),
+                    "imagePullPolicy": conf.get('IMAGE_PULL_POLICY', 'Always')
+                }
+            }
         ops_args = []
         task_args = json.loads(task.args)
         for task_attr_name in task_args:
@@ -304,27 +395,32 @@ def dag_to_pipeline(pipeline, dbsession, workflow_label=None, **kwargs):
         command = [com for com in command if com]
         arguments = ops_args
         file_outputs = json.loads(task.outputs) if task.outputs and json.loads(task.outputs) else None
+        # 构建 Argo output parameters（逻辑节点跳过）
+        output_parameters = []
+        if file_outputs and task.template_type not in (TaskTemplateType.LOGICAL,):
+            for param_name, file_path in file_outputs.items():
+                if file_path:
+                    output_parameters.append({
+                        "name": param_name,
+                        "valueFrom": {"path": file_path}
+                    })
 
         # 如果模板配置了images参数，那直接用模板的这个参数
         if json.loads(task.args).get('images',''):
             images = json.loads(task.args).get('images')
 
-        # 自定义节点
-        if task.job_template.name == conf.get('CUSTOMIZE_JOB'):
+        # 自定义节点 (CUSTOMIZE_JOB)
+        if task.template_type == TaskTemplateType.CUSTOMIZE:
             working_dir = json.loads(task.args).get('workdir')
             command = ['bash', '-c', json.loads(task.args).get('command')]
             arguments = []
 
-        # 添加用户自定义挂载
-        k8s_volumes = []
-        k8s_volume_mounts = []
-        runtime_volume_mount = core.merge_volume_mount(task.volume_mount, pipeline_volume_mount)
-        runtime_volume_mount = runtime_volume_mount.strip() if runtime_volume_mount else ''
-        if runtime_volume_mount:
-            try:
-                k8s_volumes,k8s_volume_mounts = py_k8s.K8s.get_volume_mounts(runtime_volume_mount,pipeline.created_by.username)
-            except Exception as e:
-                print(e)
+        # Python 节点 (PYTHON_JOB): 简单 python -c 执行
+        if task.template_type == TaskTemplateType.PYTHON:
+            command = ['python', '-c', json.loads(task.args).get('code', '')]
+            arguments = None
+
+        # 添加用户自定义挂载（逻辑节点已在前面处理）
 
         # 添加node selector
         nodeSelector, nodeAffinity = core.get_node_selector(task.get_node_selector())
@@ -447,9 +543,10 @@ def dag_to_pipeline(pipeline, dbsession, workflow_label=None, **kwargs):
             arguments = []
 
         task_template = {
-            "name": task.name,  # 因为同一个
+            "name": task.name,
             "outputs": {
-                "artifacts": artifacts
+                "parameters": output_parameters,
+                "artifacts": []
             },
             "container": {
                 "name": task.name + "-" + uuid.uuid4().hex[:4],
@@ -551,6 +648,102 @@ def dag_to_pipeline(pipeline, dbsession, workflow_label=None, **kwargs):
 
         return task_template
 
+    def _build_branch_template(task_name, input_path, condition, volume_mounts=None, volumes=None):
+        """构建分支逻辑节点的容器模板：读取JSON文件 → 条件判断 → 输出Argo参数"""
+        import re
+        # 解析 condition: "accuracy > 0.9" → field=accuracy, op=>, value=0.9
+        _cond_match = re.match(r'^\s*(\S+)\s*(>=|<=|!=|==|>|<)\s*(.+)\s*$', condition)
+        if not _cond_match:
+            # 无法解析，回退为 alpine echo
+            return {
+                "name": task_name,
+                "container": {
+                    "name": task_name + "-" + uuid.uuid4().hex[:4],
+                    "command": ["sh", "-c"],
+                    "args": ['echo "branch condition parse error: {}"'.format(condition)],
+                    "image": "alpine:3.20",
+                    "imagePullPolicy": conf.get('IMAGE_PULL_POLICY', 'Always')
+                }
+            }
+
+        field, op, value = _cond_match.group(1), _cond_match.group(2), _cond_match.group(3).strip()
+
+        # 构造 Python 判断脚本：全流程异常保护，始终写入 branch_result
+        script_lines = [
+            '#!/bin/sh',
+            "python << 'PYEOF'",
+            'import json, sys, os, traceback',
+            '',
+            'def write_result(value):',
+            '    """无论如何都写入 Argo 输出参数"""',
+            '    argo_dir = "/var/run/argo/outputs/parameters"',
+            '    try:',
+            '        if not os.path.exists(argo_dir):',
+            '            os.makedirs(argo_dir)',
+            '    except:',
+            '        pass',
+            '    try:',
+            '        with open(os.path.join(argo_dir, "branch_result"), "w") as f:',
+            '            f.write(value)',
+            '    except Exception as e:',
+            '        print("FATAL: cannot write branch_result: " + str(e))',
+            '',
+            'try:',
+            "    with open('{}') as f:".format(input_path),
+            "        data = json.load(f)",
+            '',
+            "    # 提取字段值",
+            "    val = data",
+            "    for key in '{}'.split('.'):".format(field),
+            "        if isinstance(val, dict):",
+            "            val = val.get(key)",
+            "        else:",
+            "            val = None",
+            "            break",
+            "        if val is None:",
+            "            break",
+            '',
+            "    if val is None:",
+            "        print('ERROR: field {} not found in JSON')".format(field),
+            "        write_result('error')",
+            "        sys.exit(0)",
+            '',
+            "    # 比较判断",
+            "    result = False",
+            "    try:",
+            "        result = float(val) {} {}".format(op, value),
+            "    except Exception:",
+            "        result = str(val) {} str({})".format(op, value),
+            '',
+            '    print("branch: " + str(val) + " ' + op + ' ' + value + ' -> " + str(result))',
+            "    write_result('true' if result else 'false')",
+            '',
+            'except Exception as e:',
+            "    print('ERROR: ' + str(e))",
+            '    traceback.print_exc()',
+            "    write_result('error')",
+            'PYEOF'
+        ]
+        script = '\n'.join(script_lines)
+
+        return {
+            "name": task_name,
+            "outputs": {
+                "parameters": [
+                    {"name": "branch_result", "valueFrom": {"path": "branch_result"}}
+                ]
+            },
+            "container": {
+                "name": task_name + "-" + uuid.uuid4().hex[:4],
+                "command": ["sh", "-c"],
+                "args": [script],
+                "image": conf.get('LOGIC_NODE_IMAGE', 'python:3.9-alpine'),
+                "imagePullPolicy": conf.get('IMAGE_PULL_POLICY', 'Always'),
+                "volumeMounts": volume_mounts or []
+            },
+            "volumes": volumes or []
+        }
+
     # 添加个人创建的所有仓库秘钥
     image_pull_secrets = conf.get('HUBSECRET', [])
     user_repositorys = dbsession.query(Repository).filter(Repository.created_by_fk == pipeline.created_by.id).all()
@@ -582,7 +775,9 @@ def dag_to_pipeline(pipeline, dbsession, workflow_label=None, **kwargs):
 
     containers_template = []
     for task_name in dag:
-        containers_template.append(make_container_template(task_name=task_name,hubsecret_list=hubsecret_list))
+        ct = make_container_template(task_name=task_name, hubsecret_list=hubsecret_list)
+        if ct is not None:
+            containers_template.append(ct)
 
     workflow_json = make_workflow_yaml(pipeline=pipeline, workflow_label=workflow_label, hubsecret_list=hubsecret_list, dag_templates=make_dag_template(), containers_templates=containers_template,dbsession=dbsession)
     # 先这是某个模板变量不进行渲染，一直向后传递到argo
@@ -722,6 +917,13 @@ class Pipeline_ModelView_Base():
             default=3,
             validators=[DataRequired()]
         ),
+        "volume_mount": MySelectMultipleField(
+            label=_('挂载卷'),
+            default='',
+            description=_('选择项目默认挂载卷或已同步的存储资源，保存后会自动挂载到流水线内每个task'),
+            widget=MySelect2Widget(multiple=True),
+            choices=[],
+        ),
         "global_env": StringField(
             _('全局环境变量'),
             description= _("公共环境变量会以环境变量的形式传递给每个task，可以配置多个公共环境变量，每行一个，支持datetime/creator/runner/uuid/pipeline_id等变量 例如：USERNAME={{creator}}"),
@@ -793,6 +995,9 @@ class Pipeline_ModelView_Base():
         return {}
 
     def _pipeline_volume_mount(self, pipeline=None):
+        # 先尝试从 form 提交的 transient 属性读取，再尝试从 parameter JSON 读取
+        if pipeline and hasattr(pipeline, 'volume_mount') and getattr(pipeline, 'volume_mount'):
+            return getattr(pipeline, 'volume_mount')
         return ','.join(split_volume_mount(self._pipeline_parameter(pipeline).get('volume_mount', '')))
 
     def _pipeline_storage_namespace(self):
@@ -823,12 +1028,8 @@ class Pipeline_ModelView_Base():
         req_json['volume_mount'] = ','.join(split_volume_mount(req_json.get('volume_mount')))
         return req_json
 
-    def _set_pipeline_volume_mount_field(self, pipeline=None, project=None):
-        project = project or (pipeline.project if pipeline else None)
-        current_volume_mount = self._pipeline_volume_mount(pipeline)
-        if not current_volume_mount and project:
-            current_volume_mount = project.volume_mount
-        self.expand_columns['parameter']['volume_mount'] = MySelectMultipleField(
+    def _build_volume_mount_field(self, current_volume_mount='', project=None):
+        return MySelectMultipleField(
             label=_('挂载卷'),
             default=current_volume_mount,
             description=_('选择项目默认挂载卷或已同步的存储资源，保存后会自动挂载到流水线内每个 task'),
@@ -840,6 +1041,16 @@ class Pipeline_ModelView_Base():
                 current_volume_mount=current_volume_mount
             ),
         )
+
+    def _set_pipeline_volume_mount_field(self, pipeline=None, project=None):
+        project = project or (pipeline.project if pipeline else None)
+        current_volume_mount = self._pipeline_volume_mount(pipeline)
+        if not current_volume_mount and project:
+            current_volume_mount = project.volume_mount
+        field = self._build_volume_mount_field(current_volume_mount, project)
+        self.expand_columns['parameter']['volume_mount'] = field
+        self.edit_form_extra_fields['volume_mount'] = field
+        self.add_form_extra_fields['volume_mount'] = field
 
     def set_columns_related(self, exist_add_args, response_add_columns):
         if 'volume_mount' not in response_add_columns:
@@ -1084,6 +1295,15 @@ class Pipeline_ModelView_Base():
         item.dag_json = item.fix_dag_json()
         item.expand = json.dumps(item.fix_expand(), indent=4, ensure_ascii=False)
         db.session.commit()
+
+
+    def merge_add_field_info(self, response, **kwargs):
+        self._set_pipeline_volume_mount_field()
+        super().merge_add_field_info(response, **kwargs)
+
+    def merge_edit_field_info(self, response, **kwargs):
+        self._set_pipeline_volume_mount_field()
+        super().merge_edit_field_info(response, **kwargs)
 
     # 删除前先把下面的task删除了，把里面的运行实例也删除了，把定时调度删除了
     @pysnooper.snoop()
@@ -1474,7 +1694,7 @@ class Pipeline_ModelView_Api(Pipeline_ModelView_Base, MyappModelRestApi):
     list_columns = ['id', 'project', 'pipeline_url', 'creator', 'modified']
     add_columns = ['project', 'name', 'describe', 'parameter']
     edit_columns = ['project', 'name', 'describe', 'schedule_type', 'cron_time', 'depends_on_past', 'max_active_runs',
-                    'expired_limit', 'parallelism', 'dag_json', 'global_env', 'parameter', 'alert_status', 'alert_user', 'expand',
+                    'expired_limit', 'parallelism', 'parameter', 'dag_json', 'global_env', 'alert_status', 'alert_user', 'expand',
                     'cronjob_start_time']
 
     related_views = [Task_ModelView_Api, ]
@@ -1483,6 +1703,7 @@ class Pipeline_ModelView_Api(Pipeline_ModelView_Base, MyappModelRestApi):
         self.default_filter = {
             "created_by": g.user.id
         }
+        self._set_pipeline_volume_mount_field()
 
     add_form_query_rel_fields = {
         "project": [["name", Project_Join_Filter, 'org']]
