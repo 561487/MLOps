@@ -56,6 +56,7 @@ class K8s():
             self.cluster_name = file_path.split('/')[-1].replace('-kubeconfig','')
 
         self.v1 = client.CoreV1Api(api_client)
+        self.StorageV1Api = client.StorageV1Api(api_client)
         self.AppsV1Api = client.AppsV1Api(api_client)
         self.NetworkingV1Api = client.NetworkingV1Api(api_client)
         self.CustomObjectsApi = client.CustomObjectsApi(api_client)
@@ -2407,15 +2408,77 @@ class K8s():
         )
         container_stream.write_channel(4, json.dumps({"Height": int(rows), "Width": int(cols)}))
         return container_stream
+    def _object_meta(self, metadata):
+        if not metadata:
+            return {}
+        return {
+            "name": metadata.name or '',
+            "namespace": metadata.namespace or '',
+            "labels": metadata.labels or {},
+            "annotations": metadata.annotations or {},
+        }
+
+    def _secret_ref(self, secret_ref):
+        if not secret_ref:
+            return {}
+        return {
+            "name": secret_ref.name or '',
+            "namespace": secret_ref.namespace or '',
+        }
+
+    def get_storage_class(self, name):
+        if not name:
+            return {}
+        try:
+            storage_class = self.StorageV1Api.read_storage_class(name=name, _request_timeout=5)
+            return {
+                "name": storage_class.metadata.name if storage_class.metadata else name,
+                "provisioner": storage_class.provisioner or '',
+                "parameters": storage_class.parameters or {},
+                "reclaim_policy": storage_class.reclaim_policy or '',
+                "volume_binding_mode": storage_class.volume_binding_mode or '',
+            }
+        except ApiException as e1:
+            if e1.status != 404:
+                print(e1)
+        except Exception as e:
+            print(e)
+        return {}
+
     # 读取pv
     def get_pv(self, name):
         try:
             pv = self.v1.read_persistent_volume(name=name, _request_timeout=5)
+            spec = pv.spec
+            claim_ref = spec.claim_ref if spec else None
+            csi = spec.csi if spec else None
+            nfs = spec.nfs if spec else None
+            capacity = spec.capacity if spec and spec.capacity else {}
             return {
                 "name": pv.metadata.name if pv.metadata else name,
                 "status": pv.status.phase if pv.status and pv.status.phase else 'unknown',
-                "claim": pv.spec.claim_ref.name if pv.spec and pv.spec.claim_ref else '',
-                "claim_namespace": pv.spec.claim_ref.namespace if pv.spec and pv.spec.claim_ref else '',
+                "metadata": self._object_meta(pv.metadata),
+                "claim": claim_ref.name if claim_ref else '',
+                "claim_namespace": claim_ref.namespace if claim_ref else '',
+                "claim_ref": {
+                    "name": claim_ref.name if claim_ref else '',
+                    "namespace": claim_ref.namespace if claim_ref else '',
+                    "uid": claim_ref.uid if claim_ref else '',
+                },
+                "storage_class": spec.storage_class_name if spec and spec.storage_class_name else '',
+                "capacity": capacity.get('storage', '') if isinstance(capacity, dict) else '',
+                "access_modes": spec.access_modes if spec and spec.access_modes else [],
+                "nfs": {
+                    "server": nfs.server if nfs else '',
+                    "path": nfs.path if nfs else '',
+                },
+                "csi": {
+                    "driver": csi.driver if csi else '',
+                    "fs_type": csi.fs_type if csi else '',
+                    "volume_handle": csi.volume_handle if csi else '',
+                    "node_publish_secret_ref": self._secret_ref(csi.node_publish_secret_ref if csi else None),
+                    "volume_attributes": csi.volume_attributes if csi and csi.volume_attributes else {},
+                },
             }
         except ApiException as e1:
             if e1.status != 404:
@@ -2439,6 +2502,9 @@ class K8s():
             pvc = {
                 "name": pvc.metadata.name if pvc.metadata else name,
                 "namespace": namespace,
+                "metadata": self._object_meta(pvc.metadata),
+                "labels": pvc.metadata.labels if pvc.metadata and pvc.metadata.labels else {},
+                "annotations": pvc.metadata.annotations if pvc.metadata and pvc.metadata.annotations else {},
                 "status":pvc.status.phase if pvc.status and pvc.status.phase else 'unknown',
                 "volume_name": pvc.spec.volume_name if pvc.spec and pvc.spec.volume_name else '',
                 "storage_class": pvc.spec.storage_class_name if pvc.spec and pvc.spec.storage_class_name else '',
