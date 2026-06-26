@@ -3,6 +3,7 @@ import json
 import os
 import posixpath
 import re
+import uuid
 from datetime import datetime
 from urllib.parse import quote
 
@@ -17,7 +18,7 @@ from wtforms.validators import DataRequired, Length, Regexp
 
 from myapp import app, appbuilder, db
 from myapp.forms import MySelect2Widget, MySelectMultipleField
-from myapp.models.model_storage import Storage
+from myapp.models.model_storage import Storage, StoragePvcBinding
 from myapp.models.model_team import Project
 from myapp.utils.storage_volume import available_volume_items, user_can_access_project
 from myapp.utils.py.py_k8s import K8s
@@ -74,8 +75,8 @@ class Storage_ModelView_Base():
     order_columns = ['id']
     page_size = 100
 
-    list_columns = ['name', 'storage_type_display', 'project', 'namespace', 'capacity', 'files_html']
-    show_columns = ['name', 'storage_type_display', 'project', 'namespace', 'capacity']
+    list_columns = ['name', 'storage_type_display', 'project', 'namespace', 'capacity', 'status', 'files_html']
+    show_columns = ['name', 'storage_type_display', 'project', 'namespace', 'capacity', 'status', 'bindings_html']
     add_columns = ['name', 'storage_type', 'project', 'namespace', 'capacity']
     edit_columns = add_columns
     search_columns = ['name', 'storage_type', 'namespace']
@@ -139,7 +140,7 @@ class Storage_ModelView_Base():
             default=conf.get('NOTEBOOK_NAMESPACE', 'jupyter'),
             widget=Select2ManyWidget(),
             choices=default_namespace_choices(),
-            description=_('选择需要创建PVC的命名空间，可多选'),
+            description=_('单选：创建独立PVC。多选：会在多个命名空间分别创建PVC，并要求它们共享同一个底层存储路径。如果希望各命名空间数据独立，请分别创建多个存储资源。'),
             validators=[DataRequired()]
         ),
         "capacity": StringField(
@@ -164,6 +165,9 @@ class Storage_ModelView_Base():
         if namespaces:
             return namespaces
         return self._split_names(default_namespaces())
+
+    def _is_multi_namespace(self, storage):
+        return len(self._namespaces(storage)) > 1
 
     def _access_modes(self, storage):
         access_modes = self._split_names(storage.access_modes)
@@ -228,6 +232,22 @@ class Storage_ModelView_Base():
             "pvc_annotations": minio_config.get("pvc_annotations") or {},
             "mount_options": minio_config.get("mount_options") or [],
         })
+        return minio_config
+
+    def _apply_storage_class_secret_ref(self, storage, minio_config):
+        minio_config = dict(minio_config or {})
+        storage_class = minio_config.get('storage_class') or 'juicefs-sc'
+        try:
+            sc = self._k8s_client(storage).get_storage_class(storage_class)
+            params = sc.get('parameters') or {}
+            secret_name = params.get('csi.storage.k8s.io/node-publish-secret-name')
+            secret_namespace = params.get('csi.storage.k8s.io/node-publish-secret-namespace')
+            if secret_name:
+                minio_config['secret_name'] = secret_name
+            if secret_namespace:
+                minio_config['secret_namespace'] = secret_namespace
+        except Exception:
+            pass
         return minio_config
 
     def _project_from_value(self, value):
@@ -408,7 +428,8 @@ class Storage_ModelView_Base():
 
     def _fill_generated_fields(self, storage):
         self._apply_backend_defaults(storage)
-        if storage.storage_type == STORAGE_TYPE_NFS:
+        if storage.storage_type == STORAGE_TYPE_NFS or (
+                storage.storage_type == STORAGE_TYPE_MINIO_JUICEFS and self._is_multi_namespace(storage)):
             storage.pv_name = ','.join([self._pv_name(storage, namespace) for namespace in self._namespaces(storage)])
         else:
             storage.pv_name = ''
@@ -428,6 +449,12 @@ class Storage_ModelView_Base():
 
     def pre_update(self, item):
         self._fill_generated_fields(item)
+
+    def pre_show(self, item):
+        try:
+            self._refresh_storage_bindings(item)
+        except Exception:
+            pass
 
     def check_edit_permission(self, item):
         return g.user.is_admin()
@@ -499,11 +526,13 @@ class Storage_ModelView_Base():
 
     def _build_minio_juicefs_resources(self, storage):
         storage = self._fill_generated_fields(storage)
-        minio_config = self._load_minio_juicefs_config(storage)
+        minio_config = self._apply_storage_class_secret_ref(storage, self._load_minio_juicefs_config(storage))
         storage_class = minio_config.get('storage_class') or 'juicefs-sc'
         resources = []
+        static_binding = self._is_multi_namespace(storage)
         for namespace in self._namespaces(storage):
             pvc_name = storage.pvc_name or storage.name
+            pv_name = self._pv_name(storage, namespace)
             labels = {
                 "mlops/storage-name": storage.name,
                 "mlops/storage-type": storage.storage_type,
@@ -533,9 +562,47 @@ class Storage_ModelView_Base():
                     "storageClassName": storage_class,
                 }
             }
-            resources.append({
+            resource = {
                 "namespace": namespace,
                 "pvc": pvc,
+            }
+            if static_binding:
+                pv = {
+                    "apiVersion": "v1",
+                    "kind": "PersistentVolume",
+                    "metadata": {
+                        "name": pv_name,
+                        "labels": labels,
+                    },
+                    "spec": {
+                        "capacity": {"storage": storage.capacity or '500Gi'},
+                        "accessModes": self._access_modes(storage),
+                        "persistentVolumeReclaimPolicy": "Delete",
+                        "storageClassName": storage_class,
+                        "csi": {
+                            "driver": minio_config.get("csi_driver") or "csi.juicefs.com",
+                            "fsType": "juicefs",
+                            "volumeHandle": pv_name,
+                            "nodePublishSecretRef": {
+                                "name": minio_config.get("secret_name"),
+                                "namespace": minio_config.get("secret_namespace"),
+                            },
+                            "volumeAttributes": {
+                                "backend": minio_config.get("backend") or "minio",
+                                "filesystem": minio_config.get("filesystem") or "juicefs",
+                                "bucket": minio_config.get("bucket") or "",
+                                "subPath": minio_config.get("bucket_path") or "",
+                            },
+                        },
+                    },
+                }
+                mount_options = minio_config.get('mount_options') or []
+                if mount_options:
+                    pv["spec"]["mountOptions"] = mount_options
+                pvc["spec"]["volumeName"] = pv_name
+                resource["pv"] = pv
+            resources.append({
+                **resource,
             })
         return resources
 
@@ -560,33 +627,88 @@ class Storage_ModelView_Base():
         raise Exception('no permission')
 
     def _file_manager_namespace(self, storage):
-        namespaces = self._candidate_file_manager_namespaces(storage)
-        if namespaces:
-            return namespaces[0]
+        entry = self._file_manager_entry(storage)
+        if entry.get('namespace'):
+            return entry['namespace']
         raise Exception('namespace is required')
+
+    def _file_manager_entry(self, storage):
+        order = self._candidate_file_manager_namespaces(storage)
+        order_index = {namespace: index for index, namespace in enumerate(order)}
+        bindings = db.session.query(StoragePvcBinding).filter_by(storage_id=storage.id).all()
+        bindings = sorted(bindings, key=lambda item: (
+            item.status != 'Bound',
+            order_index.get(item.namespace, len(order_index)),
+            item.namespace or '',
+        ))
+        if bindings:
+            binding = bindings[0]
+            return {
+                "namespace": binding.namespace,
+                "pvc_name": binding.pvc_name or storage.pvc_name or storage.name,
+                "pv_name": binding.pv_name or '',
+                "status": binding.status or '',
+                "backend_match_status": binding.backend_match_status or '',
+            }
+        namespace = order[0] if order else ''
+        return {
+            "namespace": namespace,
+            "pvc_name": storage.pvc_name or storage.name,
+            "pv_name": '',
+            "status": '',
+            "backend_match_status": '',
+        }
 
     def _candidate_file_manager_namespaces(self, storage):
         candidates = []
-        candidates.extend(self._namespaces(storage))
         if storage.project:
-            for attr in ['pipeline_namespace', 'notebook_namespace', 'service_namespace']:
+            for attr in ['pipeline_namespace', 'service_namespace', 'notebook_namespace']:
                 try:
                     namespace = getattr(storage.project, attr)
                     if namespace:
                         candidates.append(namespace)
                 except Exception:
                     pass
-        candidates.extend(self._split_names(default_namespaces()))
+        candidates.extend([
+            conf.get('PIPELINE_NAMESPACE', 'pipeline'),
+            conf.get('SERVICE_NAMESPACE', 'service'),
+            conf.get('NOTEBOOK_NAMESPACE', 'jupyter'),
+        ])
+        candidates.extend(self._namespaces(storage))
         return list(dict.fromkeys([namespace for namespace in candidates if namespace]))
 
+    def _assert_file_manager_allowed(self, storage):
+        if storage.status == 'backend_mismatch':
+            raise Exception('storage backend mismatch, please verify shared backend before file management')
+
     def _resolve_file_manager_pvc(self, storage, k8s_client):
+        self._assert_file_manager_allowed(storage)
         pvc_name = storage.pvc_name or storage.name
         if not pvc_name:
             raise Exception('pvc_name is required')
 
         def find_pvc():
             pending_pvc = None
-            for namespace in self._candidate_file_manager_namespaces(storage):
+            checked_namespaces = []
+            bindings = db.session.query(StoragePvcBinding).filter_by(storage_id=storage.id).all()
+            order = self._candidate_file_manager_namespaces(storage)
+            order_index = {namespace: index for index, namespace in enumerate(order)}
+            bindings = sorted(bindings, key=lambda item: (
+                item.status != 'Bound',
+                order_index.get(item.namespace, len(order_index)),
+                item.namespace or '',
+            ))
+            for binding in bindings:
+                checked_namespaces.append(binding.namespace)
+                pvc = k8s_client.get_pvc(name=binding.pvc_name or pvc_name, namespace=binding.namespace)
+                if not pvc:
+                    continue
+                if pvc.get('status') == 'Bound':
+                    return binding.namespace, pvc
+                pending_pvc = (binding.namespace, pvc)
+            for namespace in order:
+                if namespace in checked_namespaces:
+                    continue
                 pvc = k8s_client.get_pvc(name=pvc_name, namespace=namespace)
                 if not pvc:
                     continue
@@ -626,6 +748,112 @@ class Storage_ModelView_Base():
             timeout=int(conf.get('STORAGE_FILE_MANAGER_POD_TIMEOUT', 30)),
         )
         return k8s_client, pod
+
+    def _ensure_file_manager_for_binding(self, storage, k8s_client, binding):
+        pod = k8s_client.ensure_storage_file_manager_pod(
+            namespace=binding.namespace,
+            storage_name=storage.name,
+            pvc_name=binding.pvc_name or storage.pvc_name or storage.name,
+            image=conf.get('STORAGE_FILE_MANAGER_IMAGE', 'busybox:1.36'),
+            mount_path='/mnt/storage',
+            timeout=int(conf.get('STORAGE_FILE_MANAGER_POD_TIMEOUT', 30)),
+        )
+        return pod
+
+    def _verified_bindings(self, storage):
+        bindings = db.session.query(StoragePvcBinding).filter_by(storage_id=storage.id).order_by(
+            StoragePvcBinding.namespace.asc()
+        ).all()
+        namespaces = set(self._namespaces(storage))
+        return [binding for binding in bindings if binding.namespace in namespaces]
+
+    def _verify_shared_storage(self, storage):
+        if len(self._namespaces(storage)) <= 1:
+            storage.status = 'shared_verified'
+            db.session.commit()
+            return {"verified": True, "message": "single namespace storage", "items": []}
+
+        if not self._verified_bindings(storage):
+            self._sync_storage(storage)
+
+        match_status = self._refresh_backend_match(storage)
+        if match_status != 'matched':
+            db.session.commit()
+            raise Exception('backend identity is {}, active shared verification is blocked'.format(match_status))
+
+        bindings = self._verified_bindings(storage)
+        if len(bindings) <= 1:
+            raise Exception('at least two namespace bindings are required')
+
+        k8s_client = self._k8s_client(storage)
+        token = '{}-{}'.format(storage.name, uuid.uuid4().hex)
+        verify_path = '/mnt/storage/.mlops-shared-verify-{}.txt'.format(uuid.uuid4().hex)
+        writer = bindings[0]
+        pods = []
+        try:
+            writer_pod = self._ensure_file_manager_for_binding(storage, k8s_client, writer)
+            pods.append(writer_pod)
+            k8s_client.exec_pod(
+                writer_pod['name'],
+                writer_pod['namespace'],
+                "printf %s {} > {}".format(self._sh_quote(token), self._sh_quote(verify_path)),
+            )
+
+            results = []
+            for binding in bindings[1:]:
+                pod = self._ensure_file_manager_for_binding(storage, k8s_client, binding)
+                pods.append(pod)
+                output = k8s_client.exec_pod(
+                    pod['name'],
+                    pod['namespace'],
+                    "cat {}".format(self._sh_quote(verify_path)),
+                )
+                matched = (output or '').strip() == token
+                results.append({
+                    "namespace": binding.namespace,
+                    "pvc_name": binding.pvc_name,
+                    "matched": matched,
+                })
+                if not matched:
+                    storage.status = 'backend_mismatch'
+                    for item in bindings:
+                        item.backend_match_status = 'mismatch'
+                        item.backend_match_message = 'active shared verification failed'
+                    db.session.commit()
+                    return {
+                        "verified": False,
+                        "writer": writer.namespace,
+                        "items": results,
+                    }
+
+            storage.status = 'shared_verified'
+            for item in bindings:
+                item.backend_match_status = 'matched'
+                item.backend_match_message = 'active shared verification passed'
+            db.session.commit()
+            return {
+                "verified": True,
+                "writer": writer.namespace,
+                "items": results,
+            }
+        except Exception:
+            db.session.rollback()
+            storage.status = 'error'
+            for item in self._verified_bindings(storage):
+                item.backend_match_status = 'error'
+                item.backend_match_message = 'active shared verification error'
+            db.session.commit()
+            raise
+        finally:
+            for pod in pods:
+                try:
+                    k8s_client.exec_pod(
+                        pod['name'],
+                        pod['namespace'],
+                        "rm -f -- {}".format(self._sh_quote(verify_path)),
+                    )
+                except Exception:
+                    pass
 
     def _normalize_storage_path(self, value, allow_root=True):
         value = (value or '/').strip()
@@ -682,21 +910,187 @@ class Storage_ModelView_Base():
         kubeconfig = clusters.get(storage.cluster, {}).get('KUBECONFIG', '') if clusters else ''
         return K8s(kubeconfig, cluster_name=storage.cluster)
 
+    def _backend_identity_from_status(self, storage, pv_status, pvc_status=None):
+        pv_status = pv_status or {}
+        pvc_status = pvc_status or {}
+        if storage.storage_type == STORAGE_TYPE_NFS:
+            nfs = pv_status.get('nfs') or {}
+            return {
+                "type": STORAGE_TYPE_NFS,
+                "server": nfs.get('server') or '',
+                "path": nfs.get('path') or '',
+            }
+
+        if storage.storage_type == STORAGE_TYPE_MINIO_JUICEFS:
+            csi = pv_status.get('csi') or {}
+            attrs = csi.get('volume_attributes') or {}
+            secret_ref = csi.get('node_publish_secret_ref') or {}
+            return {
+                "type": STORAGE_TYPE_MINIO_JUICEFS,
+                "driver": csi.get('driver') or '',
+                "secret": {
+                    "name": secret_ref.get('name') or '',
+                    "namespace": secret_ref.get('namespace') or '',
+                },
+                "filesystem": attrs.get('filesystem') or attrs.get('name') or '',
+                "bucket": attrs.get('bucket') or '',
+                "path": attrs.get('subPath') or '',
+                "legacyPath": attrs.get('path') or '',
+                "storageClassName": pv_status.get('storage_class') or pvc_status.get('storage_class') or '',
+            }
+
+        return {}
+
+    def _identity_key(self, identity):
+        return json.dumps(identity or {}, sort_keys=True, ensure_ascii=False)
+
+    def _identity_has_backend_fields(self, storage, identity):
+        identity = identity or {}
+        if storage.storage_type == STORAGE_TYPE_NFS:
+            return bool(identity.get('server') and identity.get('path'))
+        if storage.storage_type == STORAGE_TYPE_MINIO_JUICEFS:
+            secret = identity.get('secret') or {}
+            return bool(
+                identity.get('driver')
+                and secret.get('name')
+                and secret.get('namespace')
+                and identity.get('filesystem')
+                and identity.get('bucket')
+                and identity.get('path')
+            )
+        return bool(identity)
+
+    def _binding_for_namespace(self, storage, namespace):
+        binding = db.session.query(StoragePvcBinding).filter_by(
+            storage_id=storage.id,
+            namespace=namespace,
+        ).first()
+        if binding:
+            return binding
+        binding = StoragePvcBinding(storage_id=storage.id, namespace=namespace)
+        db.session.add(binding)
+        return binding
+
+    def _sync_binding_record(self, storage, namespace, pvc_status=None, pv_status=None, resource=None):
+        pvc_status = pvc_status or {}
+        pv_status = pv_status or {}
+        resource = resource or {}
+        resource_pvc = resource.get('pvc') or {}
+        resource_pv = resource.get('pv') or {}
+        pvc_name = (
+            pvc_status.get('name')
+            or resource_pvc.get('metadata', {}).get('name')
+            or storage.pvc_name
+            or storage.name
+        )
+        pv_name = (
+            pvc_status.get('volume_name')
+            or pv_status.get('name')
+            or resource_pv.get('metadata', {}).get('name')
+            or ''
+        )
+        identity = self._backend_identity_from_status(storage, pv_status, pvc_status) if pv_status else {}
+
+        binding = self._binding_for_namespace(storage, namespace)
+        binding.cluster = storage.cluster or default_cluster()
+        binding.namespace = namespace
+        binding.pvc_name = pvc_name or ''
+        binding.pv_name = pv_name or ''
+        binding.status = pvc_status.get('status') or 'Missing'
+        binding.storage_class = (
+            pvc_status.get('storage_class')
+            or pv_status.get('storage_class')
+            or storage.storage_class
+            or ''
+        )
+        binding.backend_identity = json.dumps(identity, sort_keys=True, ensure_ascii=False) if identity else '{}'
+        binding.last_checked_at = datetime.utcnow()
+        return binding
+
+    def _refresh_backend_match(self, storage):
+        bindings = db.session.query(StoragePvcBinding).filter_by(storage_id=storage.id).order_by(
+            StoragePvcBinding.namespace.asc()
+        ).all()
+        expected_namespaces = set(self._namespaces(storage))
+        bindings = [binding for binding in bindings if binding.namespace in expected_namespaces]
+        if len(bindings) <= 1:
+            for binding in bindings:
+                binding.backend_match_status = 'not_required'
+                binding.backend_match_message = 'single namespace storage'
+            return 'not_required'
+
+        identities = []
+        missing = []
+        for binding in bindings:
+            try:
+                identity = json.loads(binding.backend_identity or '{}')
+            except Exception:
+                identity = {}
+            if not self._identity_has_backend_fields(storage, identity):
+                missing.append(binding.namespace)
+            else:
+                identities.append(identity)
+
+        if missing or len(bindings) != len(expected_namespaces):
+            message = 'backend identity missing: {}'.format(','.join(missing or sorted(expected_namespaces)))
+            for binding in bindings:
+                binding.backend_match_status = 'unknown'
+                binding.backend_match_message = message
+            if storage.status == 'shared_verified':
+                storage.status = 'synced'
+            return 'unknown'
+
+        first_key = self._identity_key(identities[0])
+        matched = all(self._identity_key(identity) == first_key for identity in identities[1:])
+        if matched:
+            for binding in bindings:
+                binding.backend_match_status = 'matched'
+                binding.backend_match_message = 'backend identity matched'
+            all_bound = all(binding.status == 'Bound' for binding in bindings)
+            if all_bound:
+                storage.status = 'shared_verified'
+            elif storage.status == 'backend_mismatch':
+                storage.status = 'synced'
+            return 'matched'
+
+        for binding in bindings:
+            binding.backend_match_status = 'mismatch'
+            binding.backend_match_message = 'backend identity mismatch'
+        storage.status = 'backend_mismatch'
+        return 'mismatch'
+
+    def _prune_stale_bindings(self, storage):
+        namespaces = set(self._namespaces(storage))
+        db.session.query(StoragePvcBinding).filter(
+            StoragePvcBinding.storage_id == storage.id,
+            ~StoragePvcBinding.namespace.in_(namespaces),
+        ).delete(synchronize_session=False)
+
     def _sync_nfs_storage(self, storage):
         k8s_client = self._k8s_client(storage)
         resources = self._build_nfs_resources(storage)
         result = []
+        self._prune_stale_bindings(storage)
         for resource in resources:
             pv_status = k8s_client.create_or_patch_pv(resource['pv'])
             pvc_status = k8s_client.create_or_patch_pvc(resource['namespace'], resource['pvc'])
+            binding = self._sync_binding_record(
+                storage,
+                resource['namespace'],
+                pvc_status=pvc_status,
+                pv_status=pv_status,
+                resource=resource,
+            )
             result.append({
                 "namespace": resource['namespace'],
                 "pv": pv_status,
                 "pvc": pvc_status,
+                "binding_id": binding.id,
             })
         storage.status = 'synced'
         storage.pv_name = ','.join([resource['pv']['metadata']['name'] for resource in resources])
         storage.pvc_name = storage.pvc_name or storage.name
+        self._refresh_backend_match(storage)
         db.session.commit()
         return result
 
@@ -705,20 +1099,38 @@ class Storage_ModelView_Base():
         resources = self._build_minio_juicefs_resources(storage)
         result = []
         pv_names = []
-        minio_config = self._load_minio_juicefs_config(storage)
+        minio_config = self._apply_storage_class_secret_ref(storage, self._load_minio_juicefs_config(storage))
+        self._prune_stale_bindings(storage)
         for resource in resources:
+            pv_status = None
+            if resource.get('pv'):
+                pv_status = k8s_client.create_or_patch_pv(resource['pv'])
+                if pv_status.get('name'):
+                    pv_names.append(pv_status['name'])
             pvc_status = k8s_client.create_or_patch_pvc(resource['namespace'], resource['pvc'])
             if pvc_status.get('volume_name'):
                 pv_names.append(pvc_status['volume_name'])
+            if not pv_status and pvc_status.get('volume_name'):
+                pv_status = k8s_client.get_pv(pvc_status['volume_name'])
+            binding = self._sync_binding_record(
+                storage,
+                resource['namespace'],
+                pvc_status=pvc_status,
+                pv_status=pv_status,
+                resource=resource,
+            )
             result.append({
                 "namespace": resource['namespace'],
+                "pv": pv_status,
                 "pvc": pvc_status,
+                "binding_id": binding.id,
             })
         storage.status = 'synced'
         storage.pv_name = ','.join(sorted(set(pv_names)))
         storage.pvc_name = storage.pvc_name or storage.name
         storage.storage_class = minio_config.get('storage_class') or 'juicefs-sc'
         storage.config = json.dumps({STORAGE_TYPE_MINIO_JUICEFS: minio_config}, indent=4, ensure_ascii=False)
+        self._refresh_backend_match(storage)
         db.session.commit()
         return result
 
@@ -729,6 +1141,51 @@ class Storage_ModelView_Base():
             return self._sync_minio_juicefs_storage(storage)
         raise Exception('unsupported storage_type')
 
+    def _refresh_storage_bindings(self, storage):
+        k8s_client = self._k8s_client(storage)
+        result = []
+        for resource in self._build_resources(storage):
+            pv_status = None
+            if resource.get('pv'):
+                pv_status = k8s_client.get_pv(resource['pv']['metadata']['name'])
+            pvc_status = k8s_client.get_pvc(resource['pvc']['metadata']['name'], resource['namespace'])
+            if not pv_status and pvc_status.get('volume_name'):
+                pv_status = k8s_client.get_pv(pvc_status['volume_name'])
+            binding = self._sync_binding_record(
+                storage,
+                resource['namespace'],
+                pvc_status=pvc_status,
+                pv_status=pv_status,
+                resource=resource,
+            )
+            result.append({
+                "namespace": resource['namespace'],
+                "pv": pv_status,
+                "pvc": pvc_status,
+                "binding": {
+                    "id": binding.id,
+                    "status": binding.status,
+                    "backend_match_status": binding.backend_match_status,
+                    "backend_match_message": binding.backend_match_message,
+                },
+            })
+        self._refresh_backend_match(storage)
+        binding_map = {
+            binding.namespace: binding
+            for binding in db.session.query(StoragePvcBinding).filter_by(storage_id=storage.id).all()
+        }
+        for item in result:
+            binding = binding_map.get(item.get('namespace'))
+            if binding:
+                item['binding'] = {
+                    "id": binding.id,
+                    "status": binding.status,
+                    "backend_match_status": binding.backend_match_status,
+                    "backend_match_message": binding.backend_match_message,
+                }
+        db.session.commit()
+        return result
+
     def _delete_storage_resources(self, storage):
         if storage.storage_type not in [STORAGE_TYPE_NFS, STORAGE_TYPE_MINIO_JUICEFS]:
             return []
@@ -737,24 +1194,37 @@ class Storage_ModelView_Base():
         resources = self._build_resources(storage)
         result = []
         pv_names = set(self._split_names(storage.pv_name))
+        bindings = db.session.query(StoragePvcBinding).filter_by(storage_id=storage.id).all()
 
-        for resource in resources:
-            pvc = resource.get('pvc') or {}
-            pvc_name = pvc.get('metadata', {}).get('name') or storage.pvc_name or storage.name
-            namespace = resource.get('namespace')
-            if pvc_name and namespace:
-                pvc_status = k8s_client.get_pvc(name=pvc_name, namespace=namespace)
+        if bindings:
+            for binding in bindings:
+                if binding.pv_name:
+                    pv_names.add(binding.pv_name)
+                pvc_status = k8s_client.get_pvc(name=binding.pvc_name, namespace=binding.namespace)
                 if pvc_status.get('volume_name'):
                     pv_names.add(pvc_status['volume_name'])
                 result.append({
-                    "namespace": namespace,
-                    "pvc": k8s_client.delete_pvc(namespace=namespace, name=pvc_name),
+                    "namespace": binding.namespace,
+                    "pvc": k8s_client.delete_pvc(namespace=binding.namespace, name=binding.pvc_name),
                 })
+        else:
+            for resource in resources:
+                pvc = resource.get('pvc') or {}
+                pvc_name = pvc.get('metadata', {}).get('name') or storage.pvc_name or storage.name
+                namespace = resource.get('namespace')
+                if pvc_name and namespace:
+                    pvc_status = k8s_client.get_pvc(name=pvc_name, namespace=namespace)
+                    if pvc_status.get('volume_name'):
+                        pv_names.add(pvc_status['volume_name'])
+                    result.append({
+                        "namespace": namespace,
+                        "pvc": k8s_client.delete_pvc(namespace=namespace, name=pvc_name),
+                    })
 
-            pv = resource.get('pv') or {}
-            pv_name = pv.get('metadata', {}).get('name')
-            if pv_name:
-                pv_names.add(pv_name)
+                pv = resource.get('pv') or {}
+                pv_name = pv.get('metadata', {}).get('name')
+                if pv_name:
+                    pv_names.add(pv_name)
 
         for pv_name in sorted(pv_names):
             result.append({
@@ -768,18 +1238,7 @@ class Storage_ModelView_Base():
         try:
             self._assert_admin()
             storage = self._get_item(storage_id)
-            k8s_client = self._k8s_client(storage)
-            result = []
-            for resource in self._build_resources(storage):
-                pv_status = None
-                if resource.get('pv'):
-                    pv_status = k8s_client.get_pv(resource['pv']['metadata']['name'])
-                pvc_status = k8s_client.get_pvc(resource['pvc']['metadata']['name'], resource['namespace'])
-                result.append({
-                    "namespace": resource['namespace'],
-                    "pv": pv_status,
-                    "pvc": pvc_status,
-                })
+            result = self._refresh_storage_bindings(storage)
             return self.response(200, status=0, message='success', result=result)
         except Exception as e:
             return self.response_error(500, message=str(e))
@@ -835,15 +1294,28 @@ class Storage_ModelView_Base():
         except Exception as e:
             return self.response_error(500, message=str(e))
 
+    @expose_api(description="验证多命名空间存储共享", url="/verify_shared/<storage_id>", methods=["POST"])
+    def verify_shared(self, storage_id):
+        try:
+            self._assert_admin()
+            storage = self._get_item(storage_id)
+            result = self._verify_shared_storage(storage)
+            return self.response(200, status=0, message='success', result=result)
+        except Exception as e:
+            return self.response_error(500, message=str(e))
+
     @expose_api(description="存储资源文件管理页面", url="/files/<storage_id>", methods=["GET"])
     def files(self, storage_id):
         try:
             storage = self._get_item(storage_id)
             self._check_storage_permission(storage)
+            self._assert_file_manager_allowed(storage)
+            file_entry = self._file_manager_entry(storage)
             return render_template(
                 'storage_files.html',
                 storage=storage,
-                namespace=self._file_manager_namespace(storage),
+                namespace=file_entry.get('namespace'),
+                file_entry=file_entry,
             )
         except Exception as e:
             return self.response_error(500, message=str(e))
