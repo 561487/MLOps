@@ -107,6 +107,18 @@
           "placeholder": "",
           "describe": "子流程节点要调用的Pipeline名称",
           "editable": 1
+        },
+        "input_path": {
+          "type": "str",
+          "item_type": "str",
+          "label": "评估结果路径",
+          "require": 0,
+          "choice": [],
+          "range": "",
+          "default": "",
+          "placeholder": "/mnt/result/metrics.json",
+          "describe": "上游任务输出的结果文件路径，用于读取评测指标等数据",
+          "editable": 1
         }
       }
     }
