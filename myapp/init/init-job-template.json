@@ -323,12 +323,12 @@
   },
   "calculate-correlation": {
     "project_name": "特征处理",
-    "image_name": "python:3.9",
+    "image_name": "10.121.177.20:8082/mlops/feature-process:latest",
     "gitpath": "/job-template/job/feature-process",
-    "image_describe": "计算列的相关性计算",
+    "image_describe": "计算特征向量间的相关性计算",
     "job_template_name": "calculate-correlation",
-    "job_template_describe": "特征向量间的相关性计算(企业版)",
-    "job_template_command": "python3 launcher.py",
+    "job_template_describe": "特征向量间的相关性计算",
+    "job_template_command": "python3 launcher.py --process_type calculate_correlation",
     "job_template_volume": "",
     "job_template_account": "",
     "job_template_env": "",
@@ -337,7 +337,46 @@
       "rec_job_template": "自定义镜像",
       "help_url": "/job-template/job/feature-process"
     },
-    "job_template_args": {}
+    "job_template_args": {
+      "输入输出": {
+        "--input_file_a": {
+          "type": "str",
+          "item_type": "str",
+          "label": "特征向量A文件路径",
+          "require": 1,
+          "choice": [],
+          "range": "",
+          "default": "/mnt/{{creator}}/data/vector_a.json",
+          "placeholder": "/mnt/admin/data/vector_a.json",
+          "describe": "特征向量A文件路径，JSON 数组格式，如 [0.12, 0.85, 0.33, ...]",
+          "editable": 1
+        },
+        "--input_file_b": {
+          "type": "str",
+          "item_type": "str",
+          "label": "特征向量B文件路径",
+          "require": 1,
+          "choice": [],
+          "range": "",
+          "default": "/mnt/{{creator}}/data/vector_b.json",
+          "placeholder": "/mnt/admin/data/vector_b.json",
+          "describe": "特征向量B文件路径，JSON 数组格式，如 [0.45, 0.22, 0.78, ...]",
+          "editable": 1
+        },
+        "--output_file": {
+          "type": "str",
+          "item_type": "str",
+          "label": "输出文件路径",
+          "require": 1,
+          "choice": [],
+          "range": "",
+          "default": "/mnt/{{creator}}/data/correlation_result.json",
+          "placeholder": "/mnt/admin/data/correlation_result.json",
+          "describe": "相关性计算结果输出路径（JSON格式，包含 correlation_score 字段）",
+          "editable": 1
+        }
+      }
+    }
   },
   "feature-combine": {
     "project_name": "特征处理",
@@ -539,22 +578,111 @@
   },
   "sample": {
     "project_name": "特征处理",
-    "image_name": "python:3.9",
-    "gitpath": "/job-template/job/feature-process-all",
+    "image_name": "10.121.177.20:8082/mlops/feature-process:latest",
+    "gitpath": "/job-template/job/feature-process",
     "image_describe": "特征处理相关函数",
     "job_template_name": "sample",
-    "job_template_describe": "采样，包括随机采样、分层采样、过采样、欠采样(企业版)",
-    "job_template_command": "python3 launcher.py",
+    "job_template_describe": "采样，包括随机采样、分层采样、过采样、欠采样",
+    "job_template_command": "python3 launcher.py --process_type sample",
     "job_template_volume": "",
     "job_template_account": "",
     "job_template_env": "",
     "job_template_expand": {
       "index": 8,
       "rec_job_template": "自定义镜像",
-      "help_url": "/job-template/job/feature-process-all"
+      "help_url": "/job-template/job/feature-process"
     },
-    "job_template_args": {}
-  },
+    "job_template_args": {
+      "输入输出": {
+        "--input_file": {
+          "type": "str",
+          "item_type": "str",
+          "label": "输入数据路径",
+          "require": 1,
+          "choice": [],
+          "range": "",
+          "default": "/mnt/{{creator}}/data/input.csv",
+          "placeholder": "/mnt/admin/data/input.csv",
+          "describe": "输入数据文件路径，支持CSV格式",
+          "editable": 1
+        },
+        "--output_file": {
+          "type": "str",
+          "item_type": "str",
+          "label": "输出文件路径",
+          "require": 1,
+          "choice": [],
+          "range": "",
+          "default": "/mnt/{{creator}}/data/sample_output.csv",
+          "placeholder": "/mnt/admin/data/sample_output.csv",
+          "describe": "采样结果输出文件路径",
+          "editable": 1
+        },
+        "--sample_type": {
+          "type": "str",
+          "item_type": "str",
+          "label": "采样类型",
+          "require": 1,
+          "choice": ["random", "stratified", "oversampling", "undersampling"],
+          "range": "",
+          "default": "random",
+          "placeholder": "",
+          "describe": "random=随机采样, stratified=分层采样, oversampling=过采样(SMOTE), undersampling=欠采样",
+          "editable": 1
+        }
+      },
+      "采样参数": {
+        "--sample_rate": {
+          "type": "str",
+          "item_type": "str",
+          "label": "采样比例/数量",
+          "require": 0,
+          "choice": [],
+          "range": "",
+          "default": "0.5",
+          "placeholder": "0.5",
+          "describe": "random/stratified/undersampling时为目标比例(0~1)或行数，oversampling时为少数类扩展比例",
+          "editable": 1
+        },
+        "--stratify_column": {
+          "type": "str",
+          "item_type": "str",
+          "label": "分层/标签列",
+          "require": 0,
+          "choice": [],
+          "range": "",
+          "default": "",
+          "placeholder": "label",
+          "describe": "stratified时的分层依据列，over/undersampling时的类别标签列",
+          "editable": 1
+        },
+        "--random_seed": {
+          "type": "str",
+          "item_type": "str",
+          "label": "随机种子",
+          "require": 0,
+          "choice": [],
+          "range": "",
+          "default": "42",
+          "placeholder": "42",
+          "describe": "随机种子，保证采样可复现",
+          "editable": 1
+        },
+        "--replace": {
+          "type": "bool",
+          "item_type": "",
+          "label": "是否放回",
+          "require": 0,
+          "choice": [],
+          "range": "",
+          "default": false,
+          "placeholder": "",
+          "describe": "随机采样时是否允许重复采样（有放回）",
+          "editable": 1
+        }
+      }
+    }
+  }, 
   "standardize-normalize": {
     "project_name": "特征处理",
     "image_name": "python:3.9",
