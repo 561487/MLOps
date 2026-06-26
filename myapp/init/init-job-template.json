@@ -2297,7 +2297,7 @@
   },
     "llama-factory": {
     "project_name": "模型处理",
-    "image_name": "10.121.177.20:8082/mlops/llama_factory:20250628",
+    "image_name": "10.121.177.20:8082/mlops/llama_factory:20250710",
     "gitpath": "/job-template/job/llama_factory",
     "image_describe": "llama-factory微调",
     "job_template_name": "llama-factory",
@@ -2332,13 +2332,25 @@
         "--dataset": {
           "type": "str",
           "item_type": "str",
-          "label": "数据集参数",
-          "require": 1,
+          "label": "数据集名称",
+          "require": 0,
           "choice": [],
           "range": "",
           "default": "",
-          "placeholder": "alpaca",
-          "describe": "训练数据集，支持多个用逗号分隔",
+          "placeholder": "identity",
+          "describe": "训练数据集名称，对应dataset_info.json中的数据集名，支持多个用逗号分隔",
+          "editable": 1
+        },
+        "--dataset_dir": {
+          "type": "str",
+          "item_type": "str",
+          "label": "数据集目录",
+          "require": 0,
+          "choice": [],
+          "range": "",
+          "default": "",
+          "placeholder": "/mnt/admin/data/alpaca",
+          "describe": "数据集目录路径，包含数据集JSON文件和dataset_info.json。留空则使用默认identity数据集",
           "editable": 1
         },
         "--cutoff_len": {
@@ -2439,6 +2451,20 @@
           "default": "4",
           "placeholder": "",
           "describe": "梯度累积步数",
+          "editable": 1
+        }
+      },
+      "输出参数": {
+        "--output_dir": {
+          "type": "str",
+          "item_type": "str",
+          "label": "模型保存路径",
+          "require": 0,
+          "choice": [],
+          "range": "",
+          "default": "",
+          "placeholder": "/mnt/storage/models-storage/output/lora",
+          "describe": "模型保存路径，不填写则自动生成",
           "editable": 1
         }
       }
