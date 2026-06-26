@@ -13,6 +13,15 @@ import os
 KFJ_CREATOR = os.getenv('KFJ_CREATOR', 'admin')
 
 host = os.getenv('HOST',os.getenv('KFJ_MODEL_REPO_API_URL','http://kubeflow-dashboard.infra')).strip('/')
+LEGACY_WORKSPACE_VOLUME_MOUNT = 'kubeflow-user-workspace(pvc):/mnt'
+
+
+def resolve_volume_mount(volume_mount):
+    volume_mount = (volume_mount or '').strip()
+    task_volume_mount = os.getenv('KFJ_TASK_VOLUME_MOUNT', '').strip()
+    if task_volume_mount and (not volume_mount or volume_mount.rstrip('/') == LEGACY_WORKSPACE_VOLUME_MOUNT):
+        return task_volume_mount
+    return volume_mount
 
 @pysnooper.snoop()
 def deploy(**kwargs):
@@ -77,7 +86,7 @@ def deploy(**kwargs):
             'min_replicas': kwargs['replicas'],
             'max_replicas': kwargs['replicas'],
             'ports': kwargs['ports'],
-            'volume_mount': kwargs['volume_mount'],
+            'volume_mount': resolve_volume_mount(kwargs['volume_mount']),
             'inference_config': kwargs['inference_config'],
             'host': kwargs['host'],
             'hpa': kwargs['hpa'],
