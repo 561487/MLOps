@@ -4,6 +4,7 @@ import json
 import secrets
 import time
 import uuid
+from urllib.parse import urlparse
 
 import requests
 from flask import Response, g, jsonify, request
@@ -115,13 +116,58 @@ def normalize_base_url(value):
     value = (value or '').strip()
     if not value:
         return ''
-    if value.startswith('http://') or value.startswith('https://'):
-        return value.rstrip('/')
-    return 'http://' + value.rstrip('/')
+    if value.startswith(('/', ':')):
+        return ''
+    base_url = value if value.startswith(('http://', 'https://')) else 'http://' + value
+    parsed_url = urlparse(base_url)
+    if not parsed_url.hostname:
+        return ''
+    return base_url.rstrip('/')
+
+
+def external_service_host(service):
+    service_external_ip = ''
+    if service.project and service.project.expand:
+        service_external_ip = json.loads(service.project.expand).get('SERVICE_EXTERNAL_IP', '')
+        if isinstance(service_external_ip, list):
+            service_external_ip = service_external_ip[0] if service_external_ip else ''
+    if not service_external_ip and service.project:
+        service_external_ip = service.project.cluster.get('HOST', '')
+    if not service_external_ip:
+        service_external_ip = conf.get('SERVICE_EXTERNAL_IP', [])
+        service_external_ip = service_external_ip[0] if service_external_ip else ''
+    if not service_external_ip and request:
+        service_external_ip = request.host
+
+    service_external_ip = (service_external_ip or '').split('|')[0].strip()
+    if service_external_ip.startswith(('http://', 'https://')):
+        service_external_ip = urlparse(service_external_ip).netloc
+    return service_external_ip.split(':')[0].strip()
+
+
+def external_service_port(service):
+    from myapp.utils import core
+    port_str = conf.get('INFERENCE_PORT', '20000+10*ID').replace('ID', str(service.id))
+    return core.get_not_black_port(int(eval(port_str)))[0]
+
+
+def external_service_base_url(service):
+    host = external_service_host(service)
+    if not host:
+        return ''
+    return f'http://{host}:{external_service_port(service)}'
 
 
 def service_base_url(service):
     service_host = normalize_base_url(service.host)
+    service_host_url = urlparse(service_host) if service_host else None
+    if service_host and service_host_url and service_host_url.port:
+        return service_host
+
+    external_base_url = external_service_base_url(service)
+    if external_base_url:
+        return external_base_url
+
     if service_host:
         return service_host
 
@@ -137,6 +183,53 @@ def join_openai_path(base_url, endpoint):
     if base_url.endswith(f'/v1/{endpoint}'):
         return base_url
     return f'{base_url}/v1/{endpoint}'
+
+
+def build_gateway_example(gateway, base_url=None):
+    api_version = conf.get('LLM_GATEWAY_API_VERSION', '1')
+    if not base_url:
+        base_url = request.host_url.strip('/') + f'/llm/api/{api_version}/v1'
+    url = base_url + '/chat/completions'
+    payload = {
+        "model": gateway.model_name,
+        "messages": [{"role": "user", "content": "你是谁？"}],
+        "temperature": 0.7,
+        "stream": False,
+    }
+    payload_text = json.dumps(payload, ensure_ascii=False, separators=(',', ':'))
+    curl = (
+        f'curl -X POST "{url}" \\\n'
+        f'  -H "Content-Type: application/json" \\\n'
+        f'  -H "Authorization: Bearer {gateway.api_key}" \\\n'
+        f"  -d '{payload_text}'"
+    )
+    python_code = (
+        'from openai import OpenAI\n\n'
+        'client = OpenAI(\n'
+        f'    api_key="{gateway.api_key}",\n'
+        f'    base_url="{base_url}",\n'
+        ')\n\n'
+        'response = client.chat.completions.create(\n'
+        f'    model="{gateway.model_name}",\n'
+        '    messages=[{"role": "user", "content": "你是谁？"}],\n'
+        '    temperature=0.7,\n'
+        '    stream=False,\n'
+        ')\n'
+        'print(response.choices[0].message.content)'
+    )
+    return {
+        "url": url,
+        "base_url": base_url,
+        "model": gateway.model_name,
+        "api_key": gateway.api_key,
+        "curl": curl,
+        "python": {
+            "API_SECRET_KEY": gateway.api_key,
+            "BASE_URL": base_url,
+            "MODEL_NAME": gateway.model_name,
+        },
+        "python_code": python_code,
+    }
 
 
 def backend_chat_url(gateway):
@@ -335,6 +428,9 @@ class LlmGateway_ModelView_Base():
     def pre_update_req(self, req_json, *args, **kwargs):
         return self._normalize_req(req_json, kwargs.get('src_item'))
 
+    def pre_delete(self, item):
+        db.session.query(LlmGatewayLog).filter_by(gateway_id=item.id).delete(synchronize_session=False)
+
     def set_columns_related(self, exist_add_args, response_add_columns):
         if 'api_key' in response_add_columns and not exist_add_args.get('api_key'):
             response_add_columns['api_key']['default'] = generate_api_key()
@@ -346,34 +442,7 @@ class LlmGateway_ModelView_Base():
         gateway = db.session.query(LlmGateway).filter_by(id=int(gateway_id)).first()
         if not gateway:
             return self.response(404, status=1, message='gateway not found')
-        api_version = conf.get('LLM_GATEWAY_API_VERSION', '1')
-        base_url = request.host_url.strip('/') + f'/llm/api/{api_version}/v1'
-        url = base_url + '/chat/completions'
-        payload = {
-            "model": gateway.model_name,
-            "messages": [{"role": "user", "content": "你是谁？"}],
-            "temperature": 0.7,
-            "stream": False,
-        }
-        payload_text = json.dumps(payload, ensure_ascii=False, indent=4)
-        curl = (
-            f"curl -X POST {url} \\\n"
-            f"  -H 'Content-Type: application/json' \\\n"
-            f"  -H 'Authorization: Bearer {gateway.api_key}' \\\n"
-            f"  -d '{payload_text}'"
-        )
-        return self.response(200, status=0, message='success', result={
-            "url": url,
-            "base_url": base_url,
-            "model": gateway.model_name,
-            "api_key": gateway.api_key,
-            "curl": curl,
-            "python": {
-                "API_SECRET_KEY": gateway.api_key,
-                "BASE_URL": base_url,
-                "MODEL_NAME": gateway.model_name,
-            }
-        })
+        return self.response(200, status=0, message='success', result=build_gateway_example(gateway))
 
     @expose_api(description="调用测试", url="/test/<gateway_id>", methods=["POST", "GET"])
     def test(self, gateway_id):

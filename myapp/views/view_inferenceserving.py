@@ -29,6 +29,8 @@ from wtforms import SelectField, StringField
 from flask_appbuilder.fieldwidgets import BS3TextFieldWidget, Select2ManyWidget, Select2Widget
 from myapp.forms import MyBS3TextAreaFieldWidget, MySelect2Widget, MyBS3TextFieldWidget, MySelectMultipleField
 from myapp.views.view_team import Project_Join_Filter, filter_join_org_project
+from myapp.models.model_team import Project
+from myapp.utils.storage_volume import available_volume_choices, filter_selected_volume_mount, split_volume_mount
 from flask import (
     flash,
     g,
@@ -49,15 +51,20 @@ conf = app.config
 # 推理服务的各种配置
 
 INFERNENCE_MODEL_PATH = {
-    "ml-server": "/mnt/.../$model_name.pkl",
-    "tfserving": "/mnt/.../saved_model",
-    "torch-server": "/mnt/.../$model_name.mar",
-    "triton-server": "onnx:/mnt/.../model.onnx(model.plan,model.bin,model.savedmodel/,model.pt,model.dali)"
+    "ml-server": "/app",
+    "vllm": "/mnt/storage/models-storage/models/$model_name",
+    "sglang": "/mnt/storage/models-storage/models/$model_name",
+    "tfserving": "/mnt/storage/models-storage/models/saved_model",
+    "torch-server": "/mnt/storage/models-storage/models/$model_name.mar",
+    "triton-server": "onnx:/mnt/storage/models-storage/models/model.onnx(model.plan,model.bin,model.savedmodel/,model.pt,model.dali)"
 }
 
 
 # 推理服务的各种配置
 INFERNENCE_HOST={
+    "ml-server": "/v2/models/$model_name",
+    "vllm": "/v1/models/",
+    "sglang": "/v1/models/",
     "tfserving":"/v1/models/$model_name/metadata",
     "torch-server":":8081/models",
     "triton-server":'/v2/models/$model_name'
@@ -67,15 +74,22 @@ INFERNENCE_CONFIGMAP={
     "torch-server" : "---config.properties\n\ninference_address=http://0.0.0.0:8080\nmanagement_address=http://0.0.0.0:8081\nmetrics_address=http://0.0.0.0:8082\ncors_allowed_origin=*\ncors_allowed_methods=GET, POST, PUT, OPTIONS\ncors_allowed_headers=X-Custom-Header\nnumber_of_netty_threads=32\nenable_metrics_api=true\njob_queue_size=1000\nenable_envvars_config=true\nasync_logging=true\ndefault_response_timeout=120\nmax_request_size=6553500\n"
 }
 INFERNENCE_COMMAND={
+    "ml-server": "mlserver start /mnt/storage/models-storage/models/$model_name",
+    "vllm": "python3 -m vllm.entrypoints.openai.api_server --trust-remote-code --model $model_path --host 0.0.0.0 --port 8000 --served-model-name $model_name",
+    "sglang": "python3 -m sglang.launch_server --trust-remote-code --model-path $model_path --host 0.0.0.0 --port 30000 --served-model-name $model_name",
     "tfserving":"/usr/bin/tf_serving_entrypoint.sh --model_config_file=/config/models.config --monitoring_config_file=/config/monitoring.config --platform_config_file=/config/platform.config --rest_api_num_threads=300 --enable_batching=true",
     "torch-server":"cp $model_path /models/$model_name.mar && torchserve --start --model-store /models/ --models $model_name=$model_name.mar --ts-config=/config/config.properties --foreground",
     "triton-server":'tritonserver --model-repository=/models/ --strict-model-config=true --log-verbose=1',
 }
 INFERNENCE_ENV={
+    "ml-server": ["MLSERVER_WORKERS=4", "MLSERVER_HTTP_PORT=8080"],
     "tfserving":['TF_CPP_VMODULE=http_server=1','TZ=Asia/Shanghai']
 }
 
 INFERNENCE_PORTS={
+    "ml-server": "8080",
+    "vllm": "8000",
+    "sglang": "30000",
     "tfserving":'8501',
     "torch-server":"8080,8081",
     "triton-server":"8000,8002"
@@ -86,10 +100,28 @@ INFERNENCE_METRICS={
     "triton-server":"8002:/metrics"
 }
 INFERNENCE_HEALTH={
+    "ml-server": "8080:/v2/health/ready",
+    "vllm": "8000:/v1/models/",
+    "sglang": "30000:/health",
     "tfserving":'8501:/v1/models/$model_name/versions/$model_version/metadata',
     "torch-server":"8080:/ping",
     "triton-server":"8000:/v2/health/ready"
 }
+
+
+def normalize_inference_ports(service):
+    ports = (service.ports or '').replace('，', ',').strip().strip(',')
+    default_ports = INFERNENCE_PORTS.get(service.service_type, '')
+    if not ports:
+        return default_ports
+
+    default_first_port = default_ports.split(',')[0].strip() if default_ports else ''
+    if ports == '80' and default_first_port and default_first_port != '80':
+        command = service.command or ''
+        health = service.health or ''
+        if f'--port {default_first_port}' in command or health.startswith(default_first_port + ':'):
+            return default_ports
+    return ports
 
 
 sidecars={
@@ -172,7 +204,7 @@ class InferenceService_ModelView_base():
 
     base_filters = [["id", InferenceService_Filter, lambda: []]]
 
-    service_type_choices = ['serving', 'tfserving', 'torch-server', 'triton-server','ml-server(企业版)',  'vllm(企业版)', 'vllm-distributed(企业版)', 'ollama(企业版)', 'mindie(企业版)', 'mindie-distributed(企业版)']
+    service_type_choices = ['serving', 'ml-server', 'tfserving', 'torch-server', 'triton-server', 'vllm', 'sglang', 'vllm-distributed', 'ollama', 'mindie', 'mindie-distributed']
     spec_label_columns = {
         "inference_host_url": _("域名:需要泛域名支持，调试时域名(debug.xx.xx.xx.xx)")
     }
@@ -183,6 +215,8 @@ ml-server：支持sklearn和xgb导出的模型，需按文档设置ml推理服�
 tfserving：仅支持添加了服务签名的saved_model目录地址，例如：/mnt/xx/../saved_model/
 torch-server：torch-model-archiver编译后的mar模型文件，需保存模型结构和模型参数，例如：/mnt/xx/../xx.mar或torch script保存的模型
 triton-server：框架:地址。onnx:模型文件地址model.onnx，pytorch:torchscript模型文件地址model.pt，tf:模型目录地址saved_model，tensorrt:模型文件地址model.plan
+vllm：支持大语言模型 OpenAI API 兼容推理服务，模型地址通常为本地模型目录或模型仓库路径
+sglang：支持大语言模型高性能推理服务，模型地址通常为本地模型目录或模型仓库路径
 '''.strip()
 
 
@@ -290,12 +324,12 @@ triton-server：框架:地址。onnx:模型文件地址model.onnx，pytorch:torc
             widget=BS3TextFieldWidget(),
             validators=[Regexp('^[0-9a-z:,%]*$')]
         ),
-        'volume_mount': StringField(
-            _('挂载'),
+        'volume_mount': MySelectMultipleField(
+            _('挂载卷'),
             default='',
-            description= _('外部挂载，格式:<br>$pvc_name1(pvc):/$container_path1,$hostpath1(hostpath):/$container_path2<br>注意pvc会自动挂载对应目录下的个人username子目录'),
-            widget=BS3TextFieldWidget(),
-            validators=[Regexp('^[\x00-\x7F]*$')]
+            description= _('选择项目默认挂载卷或已同步到服务命名空间的存储资源'),
+            widget=MySelect2Widget(multiple=True),
+            choices=[],
         ),
         'model_path': StringField(
             _('模型地址'),
@@ -426,15 +460,34 @@ triton-server：框架:地址。onnx:模型文件地址model.onnx，pytorch:torc
         self.default_filter = {
             "created_by": g.user.id
         }
-        # 修改的时候管理员可以在上面添加一些特殊的挂载配置，适应一些特殊情况
-        if not conf.get('ENABLE_USER_VOLUME',False) and not g.user.is_admin():
-            self.edit_columns = self.columns
-            self.add_columns = self.columns
-        else:
-            self.add_columns = self.columns + ['volume_mount']
-            self.edit_columns = self.columns + ['volume_mount']
+        self.add_columns = self.columns + ['volume_mount']
+        self.edit_columns = self.columns + ['volume_mount']
+        self._set_inference_volume_mount_field(item)
 
     pre_update_web=pre_add_web
+
+    def _service_storage_namespace(self, project=None):
+        if project and project.service_namespace:
+            return project.service_namespace
+        return conf.get('SERVICE_NAMESPACE', 'service')
+
+    def _set_inference_volume_mount_field(self, item=None, project=None):
+        project = project or (item.project if item else None)
+        current_volume_mount = item.volume_mount if item else ''
+        if not current_volume_mount and project:
+            current_volume_mount = project.volume_mount
+        self.add_form_extra_fields['volume_mount'] = MySelectMultipleField(
+            _('挂载卷'),
+            default=current_volume_mount,
+            description=_('选择项目默认挂载卷或已同步到服务命名空间的存储资源'),
+            widget=MySelect2Widget(multiple=True),
+            choices=available_volume_choices(
+                g.user,
+                project=project,
+                namespace=self._service_storage_namespace(project),
+                current_volume_mount=current_volume_mount
+            ),
+        )
 
     # @pysnooper.snoop()
     def tfserving_model_config(self, model_name, model_version, model_path):
@@ -711,24 +764,14 @@ output %s
             item.name = item.name.replace("_", "-")
         if not item.model_path:
             item.model_path = ''
-        if not item.volume_mount:
-            item.volume_mount = item.project.volume_mount
-        else:
-            if conf.get('ENABLE_USER_VOLUME',False) and not g.user.is_admin():
-                volume_mounts_temp = re.split(',|;', item.volume_mount)
-                volume_mount_arr=[]
-                for volume_mount in volume_mounts_temp:
-                    match = re.search(r'\((.*?)\)', volume_mount)
-                    if match:
-                        volume_type = match.group(1)
-                        re_str = conf.get('ENABLE_USER_VOLUME_CONFIG', {}).get(volume_type, '')
-                        if re_str:
-                            if re.match(re_str, volume_mount):
-                                volume_mount_arr.append(volume_mount)
-
-                item.volume_mount = ','.join(volume_mount_arr).strip(',')
-            # 合并项目组的挂载
-            item.volume_mount = core.merge_volume_mount(item.project.volume_mount,item.volume_mount)
+        selected_volume_mount = ','.join(split_volume_mount(item.volume_mount))
+        selected_volume_mount = filter_selected_volume_mount(
+            g.user,
+            item.project,
+            selected_volume_mount,
+            namespace=self._service_storage_namespace(item.project)
+        )
+        item.volume_mount = core.merge_volume_mount(item.project.volume_mount, selected_volume_mount)
 
 
         self.use_expand(item)
@@ -1338,6 +1381,10 @@ class InferenceService_ModelView_Api(InferenceService_ModelView_base, MyappModel
     # @pysnooper.snoop()
     def set_columns_related(self, exist_add_args, response_add_columns):
         exist_service_type = exist_add_args.get('service_type', '')
+        project_value = exist_add_args.get('project') or exist_add_args.get('project_id') or {}
+        if isinstance(project_value, dict):
+            project_value = project_value.get('id') or project_value.get('value')
+        project = db.session.query(Project).filter_by(id=int(project_value)).first() if str(project_value).isdigit() else None
 
         response_add_columns['images']['values'] = [{"id":x,"value":x} for x in conf.get('INFERNENCE_IMAGES',{}).get(exist_service_type,[])]
         response_add_columns['images']['default'] = ''
@@ -1349,6 +1396,24 @@ class InferenceService_ModelView_Api(InferenceService_ModelView_base, MyappModel
         response_add_columns['ports']['default'] = INFERNENCE_PORTS.get(exist_service_type,'80')
         response_add_columns['metrics']['default'] = INFERNENCE_METRICS.get(exist_service_type,'')
         response_add_columns['health']['default'] = INFERNENCE_HEALTH.get(exist_service_type,'')
+
+        if 'volume_mount' in response_add_columns:
+            current_volume_mount = exist_add_args.get('volume_mount') or (project.volume_mount if project else '')
+            choices = available_volume_choices(
+                g.user,
+                project=project,
+                namespace=self._service_storage_namespace(project),
+                current_volume_mount=current_volume_mount
+            )
+            response_add_columns['volume_mount'].update({
+                "label": _('挂载卷'),
+                "description": _('选择项目默认挂载卷或已同步到服务命名空间的存储资源'),
+                "type": "Select",
+                "ui-type": "select2",
+                "default": split_volume_mount(current_volume_mount),
+                "choices": choices,
+                "values": [{"id": choice[0], "value": choice[1]} for choice in choices],
+            })
 
         # if exist_service_type!='triton-server' and "inference_config" in response_add_columns:
         #     del response_add_columns['inference_config']
