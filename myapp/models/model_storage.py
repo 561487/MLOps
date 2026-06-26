@@ -3,7 +3,7 @@ import json
 from flask import Markup
 from flask_appbuilder import Model
 from flask_babel import lazy_gettext as _
-from sqlalchemy import Column, ForeignKey, Integer, String, Text
+from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import relationship
 
 from myapp.models.base import MyappModelBase
@@ -54,6 +54,7 @@ class Storage(Model, AuditMixinNullable, MyappModelBase):
         "config_html": _("配置"),
         "mount_expr": _("挂载表达式"),
         "files_html": _("文件"),
+        "bindings_html": _("PVC绑定"),
         "remark": _("备注"),
     }
 
@@ -86,3 +87,73 @@ class Storage(Model, AuditMixinNullable, MyappModelBase):
             '<a class="btn btn-sm btn-primary" target="_blank" '
             'href="/storage_modelview/api/files/{id}">文件</a>'.format(id=self.id)
         )
+
+    @property
+    def bindings_html(self):
+        rows = []
+        for binding in sorted(self.bindings or [], key=lambda item: item.namespace or ''):
+            rows.append(
+                '<tr><td>{namespace}</td><td>{pvc}</td><td>{pv}</td><td>{status}</td><td>{match}</td></tr>'.format(
+                    namespace=binding.namespace or '',
+                    pvc=binding.pvc_name or '',
+                    pv=binding.pv_name or '',
+                    status=binding.status or '',
+                    match=binding.backend_match_status or '',
+                )
+            )
+        if not rows:
+            return Markup('')
+        return Markup(
+            '<table class="table table-condensed">'
+            '<thead><tr><th>Namespace</th><th>PVC</th><th>PV</th><th>Status</th><th>后端</th></tr></thead>'
+            '<tbody>{}</tbody></table>'.format(''.join(rows))
+        )
+
+
+class StoragePvcBinding(Model, MyappModelBase):
+    __tablename__ = 'storage_pvc_binding'
+
+    id = Column(Integer, primary_key=True, comment='id主键')
+    storage_id = Column(Integer, ForeignKey('storage.id'), nullable=False, comment='存储资源id')
+    storage = relationship(
+        "Storage",
+        foreign_keys=[storage_id],
+        back_populates="bindings",
+        lazy='selectin',
+    )
+    cluster = Column(String(100), nullable=False, default='', comment='所属集群')
+    namespace = Column(String(200), nullable=False, default='', comment='PVC所在命名空间')
+    pvc_name = Column(String(200), nullable=False, default='', comment='K8s PVC名称')
+    pv_name = Column(String(500), nullable=True, default='', comment='K8s PV名称')
+    status = Column(String(50), nullable=False, default='Missing', comment='Kubernetes PVC状态')
+    storage_class = Column(String(200), nullable=True, default='', comment='StorageClass')
+    backend_identity = Column(Text(65536), nullable=True, default='{}', comment='后端标识JSON')
+    backend_match_status = Column(String(50), nullable=False, default='unknown', comment='后端一致性状态')
+    backend_match_message = Column(Text, nullable=True, default='', comment='后端一致性说明')
+    last_checked_at = Column(DateTime, nullable=True, comment='最后检查时间')
+
+    label_columns = {
+        **MyappModelBase.label_columns,
+        "storage": _("存储资源"),
+        "cluster": _("集群"),
+        "namespace": _("命名空间"),
+        "pvc_name": _("PVC名称"),
+        "pv_name": _("PV名称"),
+        "status": _("状态"),
+        "storage_class": _("StorageClass"),
+        "backend_identity": _("后端标识"),
+        "backend_match_status": _("后端一致性"),
+        "backend_match_message": _("后端一致性说明"),
+        "last_checked_at": _("最后检查时间"),
+    }
+
+    def __repr__(self):
+        return '{}:{}'.format(self.namespace, self.pvc_name)
+
+
+Storage.bindings = relationship(
+    "StoragePvcBinding",
+    back_populates="storage",
+    cascade="all, delete-orphan",
+    lazy='selectin',
+)

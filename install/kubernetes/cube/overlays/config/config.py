@@ -831,7 +831,7 @@ SERVICE_EXCLUSIVE = False   # 内部服务 启动是否独占资源
 
 MINIO_HOST = 'minio.kubeflow:9000'
 STORAGE_JUICEFS_STORAGE_CLASS = 'juicefs-sc'
-STORAGE_JUICEFS_SECRET_NAME = 'juicefs-minio-secret'
+STORAGE_JUICEFS_SECRET_NAME = 'juicefs-sc-secret'
 STORAGE_JUICEFS_SECRET_NAMESPACE = 'kube-system'
 STORAGE_JUICEFS_BUCKET = 'juicefs'
 STORAGE_JUICEFS_BUCKET_PREFIX = 'projects'
@@ -862,7 +862,10 @@ INFERNENCE_IMAGES={
     "tfserving":['ccr.ccs.tencentyun.com/cube-studio/tfserving:2.14.1-gpu','ccr.ccs.tencentyun.com/cube-studio/tfserving:2.14.1','ccr.ccs.tencentyun.com/cube-studio/tfserving:2.13.1-gpu','ccr.ccs.tencentyun.com/cube-studio/tfserving:2.13.1','ccr.ccs.tencentyun.com/cube-studio/tfserving:2.12.2-gpu','ccr.ccs.tencentyun.com/cube-studio/tfserving:2.12.2','ccr.ccs.tencentyun.com/cube-studio/tfserving:2.11.1-gpu','ccr.ccs.tencentyun.com/cube-studio/tfserving:2.11.1','ccr.ccs.tencentyun.com/cube-studio/tfserving:2.10.1-gpu','ccr.ccs.tencentyun.com/cube-studio/tfserving:2.10.1','ccr.ccs.tencentyun.com/cube-studio/tfserving:2.9.3-gpu','ccr.ccs.tencentyun.com/cube-studio/tfserving:2.9.3','ccr.ccs.tencentyun.com/cube-studio/tfserving:2.8.4-gpu','ccr.ccs.tencentyun.com/cube-studio/tfserving:2.8.4','ccr.ccs.tencentyun.com/cube-studio/tfserving:2.7.4-gpu','ccr.ccs.tencentyun.com/cube-studio/tfserving:2.7.4','ccr.ccs.tencentyun.com/cube-studio/tfserving:2.6.5-gpu','ccr.ccs.tencentyun.com/cube-studio/tfserving:2.6.5','ccr.ccs.tencentyun.com/cube-studio/tfserving:2.5.4-gpu','ccr.ccs.tencentyun.com/cube-studio/tfserving:2.5.4'],
     'torch-server':['ccr.ccs.tencentyun.com/cube-studio/torchserve:0.9.0-gpu','ccr.ccs.tencentyun.com/cube-studio/torchserve:0.9.0-cpu','ccr.ccs.tencentyun.com/cube-studio/torchserve:0.8.2-gpu','ccr.ccs.tencentyun.com/cube-studio/torchserve:0.8.2-cpu','ccr.ccs.tencentyun.com/cube-studio/torchserve:0.7.1-gpu','ccr.ccs.tencentyun.com/cube-studio/torchserve:0.7.1-cpu'],
     'onnxruntime':['ccr.ccs.tencentyun.com/cube-studio/onnxruntime:latest','ccr.ccs.tencentyun.com/cube-studio/onnxruntime:latest-cuda'],
-    'triton-server':['ccr.ccs.tencentyun.com/cube-studio/tritonserver:24.01-py3','ccr.ccs.tencentyun.com/cube-studio/tritonserver:23.12-py3','ccr.ccs.tencentyun.com/cube-studio/tritonserver:22.12-py3','ccr.ccs.tencentyun.com/cube-studio/tritonserver:21.12-py3','ccr.ccs.tencentyun.com/cube-studio/tritonserver:20.12-py3']
+    'triton-server':['ccr.ccs.tencentyun.com/cube-studio/tritonserver:24.01-py3','ccr.ccs.tencentyun.com/cube-studio/tritonserver:23.12-py3','ccr.ccs.tencentyun.com/cube-studio/tritonserver:22.12-py3','ccr.ccs.tencentyun.com/cube-studio/tritonserver:21.12-py3','ccr.ccs.tencentyun.com/cube-studio/tritonserver:20.12-py3'],
+    'ml-server': ['10.121.177.20:8082/mlops/seldonio/mlserver:1.5.0-xgboost', '10.121.177.20:8082/mlops/seldonio/mlserver:1.5.0-sklearn', '10.121.177.20:8082/mlops/seldonio/mlserver:1.5.0-lightgbm'],
+    'vllm': ['10.121.177.20:8082/mlops/vllm/vllm-openai:v0.23.0'],
+    'sglang': ['10.121.177.20:8082/mlops/lmsysorg/sglang:v0.5.12']
 }
 
 CONTAINER_CLI='docker'   # 或者 docker nerdctl
