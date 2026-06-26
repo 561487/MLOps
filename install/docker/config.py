@@ -879,7 +879,7 @@ CONTAINERD_SOCKET = '/etc/containerd/(hostpath):/etc/containerd/,/run/containerd
 
 WAIT_POD_IMAGES='ccr.ccs.tencentyun.com/cube-studio/wait-pod:v1'
 # notebook，pipeline镜像拉取策略
-IMAGE_PULL_POLICY='Always'    # IfNotPresent   Always
+IMAGE_PULL_POLICY='IfNotPresent'    # IfNotPresent   Always
 
 # 任务资源使用情况地址
 GRAFANA_TASK_PATH='http://10.121.177.20/grafana/d/pod-info/pod-info?var-pod='
