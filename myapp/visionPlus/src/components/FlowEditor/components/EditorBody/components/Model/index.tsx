@@ -358,6 +358,19 @@ const Model: React.FC<ModelProps> = props => {
           />
           <div className={style.splitLine}></div>
 
+          <TextField
+            label={t('输出')}
+            description={t('task输出文件路径，格式: {"artifact名":"容器内路径"}，如 {"metric":"/mnt/output/metric.json"}，不填则不输出')}
+            multiline
+            rows={3}
+            onChange={(event: FormEvent, value?: string) => {
+              handleOnChange('outputs', value ? value : '{}');
+            }}
+            value={task?.outputs || '{}'}
+            placeholder='{"metric": "/mnt/output/metric.json"}'
+          />
+          <div className={style.splitLine}></div>
+
           {/* 模板的参数动态渲染 */}
           {Object.keys(templateArgs).reduce((acc, cur) => {
             const current = templateArgs[cur];
