@@ -24,7 +24,7 @@ const FeatureCard: React.FC = () => {
   const loadFeatureList = async () => {
     try {
       setLoading(true);
-      // 使用静默模式获取 demo 列表
+      // 获取模板流水线列表
       const { data } = await getDemoList({ page: 0, page_size: 1000 });
       if (data?.status === 0) {
         const features = (data.result || []).map((item: any) => {
@@ -33,14 +33,14 @@ const FeatureCard: React.FC = () => {
             return {
               name: item.describe || item.name,
               img: param.img || "/static/appbuilder/vison/logo.png",
-              type: "pipeline",
+              type: "template",
               args: { pipeline_id: item.id },
             };
           } catch (e) {
             return {
               name: item.describe || item.name,
               img: "/static/appbuilder/vison/logo.png",
-              type: "pipeline",
+              type: "template",
               args: { pipeline_id: item.id },
             };
           }
@@ -48,7 +48,7 @@ const FeatureCard: React.FC = () => {
         setFeatureList(features);
       }
     } catch (err) {
-      console.error("加载Demo失败:", err);
+      console.error("加载模板失败:", err);
     } finally {
       setLoading(false);
     }
@@ -93,12 +93,12 @@ const FeatureCard: React.FC = () => {
         // 内部路由
         window.location.href = feature.args.url;
       }
-    } else if (feature.type === "pipeline" && feature.args?.pipeline_id) {
-      // 打开pipeline编辑页面
-      const url = `/frontend/showOutLink?url=${encodeURIComponent(
-        `${window.location.origin}/static/appbuilder/vison/index.html?pipeline_id=${feature.args.pipeline_id}`
-      )}`;
-      window.open(url, "_blank");
+    } else if (feature.type === "template" && feature.args?.pipeline_id) {
+      // 复制模板流水线，打开副本进行编辑（不影响原模板）
+      window.open(
+        `/pipeline_modelview/api/copy_pipeline/${feature.args.pipeline_id}`,
+        "_blank"
+      );
     }
   };
 
