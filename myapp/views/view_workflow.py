@@ -1106,7 +1106,7 @@ class Workflow_ModelView_Base():
                     "type": 'html'
                 }
             })
-            echart_demos_dir = 'utils/echart/'
+            echart_demos_dir = 'myapp/utils/echart/'
             if os.path.isdir(echart_demos_dir):
                 echart_demos_file = os.listdir(echart_demos_dir)
                 can = ['area-stack.json', 'rose.json', 'mix-line-bar.json', 'pie-nest.json', 'bar-stack.json',
