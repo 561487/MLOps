@@ -28,6 +28,8 @@ services:
     image: ccr.ccs.tencentyun.com/cube-studio/kubeflow-dashboard:2026.03.01
     restart: unless-stopped
     command: [ 'bash','-c','sleep 3000000' ]     # 在容器内使用sleep 命令启动，然后exec进入myapp容器，手动执行/entrypoint.sh 或 python myapp/run.py
+    extra_hosts:
+      - "minio.kubeflow:172.16.150.47"   # K8s MinIO ClusterIP，kubectl get svc -n kubeflow minio 获取
     environment:
       STAGE: 'dev'
       REDIS_HOST: 'redis'
