@@ -4515,7 +4515,7 @@
   },
   "model-evaluate": {
     "project_name": "模型处理",
-    "image_name": "10.121.177.20:8082/mlops/model-evaluate:latest",
+    "image_name": "10.121.177.20:8082/mlops/model-evaluate:20260625-073618",
     "gitpath": "/job-template/job/model-evaluate",
     "image_describe": "大模型评测",
     "job_template_name": "model-evaluate",
