@@ -1,2 +1,2 @@
 FROM ccr.ccs.tencentyun.com/cube-studio/notebook:jupyter-ubuntu22.04
-RUN pip install tensorboard
+RUN apt-get update && apt-get install -y python3-pip && pip3 install tensorboard && apt-get remove -y python3-pip && apt-get autoremove -y && rm -rf /var/lib/apt/lists/*
