@@ -188,9 +188,9 @@ def main():
                         help="剪枝比例 0.0~1.0")
     parser.add_argument("--example_shape", type=str, default=os.getenv("EXAMPLE_SHAPE", "1,3,224,224"),
                         help="结构化剪枝的示例输入形状, 逗号分隔")
-    parser.add_argument("--prune_heads", type=str, default=os.getenv("PRUNE_HEADS", "true"),
+    parser.add_argument("--prune_heads", nargs="?", const="true", default=os.getenv("PRUNE_HEADS", "true"),
                         help="是否剪枝注意力头 (LLM): true/false")
-    parser.add_argument("--prune_layers", type=str, default=os.getenv("PRUNE_LAYERS", "false"),
+    parser.add_argument("--prune_layers", nargs="?", const="true", default=os.getenv("PRUNE_LAYERS", "false"),
                         help="是否剪枝整个 Transformer 层 (LLM): true/false")
     parser.add_argument("--n_layers_remove", type=int, default=int(os.getenv("N_LAYERS_REMOVE", "0")),
                         help="移除的 Transformer 层数")
