@@ -50,8 +50,7 @@ def _load_calib_text(dataset: str, nsamples: int):
             "In-context learning enables LLMs to perform tasks from examples.",
             "Chain-of-thought prompting improves reasoning in language models.",
         ]
-        # 重复样本直到达到 nsamples
-        texts = (sample_texts * (nsamples // len(sample_texts) + 1))[:nsamples]
+        texts = sample_texts[:min(nsamples, len(sample_texts))]
         print(f"  使用内嵌校准样本 ({len(texts)} 条)")
         return texts
 
