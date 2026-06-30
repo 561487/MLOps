@@ -32,6 +32,27 @@ conf = app.config
 from myapp.utils import core
 from myapp.utils.py import py_k8s
 
+
+# ---- Task Type Enums ----
+
+class TaskTemplateType:
+    """任务模板大类，对应 Job_Template.name 匹配的 conf 常量"""
+    STANDARD = 'standard'       # 通用模板（默认）
+    CUSTOMIZE = 'customize'     # 自定义镜像 (CUSTOMIZE_JOB)
+    PYTHON = 'python'           # Python 代码执行 (PYTHON_JOB)
+    LOGICAL = 'logical'         # 逻辑控制节点 (LOGICAL_JOB)
+
+
+class LogicalNodeType:
+    """逻辑节点子类型，对应 init-job-template.json 中 logical 模板的 logical_type 选项"""
+    BRANCH = 'branch'               # 分支 — Argo when 条件执行
+    LOOP = 'loop'                   # 循环 — Argo withParam 迭代
+    PARALLEL = 'parallel'           # 并行 — Argo DAG 默认并行
+    MERGE = 'merge'                 # 合并 — 多上游汇聚
+    SUBPIPELINE = 'subpipeline'     # 子流程 — Argo templateRef
+    END = 'end'                     # 结束 — 终止标记
+
+
 class Repository(Model,AuditMixinNullable,MyappModelBase):
     __tablename__ = 'repository'
     id = Column(Integer, primary_key=True,comment='id主键')
@@ -611,6 +632,46 @@ class Task(Model,ImportMixin,AuditMixinNullable,MyappModelBase):
             expand=self.expand
         )
 
+    # ---- 任务类型 & 逻辑配置的便捷访问 (从 args JSON 读取, 与 view_task.py 一致) ----
+
+    @property
+    def template_type(self):
+        """根据 job_template.name 返回 TaskTemplateType 枚举值"""
+        if not self.job_template:
+            return TaskTemplateType.STANDARD
+        name = self.job_template.name
+        if name == conf.get('CUSTOMIZE_JOB'):
+            return TaskTemplateType.CUSTOMIZE
+        if name == conf.get('PYTHON_JOB'):
+            return TaskTemplateType.PYTHON
+        if name == conf.get('LOGICAL_JOB'):
+            return TaskTemplateType.LOGICAL
+        return TaskTemplateType.STANDARD
+
+    @property
+    def logical_type(self):
+        """逻辑节点子类型: branch / loop / parallel / merge / subpipeline / end"""
+        args = json.loads(self.args or '{}')
+        return args.get('logical_type', '')
+
+    @property
+    def logical_condition(self):
+        """分支/循环的条件表达式"""
+        args = json.loads(self.args or '{}')
+        return args.get('condition', '')
+
+    @property
+    def logical_subpipeline_name(self):
+        """子流程目标 Pipeline 名称"""
+        args = json.loads(self.args or '{}')
+        return args.get('subpipeline_name', '')
+
+    @property
+    def logical_input_path(self):
+        """逻辑节点读取的输入文件路径"""
+        args = json.loads(self.args or '{}')
+        return args.get('input_path', '')
+
 
 # 每次上传运行
 class RunHistory(Model,MyappModelBase):
@@ -872,4 +933,3 @@ class Workflow(Model,Crd,MyappModelBase):
             return Markup(f'<a href="/workflow_modelview/api/stop/{self.id}">{__("停止")}</a>')
         else:
             return __("停止")
-
