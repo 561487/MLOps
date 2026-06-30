@@ -166,15 +166,19 @@ def main():
                         help="剪枝比例 0.0~1.0")
     parser.add_argument("--example_shape", type=str, default=os.getenv("EXAMPLE_SHAPE", "1,3,224,224"),
                         help="结构化剪枝的示例输入形状, 逗号分隔")
-    parser.add_argument("--prune_heads", type=bool, default=os.getenv("PRUNE_HEADS", "true").lower() == "true",
-                        help="是否剪枝注意力头 (LLM)")
-    parser.add_argument("--prune_layers", type=bool, default=os.getenv("PRUNE_LAYERS", "false").lower() == "true",
-                        help="是否剪枝整个 Transformer 层 (LLM)")
+    parser.add_argument("--prune_heads", type=str, default=os.getenv("PRUNE_HEADS", "true"),
+                        help="是否剪枝注意力头 (LLM): true/false")
+    parser.add_argument("--prune_layers", type=str, default=os.getenv("PRUNE_LAYERS", "false"),
+                        help="是否剪枝整个 Transformer 层 (LLM): true/false")
     parser.add_argument("--n_layers_remove", type=int, default=int(os.getenv("N_LAYERS_REMOVE", "0")),
                         help="移除的 Transformer 层数")
     parser.add_argument("--layer_names", type=str, default=os.getenv("LAYER_NAMES", ""),
                         help="按名称移除的层名, 逗号分隔")
     args = parser.parse_args()
+
+    # 字符串转 bool（平台传入的是 "true"/"false" 字符串）
+    args.prune_heads = args.prune_heads.lower() == "true"
+    args.prune_layers = args.prune_layers.lower() == "true"
 
     if not args.model:
         print(json.dumps({"status": "failed", "error": "MODEL_PATH 未设置"}))
