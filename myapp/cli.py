@@ -137,7 +137,7 @@ def init():
                 images.changed_by_fk = 1
                 images.project_id = project.id
                 images.repository_id = repository_id
-                images.gitpath = gitpath if bool(re.match(r'^http', gitpath)) else (conf.get('GIT_URL', '').strip('/') + gitpath),
+                images.gitpath = gitpath if bool(re.match(r'^http', gitpath)) else (conf.get('GIT_URL', '').strip('/') + gitpath)
                 db.session.add(images)
                 db.session.commit()
                 print('add images %s' % image_name)
