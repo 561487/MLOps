@@ -22,13 +22,37 @@ def _copy_config(src: str, dst: str):
 
 
 def _load_calib_text(dataset: str, nsamples: int):
-    """加载校准文本（优先从 PVC，再从 HuggingFace 下载）"""
+    """加载校准文本（优先从 PVC，再试内嵌样本，最后从 HuggingFace 下载）"""
     local_path = f"/mnt/storage/models-storage/datasets/{dataset}"
     if os.path.isdir(local_path):
         from datasets import load_from_disk
         ds = load_from_disk(local_path)
         texts = ds.select(range(min(nsamples, len(ds))))["text"]
         print(f"  从 PVC 加载校准数据: {local_path}")
+        return texts
+
+    if dataset == "wikitext2":
+        # 内嵌校准样本（无需网络，离线环境可用）
+        sample_texts = [
+            "The quick brown fox jumps over the lazy dog.",
+            "Machine learning is a subset of artificial intelligence.",
+            "Large language models are trained on vast amounts of text data.",
+            "Quantization is the process of mapping continuous values to discrete values.",
+            "The Transformer architecture revolutionized natural language processing.",
+            "Deep learning models require significant computational resources.",
+            "Model compression techniques include pruning, quantization and distillation.",
+            "Attention mechanisms allow models to focus on relevant parts of the input.",
+            "Fine-tuning adapts pre-trained models to specific downstream tasks.",
+            "The calibration dataset helps compute importance scores for pruning.",
+            "Structured pruning removes entire neurons or channels from the network.",
+            "Unstructured pruning sets individual weights to zero.",
+            "Knowledge distillation transfers knowledge from a large model to a small one.",
+            "In-context learning enables LLMs to perform tasks from examples.",
+            "Chain-of-thought prompting improves reasoning in language models.",
+        ]
+        # 重复样本直到达到 nsamples
+        texts = (sample_texts * (nsamples // len(sample_texts) + 1))[:nsamples]
+        print(f"  使用内嵌校准样本 ({len(texts)} 条)")
         return texts
 
     from datasets import load_dataset
