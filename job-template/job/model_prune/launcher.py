@@ -21,6 +21,24 @@ def _copy_config(src: str, dst: str):
             shutil.copy2(src_path, os.path.join(dst, fname))
 
 
+def _load_calib_text(dataset: str, nsamples: int):
+    """加载校准文本（优先从 PVC，再从 HuggingFace 下载）"""
+    local_path = f"/mnt/storage/models-storage/datasets/{dataset}"
+    if os.path.isdir(local_path):
+        from datasets import load_from_disk
+        ds = load_from_disk(local_path)
+        texts = ds.select(range(min(nsamples, len(ds))))["text"]
+        print(f"  从 PVC 加载校准数据: {local_path}")
+        return texts
+
+    from datasets import load_dataset
+    print(f"  从 HuggingFace 下载校准数据: {dataset}, {nsamples} 条")
+    raw = load_dataset(dataset, split="train", trust_remote_code=True)
+    texts = raw.select(range(nsamples))["text"]
+    print(f"  校准数据加载完成")
+    return texts
+
+
 def prune_structural(model_path: str, output: str, ratio: float,
                      example_shape: str = "1,3,224,224"):
     """结构化剪枝 — 使用 DepGraph 自动处理层间依赖"""
@@ -69,7 +87,8 @@ def prune_structural(model_path: str, output: str, ratio: float,
 
 def prune_llm(model_path: str, output: str, ratio: float,
               prune_heads: bool = True, prune_layers: bool = False,
-              n_layers_remove: int = 0):
+              n_layers_remove: int = 0,
+              dataset: str = "wikitext2", nsamples: int = 128):
     """LLM 结构化剪枝 — 支持注意力头剪枝和层级剪枝"""
     import torch
     import torch_pruning as tp
@@ -85,8 +104,11 @@ def prune_llm(model_path: str, output: str, ratio: float,
     )
     model.eval()
 
-    # 构造示例输入
-    example_inputs = tokenizer("Hello, world!", return_tensors="pt")
+    # 加载校准文本用于计算激活分布
+    print(f"[Prune] 加载校准数据: {dataset}, {nsamples} 条")
+    texts = _load_calib_text(dataset, nsamples)
+    calib_text = " ".join(texts[:nsamples])
+    example_inputs = tokenizer(calib_text, return_tensors="pt", truncation=True, max_length=2048)
     if hasattr(example_inputs, "input_ids"):
         example_inputs = example_inputs["input_ids"]
 
@@ -174,6 +196,10 @@ def main():
                         help="移除的 Transformer 层数")
     parser.add_argument("--layer_names", type=str, default=os.getenv("LAYER_NAMES", ""),
                         help="按名称移除的层名, 逗号分隔")
+    parser.add_argument("--dataset", type=str, default=os.getenv("PRUNE_DATASET", "wikitext2"),
+                        help="LLM剪枝校准数据集（用于计算激活分布）")
+    parser.add_argument("--nsamples", type=int, default=int(os.getenv("PRUNE_NSAMPLES", "128")),
+                        help="LLM剪枝校准样本数")
     args = parser.parse_args()
 
     # 字符串转 bool（平台传入的是 "true"/"false" 字符串）
@@ -193,7 +219,8 @@ def main():
             meta = prune_structural(args.model, args.output, args.ratio, args.example_shape)
         elif args.method == "llm":
             meta = prune_llm(args.model, args.output, args.ratio,
-                             args.prune_heads, args.prune_layers, args.n_layers_remove)
+                             args.prune_heads, args.prune_layers, args.n_layers_remove,
+                             args.dataset, args.nsamples)
         elif args.method == "layer":
             meta = prune_layer(args.model, args.output, args.layer_names)
         else:

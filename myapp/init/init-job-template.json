@@ -1986,6 +1986,21 @@
           "step": 1,
           "describe": "移除的 Transformer 层数",
           "editable": 1
+        },
+        "--dataset": {
+          "type": "str",
+          "default": "wikitext2",
+          "describe": "LLM剪枝校准数据集（用于计算激活分布）",
+          "item_type": "str",
+          "editable": 1
+        },
+        "--nsamples": {
+          "type": "int",
+          "default": 128,
+          "range": "16,1024",
+          "step": 16,
+          "describe": "LLM剪枝校准样本数（越多越准但越慢）",
+          "editable": 1
         }
       }
     }
