@@ -1918,7 +1918,7 @@
   },
   "model-prune": {
     "project_name": "模型处理",
-    "image_name": "10.121.177.20:8082/mlops/torch-pruning:1.1.0",
+    "image_name": "10.121.177.20:8082/mlops/torch-pruning:1.2.0",
     "gitpath": "/job-template/job/model_prune",
     "image_describe": "模型剪枝(Torch-Pruning)",
     "job_template_name": "model-prune",
