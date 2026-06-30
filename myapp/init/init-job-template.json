@@ -1954,13 +1954,9 @@
         "--method": {
           "type": "str",
           "default": "structural",
-          "describe": "剪枝方法",
-          "item_type": "select-input",
-          "choice": {
-            "structural": "结构化剪枝（CV/通用模型）",
-            "llm": "LLM 剪枝（大语言模型）",
-            "layer": "层级移除（精确移除指定层）"
-          },
+          "describe": "剪枝方法: structural(结构化) / llm(LLM剪枝) / layer(层级移除)",
+          "item_type": "str",
+          "choice": ["structural", "llm", "layer"],
           "editable": 1
         },
         "--ratio": {
