@@ -4610,7 +4610,7 @@
     "job_template_name": "model-quantization",
     "job_template_describe": "LLM量化：GPTQ/AWQ/bitsandbytes，支持主流大模型",
     "job_template_command": "python3 /app/launcher.py",
-    "job_template_volume": "",
+    "job_template_volume": "models-storage(storage):/mnt/storage/models-storage",
     "job_template_account": "",
     "job_template_env": "",
     "job_template_expand": {
