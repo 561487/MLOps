@@ -231,6 +231,107 @@ with app.app_context():
 
 security_manager = appbuilder.sm
 
+# ---- 启动时自动初始化 logical / python 模板 ----
+def _seed_default_templates():
+    """首次启动时确保 logical 和 python 模板存在于数据库"""
+    from myapp.models.model_job import Job_Template, Images, Repository
+    from myapp.models.model_team import Project
+    import os, json as _json
+
+    init_file = os.path.join(
+        os.path.dirname(__file__), 'init', 'init-job-template.json')
+    if not os.path.exists(init_file):
+        return
+
+    try:
+        seed_data = _json.load(open(init_file, 'r'))
+    except Exception:
+        return
+
+    # 确保基础依赖存在（首次 db upgrade 时表可能还未创建，需要容错）
+    try:
+        public_project = db.session.query(Project).filter_by(
+            name='public', type='org').first()
+        default_repo = db.session.query(Repository).first()
+        if not public_project or not default_repo:
+            return
+    except Exception:
+        # 表还不存在（如首次 db upgrade），稍后随 myapp init 完成后重启即可
+        return
+
+    for template_name in ('logical', 'python'):
+        if template_name not in seed_data:
+            continue
+        cfg = seed_data[template_name]
+        existing = db.session.query(Job_Template).filter_by(
+            name=template_name).first()
+        if existing:
+            # 自动补全 JSON 新增的字段（如 input_path），避免重启后表单丢失
+            existing_args = _json.loads(existing.args or '{}')
+            seed_args = cfg.get('job_template_args', {})
+            updated = False
+            for group, fields in seed_args.items():
+                if group not in existing_args:
+                    existing_args[group] = {}
+                for field_name, field_cfg in fields.items():
+                    if field_name not in existing_args[group]:
+                        existing_args[group][field_name] = field_cfg
+                        updated = True
+            if updated:
+                existing.args = _json.dumps(existing_args, ensure_ascii=False)
+                db.session.commit()
+                logging.info('Updated template %s args with new fields', template_name)
+            continue
+        try:
+            # 查找模板所属的项目（从 JSON 的 project_name 匹配），找不到则放 public
+            proj_name = cfg.get('project_name', '')
+            template_project = db.session.query(Project).filter_by(
+                name=proj_name, type='job-template').first()
+            if not template_project:
+                template_project = public_project
+
+            image_name = cfg.get('image_name', 'python:3.9')
+            image = db.session.query(Images).filter_by(
+                name=image_name).first()
+            if not image:
+                image = Images(
+                    name=image_name,
+                    describe=cfg.get('image_describe', ''),
+                    repository_id=default_repo.id,
+                    project_id=template_project.id,
+                    created_by_fk=1, changed_by_fk=1)
+                db.session.add(image)
+                db.session.flush()
+
+            template = Job_Template(
+                name=cfg['job_template_name'],
+                version='Release',
+                project_id=template_project.id,
+                images_id=image.id,
+                describe=cfg.get('job_template_describe', ''),
+                args=_json.dumps(
+                    cfg.get('job_template_args', {}),
+                    ensure_ascii=False),
+                env=cfg.get('job_template_env', ''),
+                workdir=cfg.get('workdir', ''),
+                entrypoint=cfg.get('entrypoint', ''),
+                volume_mount=cfg.get('volume_mount', ''),
+                expand=_json.dumps(
+                    cfg.get('job_template_expand', {}),
+                    ensure_ascii=False),
+                created_by_fk=1, changed_by_fk=1)
+            db.session.add(template)
+            db.session.commit()
+            logging.info('Seeded default template: %s in project %s', template_name, template_project.name)
+        except Exception as e:
+            db.session.rollback()
+            logging.warning(
+                'Failed to seed template %s: %s', template_name, e)
+
+# 在 app context 中执行 seed
+with app.app_context():
+    _seed_default_templates()
+
 results_backend = conf.get("RESULTS_BACKEND")
 
 # Merge user defined feature flags with default feature flags
@@ -368,5 +469,3 @@ def page_not_found(e):
 
 # 引入视图
 from myapp import views
-
-
