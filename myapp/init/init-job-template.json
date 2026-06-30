@@ -1924,7 +1924,7 @@
     "job_template_name": "model-prune",
     "job_template_describe": "模型剪枝：结构化剪枝/LLM剪枝/层级移除，基于Torch-Pruning",
     "job_template_command": "python3 /app/launcher.py",
-    "job_template_volume": "",
+    "job_template_volume": "models-storage(storage):/mnt/storage/models-storage",
     "job_template_account": "",
     "job_template_env": "",
     "job_template_expand": {
