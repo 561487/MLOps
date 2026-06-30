@@ -4593,7 +4593,7 @@
   },
   "model-quantization": {
     "project_name": "模型处理",
-    "image_name": "10.121.177.20:8082/mlops/gptqmodel:2.0.0",
+    "image_name": "10.121.177.20:8082/mlops/gptqmodel:2.1.0",
     "gitpath": "/job-template/job/llm_quantize",
     "image_describe": "LLM量化(GPTQModel)",
     "job_template_name": "model-quantization",
