@@ -65,7 +65,7 @@ build:
   script:
     - *resolve_image_tag
     - *harbor_login_env
-    - sh install/docker/deploy_ops.sh
+    - bash install/docker/deploy_ops.sh
         --frontend-assets
         --backend-image
         --frontend-image
