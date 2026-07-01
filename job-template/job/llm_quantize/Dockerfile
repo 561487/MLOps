@@ -1,10 +1,10 @@
 FROM python:3.11-slim
 
-# 安装 torch 2.6.0（与 GPTQModel 2.2.0 匹配，cu128 兼容 CUDA 13.2）
-RUN pip install --no-cache-dir torch==2.6.0 --index-url https://download.pytorch.org/whl/cu128
+# 安装 torch（cu128 最新稳定版，兼容 CUDA 13.2）
+RUN pip install --no-cache-dir torch==2.7.1 --index-url https://download.pytorch.org/whl/cu128
 
-# 安装 gptqmodel 2.2.0 + 依赖（Qwen 官方基准测试验证的版本组合）
-RUN pip install --no-cache-dir gptqmodel==2.2.0 autoawq bitsandbytes datasets accelerate transformers==4.51.3
+# 安装 gptqmodel + 依赖（不锁版本，pip 自动解析最合适版本）
+RUN pip install --no-cache-dir gptqmodel autoawq bitsandbytes datasets accelerate transformers
 
 COPY launcher.py /app/launcher.py
 WORKDIR /app
