@@ -17,7 +17,7 @@ configMapGenerator:
   - REDIS_HOST=redis-master.infra
   - REDIS_PORT=6379
   - REDIS_PASSWORD=admin
-  - MYSQL_SERVICE=mysql+pymysql://root:admin@mysql-service.infra:3306/kubeflow?charset=utf8
+  - MYSQL_SERVICE=mysql+pymysql://root:admin@10.121.177.221:3306/kubeflow?charset=utf8mb4
   - ENVIRONMENT=DEV
 
 
