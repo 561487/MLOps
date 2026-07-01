@@ -25,7 +25,12 @@ def _copy_tokenizer(src: str, dst: str):
 
 
 def _load_calib_text(dataset: str, nsamples: int):
-    local_path = f"/mnt/storage/models-storage/datasets/{dataset}"
+    # 如果是绝对路径，直接使用
+    if os.path.isabs(dataset):
+        local_path = dataset
+    else:
+        local_path = f"/mnt/storage/models-storage/datasets/{dataset}"
+
     if os.path.isdir(local_path):
         from datasets import load_from_disk
         ds = load_from_disk(local_path)
@@ -33,7 +38,8 @@ def _load_calib_text(dataset: str, nsamples: int):
         print(f"  从 PVC 加载校准数据: {local_path}")
         return texts
 
-    if dataset == "wikitext2":
+    # 如果是短名称（如 wikitext2），fallback 到内嵌样本
+    if not os.path.isabs(dataset) and dataset == "wikitext2":
         sample_texts = [
             "The quick brown fox jumps over the lazy dog.",
             "Machine learning is a subset of artificial intelligence.",
@@ -55,11 +61,15 @@ def _load_calib_text(dataset: str, nsamples: int):
         print(f"  使用内嵌校准样本 ({len(texts)} 条)")
         return texts
 
-    from datasets import load_dataset
-    raw = load_dataset(dataset, split="train", trust_remote_code=True)
-    texts = raw.select(range(nsamples))["text"]
-    print(f"  从 HuggingFace 下载校准数据: {dataset}")
-    return texts
+    # 最后尝试从 HuggingFace 下载
+    if not os.path.isabs(dataset):
+        from datasets import load_dataset
+        raw = load_dataset(dataset, split="train", trust_remote_code=True)
+        texts = raw.select(range(nsamples))["text"]
+        print(f"  从 HuggingFace 下载校准数据: {dataset}")
+        return texts
+
+    raise FileNotFoundError(f"校准数据集路径不存在: {local_path}")
 
 
 def quantize_gptq(model_path: str, output: str, bits: int, group_size: int,

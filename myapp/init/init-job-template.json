@@ -1989,8 +1989,8 @@
         },
         "--dataset": {
           "type": "str",
-          "default": "wikitext2",
-          "describe": "LLM剪枝校准数据集（用于计算激活分布）",
+          "default": "/mnt/storage/models-storage/datasets/wikitext2",
+          "describe": "校准数据集路径（完整路径或短名称 wikitext2）",
           "item_type": "str",
           "editable": 1
         },
@@ -4666,8 +4666,8 @@
         },
         "--dataset": {
           "type": "str",
-          "default": "wikitext2",
-          "describe": "GPTQ 校准数据集名称（推荐 wikitext2，仅需 ~10MB）",
+          "default": "/mnt/storage/models-storage/datasets/wikitext2",
+          "describe": "校准数据集路径（完整路径或短名称 wikitext2）",
           "item_type": "str",
           "editable": 1
         },
