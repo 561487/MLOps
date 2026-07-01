@@ -5042,58 +5042,734 @@
     }
   },
   "audio-augment": {
-    "project_name": "音频处理",
-    "image_name": "python:3.9",
-    "gitpath": "/job-template/job/voice-process",
-    "image_describe": "音频数据增强",
-    "job_template_name": "audio-augment",
-    "job_template_describe": "音频数据增强(企业版)",
-    "job_template_workdir": "/app",
-    "job_template_command": "python augment-audio-dataset.py",
-    "job_template_volume": "",
-    "job_template_account": "",
-    "job_template_expand": {
-      "index": 1,
-      "rec_job_template": "自定义镜像",
-      "help_url": "/job-template/job/voice-process"
-    },
-    "job_template_args": {}
+  "project_name": "音频处理",
+  "image_name": "10.121.177.20:8082/mlops/audio-process:20260630",
+  "gitpath": "/job-template/job/audio-process",
+  "image_describe": "音频数据增强",
+  "job_template_name": "audio-augment",
+  "job_template_describe": "音频数据增强",
+  "job_template_version": "Release",
+  "job_template_workdir": "/app",
+  "job_template_command": "python3 launcher.py --process_type augment",
+  "job_template_volume": "",
+  "job_template_account": "",
+  "job_template_env": "",
+  "job_template_expand": {
+    "index": 3,
+    "rec_job_template": "自定义镜像",
+    "help_url": "/job-template/job/audio-process"
   },
-  "audio-clean": {
-    "project_name": "音频处理",
-    "image_name": "python:3.9",
-    "gitpath": "/job-template/job/voice-process",
-    "image_describe": "音频数据清洗",
-    "job_template_name": "audio-clean",
-    "job_template_describe": "音频数据清洗(企业版)",
-    "job_template_workdir": "/app",
-    "job_template_command": "python clean-audio-dataset.py",
-    "job_template_volume": "",
-    "job_template_account": "",
-    "job_template_expand": {
-      "index": 2,
-      "rec_job_template": "自定义镜像",
-      "help_url": "/job-template/job/voice-process"
+  "job_template_args": {
+    "数据配置": {
+      "--input_manifest": {
+        "type": "str",
+        "item_type": "str",
+        "label": "输入清单文件",
+        "require": 0,
+        "choice": [],
+        "range": "",
+        "default": "",
+        "placeholder": "/mnt/storage/models-storage/output/audio-quality-after-clean/valid_manifest.csv",
+        "describe": "输入音频 manifest 文件路径，通常填写清洗后质量复查节点输出的合格样本清单。与输入音频目录二选一，至少填写一个",
+        "editable": 1
+      },
+      "--input_audio_dir": {
+        "type": "str",
+        "item_type": "str",
+        "label": "输入音频目录",
+        "require": 0,
+        "choice": [],
+        "range": "",
+        "default": "",
+        "placeholder": "/mnt/storage/models-storage/output/audio-clean/audio",
+        "describe": "输入音频目录。与输入清单文件二选一，至少填写一个",
+        "editable": 1
+      },
+      "--audio_path_col": {
+        "type": "str",
+        "item_type": "str",
+        "label": "音频路径字段",
+        "require": 0,
+        "choice": [],
+        "range": "",
+        "default": "audio_path",
+        "placeholder": "audio_path",
+        "describe": "manifest 文件中表示音频文件路径的字段名，默认为 audio_path",
+        "editable": 1
+      },
+      "--recursive": {
+        "type": "str",
+        "item_type": "str",
+        "label": "递归扫描",
+        "require": 0,
+        "choice": [
+          "true",
+          "false"
+        ],
+        "range": "",
+        "default": "true",
+        "placeholder": "true",
+        "describe": "使用输入音频目录时，是否递归扫描子目录中的音频文件",
+        "editable": 1
+      },
+      "--split_col": {
+        "type": "str",
+        "item_type": "str",
+        "label": "数据划分字段",
+        "require": 0,
+        "choice": [],
+        "range": "",
+        "default": "split",
+        "placeholder": "split",
+        "describe": "manifest 文件中表示数据划分的字段名，默认为 split",
+        "editable": 1
+      },
+      "--augment_split": {
+        "type": "str",
+        "item_type": "str",
+        "label": "增强数据划分",
+        "require": 0,
+        "choice": [
+          "train",
+          "valid",
+          "test",
+          "all"
+        ],
+        "range": "",
+        "default": "train",
+        "placeholder": "train",
+        "describe": "需要进行数据增强的数据划分，默认只增强 train；填写 all 表示不按 split 字段过滤",
+        "editable": 1
+      }
     },
-    "job_template_args": {}
+    "增强配置": {
+      "--augment_times": {
+        "type": "int",
+        "item_type": "int",
+        "label": "增强倍数",
+        "require": 0,
+        "choice": [],
+        "range": "1,100",
+        "default": "1",
+        "placeholder": "1",
+        "describe": "每条符合条件的音频生成的增强样本数量",
+        "editable": 1
+      },
+      "--random_seed": {
+        "type": "int",
+        "item_type": "int",
+        "label": "随机种子",
+        "require": 0,
+        "choice": [],
+        "range": "0,999999",
+        "default": "42",
+        "placeholder": "42",
+        "describe": "随机种子，用于增强策略复现",
+        "editable": 1
+      },
+      "--enable_noise": {
+        "type": "str",
+        "item_type": "str",
+        "label": "随机加噪",
+        "require": 0,
+        "choice": [
+          "true",
+          "false"
+        ],
+        "range": "",
+        "default": "true",
+        "placeholder": "true",
+        "describe": "是否启用随机加噪增强",
+        "editable": 1
+      },
+      "--noise_level": {
+        "type": "float",
+        "item_type": "float",
+        "label": "噪声强度",
+        "require": 0,
+        "choice": [],
+        "range": "0,1",
+        "default": "0.005",
+        "placeholder": "0.005",
+        "describe": "随机噪声强度，仅在启用随机加噪时生效",
+        "editable": 1
+      },
+      "--enable_speed": {
+        "type": "str",
+        "item_type": "str",
+        "label": "语速扰动",
+        "require": 0,
+        "choice": [
+          "true",
+          "false"
+        ],
+        "range": "",
+        "default": "true",
+        "placeholder": "true",
+        "describe": "是否启用语速扰动增强",
+        "editable": 1
+      },
+      "--speed_min": {
+        "type": "float",
+        "item_type": "float",
+        "label": "最小语速倍率",
+        "require": 0,
+        "choice": [],
+        "range": "0.1,10",
+        "default": "0.9",
+        "placeholder": "0.9",
+        "describe": "语速扰动的最小倍率，仅在启用语速扰动时生效",
+        "editable": 1
+      },
+      "--speed_max": {
+        "type": "float",
+        "item_type": "float",
+        "label": "最大语速倍率",
+        "require": 0,
+        "choice": [],
+        "range": "0.1,10",
+        "default": "1.1",
+        "placeholder": "1.1",
+        "describe": "语速扰动的最大倍率，仅在启用语速扰动时生效",
+        "editable": 1
+      },
+      "--enable_volume": {
+        "type": "str",
+        "item_type": "str",
+        "label": "音量扰动",
+        "require": 0,
+        "choice": [
+          "true",
+          "false"
+        ],
+        "range": "",
+        "default": "true",
+        "placeholder": "true",
+        "describe": "是否启用音量扰动增强",
+        "editable": 1
+      },
+      "--volume_gain_min": {
+        "type": "float",
+        "item_type": "float",
+        "label": "最小音量增益",
+        "require": 0,
+        "choice": [],
+        "range": "-60,60",
+        "default": "-6.0",
+        "placeholder": "-6.0",
+        "describe": "音量扰动的最小增益，单位 dB，仅在启用音量扰动时生效",
+        "editable": 1
+      },
+      "--volume_gain_max": {
+        "type": "float",
+        "item_type": "float",
+        "label": "最大音量增益",
+        "require": 0,
+        "choice": [],
+        "range": "-60,60",
+        "default": "6.0",
+        "placeholder": "6.0",
+        "describe": "音量扰动的最大增益，单位 dB，仅在启用音量扰动时生效",
+        "editable": 1
+      },
+      "--keep_original": {
+        "type": "str",
+        "item_type": "str",
+        "label": "保留原始样本",
+        "require": 0,
+        "choice": [
+          "true",
+          "false"
+        ],
+        "range": "",
+        "default": "true",
+        "placeholder": "true",
+        "describe": "输出 manifest 中是否保留原始样本，开启后输出清单包含原始样本和增强样本",
+        "editable": 1
+      }
+    },
+    "输出配置": {
+      "--output_audio_dir": {
+        "type": "str",
+        "item_type": "str",
+        "label": "增强音频目录",
+        "require": 1,
+        "choice": [],
+        "range": "",
+        "default": "",
+        "placeholder": "/mnt/storage/models-storage/output/audio-augment/audio",
+        "describe": "增强后音频文件输出目录",
+        "editable": 1
+      },
+      "--output_manifest_path": {
+        "type": "str",
+        "item_type": "str",
+        "label": "增强样本清单",
+        "require": 1,
+        "choice": [],
+        "range": "",
+        "default": "",
+        "placeholder": "/mnt/storage/models-storage/output/audio-augment/augmented_manifest.csv",
+        "describe": "增强后 manifest 输出路径，可作为后续音频模型训练节点的输入",
+        "editable": 1
+      },
+      "--output_report_path": {
+        "type": "str",
+        "item_type": "str",
+        "label": "增强报告路径",
+        "require": 1,
+        "choice": [],
+        "range": "",
+        "default": "",
+        "placeholder": "/mnt/storage/models-storage/output/audio-augment/report.json",
+        "describe": "音频增强报告输出路径，JSON 格式，记录输入数量、输出数量、失败数量和失败原因",
+        "editable": 1
+      }
+    }
+  }
+},
+
+  "audio-quality-assessment":
+   { "project_name": "音频处理", 
+   "image_name": "10.121.177.20:8082/mlops/audio-process:20260630",
+    "gitpath": "/job-template/job/audio-process",
+     "image_describe": "音频质量评估", 
+     "job_template_name": "audio-quality-assessment", 
+     "job_template_describe": "音频质量评估", 
+     "job_template_version": "Release", 
+     "job_template_workdir": "/app", 
+     "job_template_command": "python3 launcher.py --process_type quality_assessment",
+      "job_template_volume": "", 
+      "job_template_account": "",
+       "job_template_env": "", 
+       "job_template_expand": { "index": 1, 
+       "rec_job_template": "自定义镜像", 
+       "help_url": "/job-template/job/audio-process" },
+    "job_template_args": { "数据配置": {
+      "--input_manifest": {
+        "type": "str",
+        "item_type": "str",
+        "label": "输入清单文件",
+        "require": 0,
+        "choice": [],
+        "range": "",
+        "default": "",
+        "placeholder": "/mnt/storage/models-storage/datasets/audio/manifest.csv",
+        "describe": "输入音频清单文件路径，CSV 格式，需包含音频路径字段。与输入音频目录二选一，至少填写一个",
+        "editable": 1
+      },
+      "--input_audio_dir": {
+        "type": "str",
+        "item_type": "str",
+        "label": "输入音频目录",
+        "require": 0,
+        "choice": [],
+        "range": "",
+        "default": "",
+        "placeholder": "/mnt/storage/models-storage/datasets/audio/raw",
+        "describe": "输入音频目录，支持扫描 wav、mp3、flac、m4a、ogg 等格式。与输入清单文件二选一，至少填写一个",
+        "editable": 1
+      },
+      "--audio_path_col": {
+        "type": "str",
+        "item_type": "str",
+        "label": "音频路径字段",
+        "require": 0,
+        "choice": [],
+        "range": "",
+        "default": "audio_path",
+        "placeholder": "audio_path",
+        "describe": "manifest 文件中表示音频文件路径的字段名，默认为 audio_path",
+        "editable": 1
+      },
+      "--recursive": {
+        "type": "str",
+        "item_type": "str",
+        "label": "递归扫描",
+        "require": 0,
+        "choice": [
+          "true",
+          "false"
+        ],
+        "range": "",
+        "default": "true",
+        "placeholder": "true",
+        "describe": "使用输入音频目录时，是否递归扫描子目录中的音频文件",
+        "editable": 1
+      }
+    },
+    "质量阈值": {
+      "--target_sample_rate": {
+        "type": "int",
+        "item_type": "int",
+        "label": "期望采样率",
+        "require": 0,
+        "choice": [],
+        "range": "8000,192000",
+        "default": "16000",
+        "placeholder": "16000",
+        "describe": "期望的音频采样率，单位 Hz。音频实际采样率不一致时会记录为 sample_rate_mismatch",
+        "editable": 1
+      },
+      "--min_duration": {
+        "type": "float",
+        "item_type": "float",
+        "label": "最短时长",
+        "require": 0,
+        "choice": [],
+        "range": "0,3600",
+        "default": "1.0",
+        "placeholder": "1.0",
+        "describe": "允许的最短音频时长，单位秒，低于该值会判定为 too_short",
+        "editable": 1
+      },
+      "--max_duration": {
+        "type": "float",
+        "item_type": "float",
+        "label": "最长时长",
+        "require": 0,
+        "choice": [],
+        "range": "0,86400",
+        "default": "30.0",
+        "placeholder": "30.0",
+        "describe": "允许的最长音频时长，单位秒，高于该值会判定为 too_long",
+        "editable": 1
+      },
+      "--min_rms_db": {
+        "type": "float",
+        "item_type": "float",
+        "label": "最低音量",
+        "require": 0,
+        "choice": [],
+        "range": "-120,0",
+        "default": "-50.0",
+        "placeholder": "-50.0",
+        "describe": "最低 RMS 音量阈值，单位 dB，低于该值会判定为 low_volume",
+        "editable": 1
+      },
+      "--max_silence_ratio": {
+        "type": "float",
+        "item_type": "float",
+        "label": "最大静音比例",
+        "require": 0,
+        "choice": [],
+        "range": "0,1",
+        "default": "0.8",
+        "placeholder": "0.8",
+        "describe": "允许的最大静音比例，取值范围 0-1，超过该值会判定为 too_much_silence",
+        "editable": 1
+      },
+      "--max_clipping_ratio": {
+        "type": "float",
+        "item_type": "float",
+        "label": "最大削波比例",
+        "require": 0,
+        "choice": [],
+        "range": "0,1",
+        "default": "0.01",
+        "placeholder": "0.01",
+        "describe": "允许的最大削波比例，取值范围 0-1，超过该值会判定为 clipping",
+        "editable": 1
+      }
+    },
+    "输出配置": {
+      "--output_report_path": {
+        "type": "str",
+        "item_type": "str",
+        "label": "质量报告路径",
+        "require": 1,
+        "choice": [],
+        "range": "",
+        "default": "",
+        "placeholder": "/mnt/storage/models-storage/output/audio-quality/report.json",
+        "describe": "质量评估报告输出路径，JSON 格式，记录总数、合格数、不合格数和失败原因统计",
+        "editable": 1
+      },
+      "--output_summary_csv": {
+        "type": "str",
+        "item_type": "str",
+        "label": "质量明细路径",
+        "require": 1,
+        "choice": [],
+        "range": "",
+        "default": "",
+        "placeholder": "/mnt/storage/models-storage/output/audio-quality/summary.csv",
+        "describe": "单条音频质量指标明细输出路径，CSV 格式，包含时长、采样率、音量、静音比例、削波比例、状态和原因",
+        "editable": 1
+      },
+      "--valid_manifest_path": {
+        "type": "str",
+        "item_type": "str",
+        "label": "合格样本清单",
+        "require": 1,
+        "choice": [],
+        "range": "",
+        "default": "",
+        "placeholder": "/mnt/storage/models-storage/output/audio-quality/valid_manifest.csv",
+        "describe": "质量合格样本 manifest 输出路径，可作为音频清洗节点或下游训练节点的输入",
+        "editable": 1
+      },
+      "--invalid_manifest_path": {
+        "type": "str",
+        "item_type": "str",
+        "label": "不合格样本清单",
+        "require": 1,
+        "choice": [],
+        "range": "",
+        "default": "",
+        "placeholder": "/mnt/storage/models-storage/output/audio-quality/invalid_manifest.csv",
+        "describe": "质量不合格样本 manifest 输出路径，记录异常样本及对应原因",
+        "editable": 1
+      }
+    }
+  }
+},
+"audio-clean": {
+  "project_name": "音频处理",
+  "image_name": "10.121.177.20:8082/mlops/audio-process:20260630",
+  "gitpath": "/job-template/job/audio-process",
+  "image_describe": "音频数据清洗",
+  "job_template_name": "audio-clean",
+  "job_template_describe": "音频数据清洗",
+  "job_template_version": "Release",
+  "job_template_workdir": "/app",
+  "job_template_command": "python3 launcher.py --process_type clean",
+  "job_template_volume": "",
+  "job_template_account": "",
+  "job_template_env": "",
+  "job_template_expand": {
+    "index": 2,
+    "rec_job_template": "自定义镜像",
+    "help_url": "/job-template/job/audio-process"
   },
-  "audio-quality-assessment": {
-    "project_name": "音频处理",
-    "image_name": "python:3.9",
-    "gitpath": "/job-template/job/voice-process",
-    "image_describe": "音频质量评估",
-    "job_template_name": "audio-quality-assessment",
-    "job_template_describe": "音频质量评估(企业版)",
-    "job_template_workdir": "/app",
-    "job_template_command": "python audio-dataset-eval.py",
-    "job_template_volume": "",
-    "job_template_account": "",
-    "job_template_expand": {
-      "index": 3,
-      "rec_job_template": "自定义镜像",
-      "help_url": "/job-template/job/voice-process"
+  "job_template_args": {
+    "数据配置": {
+      "--input_manifest": {
+        "type": "str",
+        "item_type": "str",
+        "label": "输入清单文件",
+        "require": 0,
+        "choice": [],
+        "range": "",
+        "default": "",
+        "placeholder": "/mnt/storage/models-storage/output/audio-quality/valid_manifest.csv",
+        "describe": "输入音频 manifest 文件路径，通常填写音频质量评估节点输出的合格样本清单。与输入音频目录二选一，至少填写一个",
+        "editable": 1
+      },
+      "--input_audio_dir": {
+        "type": "str",
+        "item_type": "str",
+        "label": "输入音频目录",
+        "require": 0,
+        "choice": [],
+        "range": "",
+        "default": "",
+        "placeholder": "/mnt/storage/models-storage/datasets/audio/raw",
+        "describe": "输入音频目录。与输入清单文件二选一，至少填写一个",
+        "editable": 1
+      },
+      "--audio_path_col": {
+        "type": "str",
+        "item_type": "str",
+        "label": "音频路径字段",
+        "require": 0,
+        "choice": [],
+        "range": "",
+        "default": "audio_path",
+        "placeholder": "audio_path",
+        "describe": "manifest 文件中表示音频文件路径的字段名，默认为 audio_path",
+        "editable": 1
+      },
+      "--recursive": {
+        "type": "str",
+        "item_type": "str",
+        "label": "递归扫描",
+        "require": 0,
+        "choice": [
+          "true",
+          "false"
+        ],
+        "range": "",
+        "default": "true",
+        "placeholder": "true",
+        "describe": "使用输入音频目录时，是否递归扫描子目录中的音频文件",
+        "editable": 1
+      }
     },
-    "job_template_args": {}
+    "清洗配置": {
+      "--target_sample_rate": {
+        "type": "int",
+        "item_type": "int",
+        "label": "目标采样率",
+        "require": 0,
+        "choice": [],
+        "range": "8000,192000",
+        "default": "16000",
+        "placeholder": "16000",
+        "describe": "清洗后音频的目标采样率，单位 Hz",
+        "editable": 1
+      },
+      "--target_channels": {
+        "type": "int",
+        "item_type": "int",
+        "label": "目标声道数",
+        "require": 0,
+        "choice": [
+          "1",
+          "2"
+        ],
+        "range": "",
+        "default": "1",
+        "placeholder": "1",
+        "describe": "清洗后音频的目标声道数，1 表示单声道，2 表示双声道",
+        "editable": 1
+      },
+      "--output_format": {
+        "type": "str",
+        "item_type": "str",
+        "label": "输出格式",
+        "require": 0,
+        "choice": [
+          "wav",
+          "flac"
+        ],
+        "range": "",
+        "default": "wav",
+        "placeholder": "wav",
+        "describe": "清洗后音频文件格式，默认 wav",
+        "editable": 1
+      },
+      "--normalize_volume": {
+        "type": "str",
+        "item_type": "str",
+        "label": "音量归一化",
+        "require": 0,
+        "choice": [
+          "true",
+          "false"
+        ],
+        "range": "",
+        "default": "true",
+        "placeholder": "true",
+        "describe": "是否对音频进行音量归一化处理",
+        "editable": 1
+      },
+      "--target_dbfs": {
+        "type": "float",
+        "item_type": "float",
+        "label": "目标音量",
+        "require": 0,
+        "choice": [],
+        "range": "-80,0",
+        "default": "-20.0",
+        "placeholder": "-20.0",
+        "describe": "音量归一化目标值，单位 dBFS，仅在启用音量归一化时生效",
+        "editable": 1
+      },
+      "--trim_silence": {
+        "type": "str",
+        "item_type": "str",
+        "label": "裁剪静音",
+        "require": 0,
+        "choice": [
+          "true",
+          "false"
+        ],
+        "range": "",
+        "default": "true",
+        "placeholder": "true",
+        "describe": "是否裁剪音频开头和结尾的静音片段",
+        "editable": 1
+      },
+      "--silence_threshold_db": {
+        "type": "float",
+        "item_type": "float",
+        "label": "静音阈值",
+        "require": 0,
+        "choice": [],
+        "range": "-120,0",
+        "default": "-40.0",
+        "placeholder": "-40.0",
+        "describe": "静音判断阈值，单位 dB，用于裁剪前后静音",
+        "editable": 1
+      },
+      "--min_duration": {
+        "type": "float",
+        "item_type": "float",
+        "label": "最短时长",
+        "require": 0,
+        "choice": [],
+        "range": "0,3600",
+        "default": "1.0",
+        "placeholder": "1.0",
+        "describe": "清洗后允许的最短音频时长，单位秒，低于该值会被过滤",
+        "editable": 1
+      },
+      "--max_duration": {
+        "type": "float",
+        "item_type": "float",
+        "label": "最长时长",
+        "require": 0,
+        "choice": [],
+        "range": "0,86400",
+        "default": "30.0",
+        "placeholder": "30.0",
+        "describe": "清洗后允许的最长音频时长，单位秒，高于该值会被过滤",
+        "editable": 1
+      },
+      "--remove_corrupt": {
+        "type": "str",
+        "item_type": "str",
+        "label": "过滤损坏音频",
+        "require": 0,
+        "choice": [
+          "true",
+          "false"
+        ],
+        "range": "",
+        "default": "true",
+        "placeholder": "true",
+        "describe": "是否跳过损坏或无法读取的音频文件",
+        "editable": 1
+      }
+    },
+    "输出配置": {
+      "--output_audio_dir": {
+        "type": "str",
+        "item_type": "str",
+        "label": "清洗音频目录",
+        "require": 1,
+        "choice": [],
+        "range": "",
+        "default": "",
+        "placeholder": "/mnt/storage/models-storage/output/audio-clean/audio",
+        "describe": "清洗后音频文件输出目录",
+        "editable": 1
+      },
+      "--output_manifest_path": {
+        "type": "str",
+        "item_type": "str",
+        "label": "清洗样本清单",
+        "require": 1,
+        "choice": [],
+        "range": "",
+        "default": "",
+        "placeholder": "/mnt/storage/models-storage/output/audio-clean/cleaned_manifest.csv",
+        "describe": "清洗后 manifest 输出路径，可作为音频质量复查或音频增强节点的输入",
+        "editable": 1
+      },
+      "--output_report_path": {
+        "type": "str",
+        "item_type": "str",
+        "label": "清洗报告路径",
+        "require": 1,
+        "choice": [],
+        "range": "",
+        "default": "",
+        "placeholder": "/mnt/storage/models-storage/output/audio-clean/report.json",
+        "describe": "音频清洗报告输出路径，JSON 格式，记录处理总数、成功数、失败数和失败原因",
+        "editable": 1
+      } }}
   },
   "model-evaluate": {
     "project_name": "模型处理",
