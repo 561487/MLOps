@@ -2,7 +2,7 @@
 set -ex
 
 # 镜像名称（可以外部覆盖）
-IMAGE=${IMAGE:-10.121.177.20:8082/mlops/gptqmodel:3.0.2}
+IMAGE=${IMAGE:-10.121.177.20:8082/mlops/gptqmodel:3.0.3}
 
 # 登录镜像仓库
 docker login 10.121.177.20:8082 -u admin -p Harbor@12345
