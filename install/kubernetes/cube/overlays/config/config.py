@@ -848,12 +848,12 @@ ALL_LINKS=[
     {
         "label": "K8s Dashboard",
         "name": "kubernetes_dashboard",
-        "url": "http://10.121.177.20/k8s/dashboard/cluster/#/pod?namespace=infra"
+        "url": "http://10.121.177.20:30080/k8s/dashboard/cluster/#/pod?namespace=infra"
     },
     {
         "label":"Grafana",
         "name":"grafana",
-        "url": "http://10.121.177.20/grafana/d/pod-info/pod-info?orgId=1&refresh=5s&from=now-15m&to=now"  # 访问grafana的域名地址
+        "url": "http://10.121.177.20:30080/grafana/d/pod-info/pod-info?orgId=1&refresh=5s&from=now-15m&to=now"  # 访问grafana的域名地址
     }
 ]
 
@@ -940,7 +940,7 @@ CLUSTERS={
         "NAME":"dev",
         "KUBECONFIG":'/home/myapp/kubeconfig/dev-kubeconfig',
         "SERVICE_DOMAIN": 'service.local.com',
-        # "HOST": "192.168.0.100"   # 本地调试的时候这里更换为k8s的istio ingressgateway的ip并解开注释
+        "HOST": "10.121.177.20:30080"   # istio ingressgateway 入口地址（含 NodePort）
     }
 }
 
