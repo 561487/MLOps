@@ -13,7 +13,53 @@ import requests
 import copy
 import os
 KFJ_CREATOR = os.getenv('KFJ_CREATOR', 'admin')
+SENTINEL_FILE = '.model_downloaded'
 host = os.getenv('HOST',os.getenv('KFJ_MODEL_REPO_API_URL','http://kubeflow-dashboard.infra')).strip('/')
+
+def check_model_exists(save_path, model_name, model_version='', source_from=''):
+    """
+    检查 save_path 下是否已有同一模型的下载记录，返回 True 表示可以跳过下载。
+    哨兵文件记录 model/version/from 信息，三者全部匹配才跳过。
+    """
+    sentinel_path = os.path.join(save_path, SENTINEL_FILE)
+    if not os.path.isfile(sentinel_path):
+        return False
+
+    try:
+        with open(sentinel_path, 'r') as f:
+            content = f.read()
+            stored_model = re.search(r'model=(\S*)', content)
+            stored_version = re.search(r'version=(\S*)', content)
+            stored_from = re.search(r'from=(\S*)', content)
+
+            model_match = stored_model and stored_model.group(1) == str(model_name)
+            version_match = stored_version and stored_version.group(1) == str(model_version)
+            from_match = stored_from and stored_from.group(1) == str(source_from)
+
+            if model_match and version_match and from_match:
+                print(f'模型已存在，跳过下载: {save_path}')
+                return True
+            else:
+                print(f'哨兵文件信息不匹配，重新下载')
+                os.remove(sentinel_path)
+                return False
+    except Exception as e:
+        print(f'读取哨兵文件失败: {e}，重新下载')
+        if os.path.exists(sentinel_path):
+            os.remove(sentinel_path)
+        return False
+
+
+def write_sentinel(save_path, model_name, model_version='', source_from=''):
+    """写入哨兵文件，记录模型下载信息"""
+    sentinel_path = os.path.join(save_path, SENTINEL_FILE)
+    try:
+        with open(sentinel_path, 'w') as f:
+            f.write(f'downloaded at {datetime.datetime.now().isoformat()} model={model_name} version={model_version} from={source_from}\n')
+        print(f'写入标记文件: {sentinel_path}')
+    except Exception as e:
+        print(f'写入标记文件失败: {e}')
+
 
 # @pysnooper.snoop()
 def download(**kwargs):
@@ -107,6 +153,12 @@ def download(**kwargs):
     if model_path:
         save_path = kwargs['save_path']
         os.makedirs(save_path, exist_ok=True)
+
+        # 检查是否已下载过同一模型，是则跳过
+        if check_model_exists(save_path, kwargs.get('model_name', ''),
+                              kwargs.get('model_version', ''), kwargs['from']):
+            exit(0)
+
         # 如果是在线地址，这下载
         if 'https://' in model_path or 'http://' in model_path:
             file_name = model_path.split("/")[-1]
@@ -143,6 +195,10 @@ def download(**kwargs):
         if kwargs['from']=='模型管理':
             if exist_model:
                 json.dump(exist_model,open(os.path.join(save_path,f'{exist_model["name"]}.{exist_model["version"]}.json'),mode='w'))
+
+        # 写入哨兵文件，下次可跳过
+        write_sentinel(save_path, kwargs.get('model_name', ''),
+                       kwargs.get('model_version', ''), kwargs['from'])
     else:
         print('未发现模型')
         exit(1)
@@ -177,8 +233,15 @@ if __name__ == "__main__":
     kwargs = args.__dict__
     # print("{} args: {}".format(__file__, args))
     if kwargs['from'] == 'modelscope' or kwargs['from'] == '魔塔':
+        # 检查是否已下载过同一模型，是则跳过
+        if check_model_exists(kwargs['save_path'], kwargs['model_name'],
+                              kwargs.get('model_version', ''), kwargs['from']):
+            exit(0)
         command = f'modelscope download --model {kwargs["model_name"]} --repo-type model --local_dir {kwargs["save_path"]} --cache_dir /tmp/ms_cache'
         exitcode = exe_command(command)
+        if exitcode == 0:
+            write_sentinel(kwargs['save_path'], kwargs['model_name'],
+                           kwargs.get('model_version', ''), kwargs['from'])
         exit(exitcode)
     elif kwargs['from']=='huggingface':
         command = f'huggingface-cli download --repo-type model --resume-download {kwargs["model_name"]} --revision {kwargs["model_version"]} --local-dir {kwargs["save_path"]} --local-dir-use-symlinks False'
