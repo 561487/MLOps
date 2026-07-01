@@ -201,40 +201,38 @@ const Model: React.FC<ModelProps> = props => {
 
   // 从接口获取数据展示 task 配置面板
   useEffect(() => {
-    if (props.model.selected) {
+    if (props.model.selected && props.model.id) {
       dispatch(updateTaskId(+props.model.id));
-      if (Object.keys(task).length === 0) {
-        api
-          .task_modelview_get(+props.model.id)
-          .then((res: any) => {
-            if (res.status === 0) {
-              const taskArgs = JSON.parse(res.result.args);
-              const jobTemplate = res.result.job_template;
-              const args = jobTemplate?.args ? JSON.parse(jobTemplate.args) : {};
-              const initArgs = Object.keys(args).reduce((acc: any, cur: string) => {
-                const current = args[cur];
+      api
+        .task_modelview_get(+props.model.id)
+        .then((res: any) => {
+          if (res.status === 0) {
+            const taskArgs = JSON.parse(res.result.args);
+            const jobTemplate = res.result.job_template;
+            const args = jobTemplate?.args ? JSON.parse(jobTemplate.args) : {};
+            const initArgs = Object.keys(args).reduce((acc: any, cur: string) => {
+              const current = args[cur];
 
-                Object.keys(current).forEach((key: string) => {
-                  acc[key] = current[key].default; // 参数的默认值
-                });
+              Object.keys(current).forEach((key: string) => {
+                acc[key] = current[key].default; // 参数的默认值
+              });
 
-                return acc;
-              }, {});
+              return acc;
+            }, {});
 
-              setTask(res.result);
-              setTaskArgs(Object.assign(initArgs, taskArgs));
-              setTemplateArgs(args);
-              setJobTemplate(jobTemplate);
-            }
-          })
-          .catch(err => {
-            if (err.response) {
-              dispatch(updateErrMsg({ msg: err.response.data.message }));
-            }
-          });
-      }
+            setTask(res.result);
+            setTaskArgs(Object.assign(initArgs, taskArgs));
+            setTemplateArgs(args);
+            setJobTemplate(jobTemplate);
+          }
+        })
+        .catch(err => {
+          if (err.response) {
+            dispatch(updateErrMsg({ msg: err.response.data.message }));
+          }
+        });
     }
-  }, [props.model.selected]);
+  }, [props.model.selected, props.model.id]);
 
   // 将变化的 task 配置同步至 redux
   useEffect(() => {
@@ -408,6 +406,20 @@ const Model: React.FC<ModelProps> = props => {
           <Switch checkedChildren={t('是')} unCheckedChildren={t('否')} checked={!!task?.skip} onChange={(checked) => {
             handleOnChange('skip', checked);
           }} />
+
+          <div className={style.splitLine}></div>
+
+          <TextField
+            label={t('输出')}
+            description={t('task输出文件路径，格式: {"artifact名":"容器内路径"}，如 {"metric":"/mnt/output/metric.json"}，不填则不输出')}
+            multiline
+            rows={3}
+            onChange={(event: FormEvent, value?: string) => {
+              handleOnChange('outputs', value ? value : '{}');
+            }}
+            value={task?.outputs || '{}'}
+            placeholder='{"metric": "/mnt/output/metric.json"}'
+          />
 
           {/* 模板的参数动态渲染 */}
           {Object.keys(templateArgs).reduce((acc, cur) => {

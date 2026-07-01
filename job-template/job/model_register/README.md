@@ -108,6 +108,8 @@
                 "torch-server",
                 "onnxruntime",
                 "triton-server",
+                "vllm",
+                "sglang",
                 "aihub"
             ],
             "range": "",

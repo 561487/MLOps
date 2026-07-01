@@ -1,0 +1,31 @@
+# # config-domain.yaml — 与 install/docker/config.py 中 SERVICE_DOMAIN 一致
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: config-domain
+  namespace: knative-serving
+data:
+  local.com: ""
+---
+# config-autoscaler.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: config-autoscaler
+  namespace: knative-serving
+data:
+  enable-scale-to-zero: "true"
+  scale-to-zero-grace-period: "30s"
+  stable-window: "60s"
+  container-concurrency-target-default: "10"
+---
+# config-gc.yaml — 防止 Revision 无限堆积
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: config-gc
+  namespace: knative-serving
+data:
+  retain-since-create-time: "48h"
+  min-non-active-revisions: "2"
+  max-non-active-revisions: "5"

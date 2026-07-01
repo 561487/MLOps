@@ -17,7 +17,7 @@ configMapGenerator:
   - REDIS_HOST=redis-master.infra
   - REDIS_PORT=6379
   - REDIS_PASSWORD=admin
-  - MYSQL_SERVICE=mysql+pymysql://root:admin@mysql-service.infra:3306/kubeflow?charset=utf8
+  - MYSQL_SERVICE=mysql+pymysql://root:admin@10.121.177.221:3306/kubeflow?charset=utf8mb4
   - ENVIRONMENT=DEV
 
 
@@ -35,11 +35,11 @@ resources:
 
 images:
 - name: ccr.ccs.tencentyun.com/cube-studio/kubeflow-dashboard
-  newName: ccr.ccs.tencentyun.com/cube-studio/kubeflow-dashboard
-  newTag: 2026.03.01
+  newName: 10.121.177.20:8082/mlops/kubeflow-dashboard
+  newTag: 2026.07.01
 - name: ccr.ccs.tencentyun.com/cube-studio/kubeflow-dashboard-frontend
-  newName: ccr.ccs.tencentyun.com/cube-studio/kubeflow-dashboard-frontend
-  newTag: 2026.03.01
+  newName: 10.121.177.20:8082/mlops/kubeflow-dashboard-frontend
+  newTag: 2026.07.01
 
 
 # kustomize build . | kubectl apply -f -

@@ -185,6 +185,7 @@ def init():
                 try:
                     job_template.name = job_template_name.replace('_', '-')
                     job_template.describe = job_template_describe
+                    job_template.workdir = job_template_workdir
                     job_template.entrypoint = job_template_command
                     job_template.volume_mount = job_template_volume
                     job_template.accounts = job_template_account

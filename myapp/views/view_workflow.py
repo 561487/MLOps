@@ -39,6 +39,7 @@ import datetime, json
 
 conf = app.config
 
+
 class Workflow_Filter(MyappFilter):
     # @pysnooper.snoop()
     def apply(self, query, func):
@@ -703,7 +704,8 @@ class Workflow_ModelView_Base():
                 response = minioClient.get_object('mlpipeline', key)
                 content = response.data
             except Exception as e:
-                content = str(e)
+                # 文件不存在时返回空字符串，避免错误信息被当成有效数据
+                content = ''
                 print(e)
                 return content
             finally:
@@ -734,16 +736,22 @@ class Workflow_ModelView_Base():
                     # 解压所有文件到指定目录
                     tar.extractall(os.path.dirname(path))
 
-                files = os.listdir(os.path.dirname(path))
+                extract_dir = os.path.dirname(path)
                 content = ''
-                for file in files:
-                    path = os.path.join(os.path.dirname(path),file)
-                    if os.path.isfile(path) and path[path.rindex('.'):] in ['.txt','.json','.log','.csv']:
-                        content = ''.join(open(os.path.join(os.path.dirname(path),file)).readlines())
-                        content += '\n'
+                for root, dirs, files in os.walk(extract_dir):
+                    for filename in files:
+                        filepath = os.path.join(root, filename)
+                        if filepath == path:
+                            continue
+                        ext = os.path.splitext(filename)[1]
+                        if os.path.isfile(filepath) and ext in ['.txt', '.json', '.log', '.csv', '']:
+                            try:
+                                content += ''.join(open(filepath, 'r', errors='ignore').readlines()) + '\n'
+                            except Exception:
+                                pass
 
         # print(key[key.rindex('.'):])
-        if key[key.rindex('.'):] in ['.txt','.json','.log','.csv']:
+        if os.path.splitext(key)[1] in ['.txt', '.json', '.log', '.csv']:
             if type(content)==bytes:
                 content = content.decode()
 
@@ -980,22 +988,28 @@ class Workflow_ModelView_Base():
                         }
                     })
                     has_real_data = True
-                else:
-                    # 其他 JSON 格式，以 map 形式展示（展开嵌套对象）
-                    if isinstance(metric_json, dict):
-                        flat_metric = {}
-                        for k, v in metric_json.items():
-                            if isinstance(v, (dict, list)):
-                                flat_metric[k] = json.dumps(v, ensure_ascii=False)
-                            else:
-                                flat_metric[k] = str(v) if v is not None else ''
-                    else:
-                        flat_metric = {"data": str(metric_json)}
+                elif isinstance(metric_json, dict):
+                    # dict 类型直接用 map 展示（key-value），不转 echart
+                    flat_metric = {}
+                    for k, v in metric_json.items():
+                        if isinstance(v, (dict, list)):
+                            flat_metric[k] = json.dumps(v, ensure_ascii=False)
+                        else:
+                            flat_metric[k] = str(v) if v is not None else ''
                     tab7[0]['content'].append({
                         "groupName": __("任务指标"),
                         "groupContent": {
                             "value": flat_metric,
                             "type": 'map'
+                        }
+                    })
+                    has_real_data = True
+                else:
+                    tab7[0]['content'].append({
+                        "groupName": __("任务指标"),
+                        "groupContent": {
+                            "value": str(metric_json),
+                            "type": 'text'
                         }
                     })
                     has_real_data = True

@@ -2,7 +2,7 @@
   "yolov8": {
     "pipeline": {
       "name": "yolov8",
-      "describe": "深度学习：目标识别训练部署",
+      "describe": "深度学习模板：目标识别训练部署",
       "project": "public",
       "parameter": {
         "demo": "true",
@@ -82,7 +82,7 @@
   "ml": {
     "pipeline": {
       "name": "ml",
-      "describe": "机器学习：决策树训练部署",
+      "describe": "机器学习模板：决策树训练部署",
       "project": "public",
       "parameter": {
         "demo": "true",
@@ -403,7 +403,7 @@
   "deepseek": {
     "pipeline": {
       "name": "deepseek",
-      "describe": "大模型：deepseek微调部署",
+      "describe": "大模型模板：deepseek微调部署",
       "project": "public",
       "parameter": {
         "demo": "true",
@@ -755,6 +755,325 @@
                 }
             }
         ]
-    }
+    },
+  "llm-finetune-eval-full": {
+    "pipeline": {
+      "name": "llm-finetune-eval-full",
+      "describe": "大模型模板：微调评测注册部署",
+      "project": "public",
+      "parameter": {
+        "demo": "true",
+        "img": "/static/assets/images/pipeline/deepseek.jpg",
+        "volume_mount": "models-share-volume(storage):/mnt/storage/models-share-volume"
+      },
+      "dag_json": {
+        "dataset-import": {
+          "upstream": []
+        },
+        "model-download": {
+          "upstream": []
+        },
+        "llama-factory": {
+          "upstream": [
+            "dataset-import",
+            "model-download"
+          ]
+        },
+        "model-evaluate": {
+          "upstream": [
+            "llama-factory"
+          ]
+        },
+        "model-register": {
+          "upstream": [
+            "model-evaluate"
+          ]
+        },
+        "deploy-service": {
+          "upstream": [
+            "model-register"
+          ]
+        }
+      },
+      "expand": [
+        {
+          "id": "dataset-import",
+          "type": "dataSet",
+          "position": {
+            "x": 260,
+            "y": 20
+          },
+          "data": {
+            "info": {
+              "describe": "数据集导入"
+            },
+            "name": "dataset-import",
+            "label": "数据集导入"
+          }
+        },
+        {
+          "id": "model-download",
+          "type": "dataSet",
+          "position": {
+            "x": 580,
+            "y": 20
+          },
+          "data": {
+            "info": {
+              "describe": "模型导入"
+            },
+            "name": "model-download",
+            "label": "模型导入"
+          }
+        },
+        {
+          "id": "llama-factory",
+          "type": "dataSet",
+          "position": {
+            "x": 410,
+            "y": 170
+          },
+          "data": {
+            "info": {
+              "describe": "大模型微调"
+            },
+            "name": "llama-factory",
+            "label": "模型微调"
+          }
+        },
+        {
+          "id": "model-evaluate",
+          "type": "dataSet",
+          "position": {
+            "x": 410,
+            "y": 320
+          },
+          "data": {
+            "info": {
+              "describe": "大模型评测"
+            },
+            "name": "model-evaluate",
+            "label": "大模型评测"
+          }
+        },
+        {
+          "id": "model-register",
+          "type": "dataSet",
+          "position": {
+            "x": 410,
+            "y": 460
+          },
+          "data": {
+            "info": {
+              "describe": "注册模型"
+            },
+            "name": "model-register",
+            "label": "模型注册"
+          }
+        },
+        {
+          "id": "deploy-service",
+          "type": "dataSet",
+          "position": {
+            "x": 410,
+            "y": 560
+          },
+          "data": {
+            "info": {
+              "describe": "模型部署推理服务"
+            },
+            "name": "deploy-service",
+            "label": "模型部署"
+          }
+        },
+        {
+          "source": "dataset-import",
+          "arrowHeadType": "arrow",
+          "target": "llama-factory",
+          "id": "full__edge-dataset-import-llama-factory"
+        },
+        {
+          "source": "model-download",
+          "arrowHeadType": "arrow",
+          "target": "llama-factory",
+          "id": "full__edge-model-download-llama-factory"
+        },
+        {
+          "source": "llama-factory",
+          "arrowHeadType": "arrow",
+          "target": "model-evaluate",
+          "id": "full__edge-llama-factory-model-evaluate"
+        },
+        {
+          "source": "model-evaluate",
+          "arrowHeadType": "arrow",
+          "target": "model-register",
+          "id": "full__edge-model-evaluate-model-register"
+        },
+        {
+          "source": "model-register",
+          "arrowHeadType": "arrow",
+          "target": "deploy-service",
+          "id": "full__edge-model-register-deploy-service"
+        }
+      ]
+    },
+    "tasks": [
+      {
+        "job_templete": "dataset",
+        "name": "dataset-import",
+        "label": "数据集导入",
+        "volume_mount": "kubeflow-user-workspace(pvc):/mnt,models-share-volume(storage):/mnt/storage/models-share-volume,models-storage(storage):/mnt/storage/models-storage",
+        "resource_memory": "2G",
+        "resource_cpu": "2",
+        "resource_gpu": "0",
+        "resource_rdma": "0",
+        "timeout": 0,
+        "retry": 0,
+        "args": {
+          "--src_type": "当前平台",
+          "--name": "DanKe123abc/yuki_identity_sft",
+          "--version": "1998",
+          "--partition": "",
+          "--save_dir": "/mnt/storage/models-share-volume/datasets/lora-dataset"
+        }
+      },
+      {
+        "job_templete": "model-download",
+        "name": "model-download",
+        "label": "模型导入",
+        "volume_mount": "kubeflow-user-workspace(pvc):/mnt,models-share-volume(storage):/mnt/storage/models-share-volume",
+        "resource_memory": "2G",
+        "resource_cpu": "2",
+        "resource_gpu": "0",
+        "resource_rdma": "0",
+        "timeout": 0,
+        "retry": 0,
+        "node_selector": "cpu=true,train=true",
+        "args": {
+          "--from": "modelscope",
+          "--model_name": "Qwen/Qwen3-0.6B",
+          "--sub_model_name": "",
+          "--model_version": "v2022.08.01.1",
+          "--model_status": "online",
+          "--save_path": "/mnt/storage/models-share-volume/model/"
+        }
+      },
+      {
+        "job_templete": "llama-factory",
+        "name": "llama-factory",
+        "label": "模型微调",
+        "volume_mount": "kubeflow-user-workspace(pvc):/mnt,models-share-volume(storage):/mnt/storage/models-share-volume",
+        "resource_memory": "10G",
+        "resource_cpu": "2",
+        "resource_gpu": "1",
+        "resource_rdma": "0",
+        "timeout": 0,
+        "retry": 0,
+        "node_selector": "gpu=true,train=true;mps=false",
+        "args": {
+          "--model_name": "/mnt/storage/models-share-volume/models/Qwen3-0.6B",
+          "--dataset": "yuki_identity_sft",
+          "--dataset_dir": "/mnt/storage/models-share-volume/datasets/lora-dataset",
+          "--cutoff_len": "2048",
+          "--lora_rank": "8",
+          "--lora_alpha": "16",
+          "--lora_target": "",
+          "--learning_rate": "2e-4",
+          "--batch_size": "4",
+          "--num_train_epochs": "1",
+          "--gradient_accumulation_steps": "4",
+          "--output_dir": "/mnt/storage/models-share-volume/output/lora"
+        }
+      },
+      {
+        "job_templete": "model-evaluate",
+        "name": "model-evaluate",
+        "label": "大模型评测",
+        "volume_mount": "kubeflow-user-workspace(pvc):/mnt,models-share-volume(storage):/mnt/storage/models-share-volume,models-storage(storage):/mnt/storage/models-storage",
+        "resource_memory": "2G",
+        "resource_cpu": "2",
+        "resource_gpu": "1",
+        "resource_rdma": "0",
+        "timeout": 0,
+        "retry": 0,
+        "node_selector": "gpu=true;train=true;mps=false",
+        "args": {
+          "--model_path": "/mnt/storage/models-share-volume/output/lora/qwen3-0.6b-lora",
+          "--model_name": "qwen3-0.6b-lora",
+          "--model_type": "hf_chat",
+          "--model_version": "v1",
+          "--output_path": "/mnt/storage/models-share-volume/output/opencompass",
+          "--datasets": "gsm8k_gen",
+          "--num_gpus": 1,
+          "--batch_size": 64,
+          "--max_seq_len": 2048,
+          "--max_out_len": 512,
+          "--few_shot": 0,
+          "--max_samples": 10,
+          "--datasets_cache_dir": "",
+          "--model_kwargs": ""
+        }
+      },
+      {
+        "job_templete": "model-register",
+        "name": "model-register",
+        "label": "模型注册",
+        "volume_mount": "kubeflow-user-workspace(pvc):/mnt,models-share-volume(storage):/mnt/storage/models-share-volume",
+        "resource_memory": "2G",
+        "resource_cpu": "2",
+        "resource_gpu": "0",
+        "resource_rdma": "0",
+        "timeout": 0,
+        "retry": 0,
+        "node_selector": "cpu=true,train=true",
+        "args": {
+          "--project_name": "public",
+          "--model_name": "qwen3-0.6b-lora",
+          "--model_version": "v0",
+          "--model_path": "/mnt/storage/models-share-volume/output/lora/qwen3-0.6b-lora",
+          "--model_metric": "accuracy:0.8",
+          "--describe": "qwen3-0.6b-lora模型test",
+          "--framework": "tf",
+          "--inference_framework": "tfserving"
+        }
+      },
+      {
+        "job_templete": "deploy-service",
+        "name": "deploy-service",
+        "label": "模型部署",
+        "volume_mount": "kubeflow-user-workspace(pvc):/mnt,models-share-volume(storage):/mnt/storage/models-share-volume",
+        "resource_memory": "2G",
+        "resource_cpu": "2",
+        "resource_gpu": "0",
+        "resource_rdma": "0",
+        "timeout": 0,
+        "retry": 0,
+        "node_selector": "cpu=true,train=true",
+        "args": {
+          "--project_name": "public",
+          "--label": "demo推理服务",
+          "--model_name": "qwen3-0.6b-lora",
+          "--model_version": "v2022.10.01.1",
+          "--model_path": "/mnt/storage/models-share-volume/output/lora/qwen3-0.6b-lora",
+          "--service_type": "tfserving",
+          "--images": "10.121.177.20:8082/mlops/vllm/vllm-openai:v0.8.5",
+          "--working_dir": "",
+          "--command": "",
+          "--env": "",
+          "--host": "",
+          "--ports": "80",
+          "--replicas": "1",
+          "--resource_memory": "2G",
+          "--resource_cpu": "2",
+          "--resource_gpu": "0",
+          "--volume_mount": "",
+          "--inference_config": "",
+          "--metrics": "",
+          "--health": ""
+        }
+      }
+    ]
+  }
 }
 

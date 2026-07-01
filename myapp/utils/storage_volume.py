@@ -61,9 +61,9 @@ def _joined_project_ids(user):
 
 
 def _storage_is_ready(storage):
-    if storage.status == 'synced':
+    if storage.status in ['synced', 'shared_verified']:
         return True
-    if storage.status in ['draft', 'error', 'deleted']:
+    if storage.status in ['draft', 'error', 'deleted', 'backend_mismatch']:
         return False
     return bool(storage.pvc_name)
 
@@ -123,6 +123,8 @@ def available_volume_items(user, project=None, namespace=None, current_volume_mo
         if storage.project and not user_can_access_project(user, storage.project):
             continue
         namespaces = split_volume_mount(storage.namespace)
+        if namespace and namespace not in namespaces:
+            continue
         chosen_namespace = namespace if namespace in namespaces else (namespaces[0] if namespaces else namespace)
         pvc_name = storage.pvc_name or storage.name
         mount_path = _storage_mount_path(storage)
