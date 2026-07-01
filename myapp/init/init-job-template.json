@@ -4604,9 +4604,9 @@
   },
   "model-quantization": {
     "project_name": "模型处理",
-    "image_name": "10.121.177.20:8082/mlops/gptqmodel:2.6.1",
+    "image_name": "10.121.177.20:8082/mlops/gptqmodel:3.0.0",
     "gitpath": "/job-template/job/llm_quantize",
-    "image_describe": "LLM量化(LLM Compressor)",
+    "image_describe": "LLM量化(GPTQModel)",
     "job_template_name": "model-quantization",
     "job_template_describe": "LLM量化：GPTQ/AWQ/bitsandbytes，支持主流大模型",
     "job_template_command": "python3 /app/launcher.py",
