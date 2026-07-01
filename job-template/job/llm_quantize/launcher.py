@@ -99,23 +99,30 @@ def quantize_gptq(model_path: str, output: str, bits: int, group_size: int,
 
 def quantize_awq(model_path: str, output: str, bits: int):
     import os
+    import awq.utils.calib_data
+    import awq.quantize.quantizer
+    from datasets import load_from_disk
     from awq import AutoAWQForCausalLM
     from transformers import AutoTokenizer
+
+    # 猴子补丁：替换 AWQ 的数据集加载函数，使用本地数据集
+    local_dataset_path = "/mnt/storage/models-share-volume/datasets/pile-val-backup"
+    original_fn = awq.utils.calib_data.get_calib_dataset
+
+    def patched_get_calib_dataset(*args, **kwargs):
+        if os.path.isdir(local_dataset_path):
+            print(f"[AWQ] 使用本地数据集: {local_dataset_path}")
+            ds = load_from_disk(local_dataset_path)
+            return ds["validation"] if "validation" in ds else ds
+        return original_fn(*args, **kwargs)
+
+    # 两个导入路径都打补丁，确保拦截成功
+    awq.utils.calib_data.get_calib_dataset = patched_get_calib_dataset
+    awq.quantize.quantizer.get_calib_dataset = patched_get_calib_dataset
 
     print(f"[AWQ] 加载模型: {model_path}")
     model = AutoAWQForCausalLM.from_pretrained(model_path)
     tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
-
-    # 设置数据集缓存路径（AWQ 硬编码了 mit-han-lab/pile-val-backup）
-    cache_dir = "/mnt/storage/models-share-volume/datasets/"
-    os.environ["HF_DATASETS_CACHE"] = cache_dir
-    hf_name = "mit-han-lab___pile-val-backup"
-    local_name = "pile-val-backup"
-    hf_path = os.path.join(cache_dir, hf_name)
-    local_path = os.path.join(cache_dir, local_name)
-    if os.path.isdir(local_path) and not os.path.isdir(hf_path):
-        os.symlink(local_path, hf_path)
-        print(f"[AWQ] 使用本地数据集: {local_path}")
 
     print(f"[AWQ] 开始量化 ({bits}bit)...")
     model.quantize(tokenizer, quant_config={"w_bit": bits, "version": "GEMM"})
