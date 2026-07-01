@@ -1,5 +1,5 @@
 set -ex
-IMAGE=${IMAGE:-10.121.177.20:8082/mlops/dataset:20250301}
+IMAGE=${IMAGE:-10.121.177.20:8082/mlops/dataset:20260624}
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 docker build --network=host -t "${IMAGE}" -f "${SCRIPT_DIR}/Dockerfile" "${REPO_ROOT}"
