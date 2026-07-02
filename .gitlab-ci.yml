@@ -68,6 +68,7 @@ build:
     - *resolve_image_tag
     - *harbor_login_env
     - |
+      export CI=false
       bash install/docker/deploy_ops.sh \
         --frontend-assets \
         --backend-image \
