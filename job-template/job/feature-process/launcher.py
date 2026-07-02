@@ -76,8 +76,9 @@ def handle_sample(args):
     logger.info(f"  原始数据行数: {len(df)}")
 
     # 2. 执行采样
+    replace = args.replace.lower() == 'true'
     sample_type_func = {
-        'random': lambda: random_sample(df, args.sample_rate, args.random_seed, args.replace),
+        'random': lambda: random_sample(df, args.sample_rate, args.random_seed, replace),
         'stratified': lambda: stratified_sample(df, args.stratify_column, args.sample_rate, args.random_seed),
         'oversampling': lambda: oversampling(df, args.stratify_column, args.sample_rate, args.random_seed),
         'undersampling': lambda: undersampling(df, args.stratify_column, args.sample_rate, args.random_seed),
@@ -212,10 +213,10 @@ def handle_data_transform(args):
         kwargs['func_expr'] = args.func_expr
     elif args.transform_type == 'moving_average':
         kwargs['window'] = args.ma_window
-        kwargs['center'] = args.ma_center
+        kwargs['center'] = args.ma_center.lower() == 'true'
     elif args.transform_type == 'polynomial_expand':
         kwargs['degree'] = args.poly_degree
-        kwargs['interaction_only'] = args.poly_interaction_only
+        kwargs['interaction_only'] = args.poly_interaction_only.lower() == 'true'
 
     result = transform_func(df, columns, **kwargs)
 
@@ -270,7 +271,7 @@ def handle_objective_process(args):
         kwargs['target_column'] = args.target_column
         kwargs['smoothing'] = args.target_smoothing
     elif args.encode_type == 'one_hot':
-        kwargs['drop_first'] = args.oh_drop_first
+        kwargs['drop_first'] = args.oh_drop_first.lower() == 'true'
         kwargs['max_categories'] = args.oh_max_categories
 
     result = encode_func(df, columns, **kwargs)
@@ -286,6 +287,7 @@ def handle_objective_process(args):
 
 def handle_outlier_detection(args):
     """异常值检测：Z-Score / IQR / Isolation Forest / Percentile"""
+    import numpy as np
     import pandas as pd
     from outlier_detection import DETECT_FUNCTIONS
 
@@ -338,6 +340,7 @@ def handle_outlier_detection(args):
 
 def handle_calculate_metric(args):
     """统计量计算：基础统计/分布统计/缺失值统计/全量统计"""
+    import numpy as np
     import pandas as pd
     from calculate_metric import METRIC_FUNCTIONS
 
@@ -426,7 +429,7 @@ def handle_drop_stablize(args):
 def handle_drop_high_missing(args):
     """删除缺失率过高的值：按列删 / 按行删 / 综合"""
     import pandas as pd
-    from drop_high_missing import MISSING_FUNCTIONS
+    from drop_high_missing import MISSING_FUNCTIONS, drop_columns_by_missing, drop_rows_by_missing
 
     logger.info("开始删除缺失率过高的值")
     logger.info(f"  输入文件: {args.input_file}")
@@ -502,6 +505,7 @@ def handle_fill_missing(args):
 
 def handle_discretization(args):
     """数据离散化：等宽/等频/KMeans聚类/自定义切点"""
+    import numpy as np
     import pandas as pd
     from discretization import DISCRETIZE_FUNCTIONS
 
@@ -547,6 +551,7 @@ def handle_discretization(args):
 
 def handle_standardize_normalize(args):
     """标准化/归一化：Z-Score/MinMax/MaxAbs/Robust/L2"""
+    import numpy as np
     import pandas as pd
     from standardize_normalize import NORMALIZE_FUNCTIONS
 
@@ -589,7 +594,7 @@ def handle_standardize_normalize(args):
 def handle_index_process(args):
     """索引处理：增加索引/设置索引/索引转列/按索引重命名/重排列"""
     import pandas as pd
-    from index_process import INDEX_FUNCTIONS
+    from index_process import INDEX_FUNCTIONS, add_index_column, set_column_as_index, reset_index_to_column, rename_columns_by_index, reorder_columns
 
     logger.info("开始索引处理")
     logger.info(f"  输入文件: {args.input_file}")
@@ -609,7 +614,7 @@ def handle_index_process(args):
     elif args.index_op == 'reset_index':
         result = reset_index_to_column(df, args.index_name)
     elif args.index_op == 'rename_by_index':
-        result = rename_columns_by_index(df, args.index_name_map, args.index_inplace)
+        result = rename_columns_by_index(df, args.index_name_map, args.index_inplace.lower() == 'true')
     elif args.index_op == 'reorder':
         result = reorder_columns(df, args.index_column_order)
 
@@ -617,7 +622,7 @@ def handle_index_process(args):
     if output_dir and not os.path.exists(output_dir):
         os.makedirs(output_dir, exist_ok=True)
 
-    result.to_csv(args.output_file, index=args.index_op != 'set_index' or args.index_keep_index)
+    result.to_csv(args.output_file, index=args.index_op != 'set_index' or args.index_keep_index.lower() == 'true')
     logger.info(f"索引处理完成，结果保存到: {args.output_file}")
     logger.info(f"处理后数据: {len(result)} 行, {len(result.columns)} 列")
 
@@ -645,7 +650,7 @@ def handle_sort(args):
         columns = None
         if args.sort_columns:
             columns = [c.strip() for c in args.sort_columns.split(",")]
-        result = sort_data(df, columns, args.sort_ascending)
+        result = sort_data(df, columns, args.sort_ascending.lower() == 'true')
 
     output_dir = os.path.dirname(args.output_file)
     if output_dir and not os.path.exists(output_dir):
@@ -737,8 +742,9 @@ def handle_hadamard_multiply(args):
 
 def handle_feature_combine(args):
     """特征组合：四则运算/多项式/自定义表达式/列对组合"""
+    import numpy as np
     import pandas as pd
-    from feature_combine import COMBINE_FUNCTIONS
+    from feature_combine import COMBINE_FUNCTIONS, arithmetic_combine, polynomial_combine, custom_combine, add_subtract_all_pairs
 
     logger.info("开始特征组合")
     logger.info(f"  输入文件: {args.input_file}")
@@ -765,7 +771,7 @@ def handle_feature_combine(args):
                                      args.combine_arith_op, args.combine_new_col)
     elif args.combine_type == 'polynomial':
         poly_df = polynomial_combine(df, columns, args.combine_poly_degree,
-                                      args.combine_poly_interaction)
+                                      args.combine_poly_interaction.lower() == 'true')
         result = pd.concat([df, poly_df], axis=1)
     elif args.combine_type == 'custom':
         result = custom_combine(df, columns, args.combine_expr, args.combine_new_col)
@@ -783,8 +789,9 @@ def handle_feature_combine(args):
 
 def handle_dimension_reduction(args):
     """降维：PCA / 卡方特征选择"""
+    import numpy as np
     import pandas as pd
-    from dimension_reduction import REDUCTION_FUNCTIONS
+    from dimension_reduction import REDUCTION_FUNCTIONS, pca_reduce, chi2_select
 
     logger.info("开始降维")
     logger.info(f"  输入文件: {args.input_file}")
@@ -806,7 +813,7 @@ def handle_dimension_reduction(args):
         n_components = args.dr_n_components
         if args.dr_variance_ratio:
             n_components = min(args.dr_variance_ratio, 1.0)
-        result = pca_reduce(df, columns, n_components, args.dr_keep_original)
+        result = pca_reduce(df, columns, n_components, args.dr_keep_original.lower() == 'true')
     elif args.dr_method == 'chi2':
         result, scores = chi2_select(df, columns,
                                      args.dr_target_column,
@@ -829,6 +836,7 @@ def handle_dimension_reduction(args):
 
 def handle_feature_importance(args):
     """特征重要性：随机森林/方差/互信息/相关性/IV值"""
+    import numpy as np
     import pandas as pd
     from feature_importance import IMPORTANCE_FUNCTIONS
 
@@ -961,7 +969,7 @@ def parse_args():
     parser.add_argument('--sample_rate', type=float, default=0.5, help='采样比例/数量')
     parser.add_argument('--stratify_column', type=str, default='', help='分层/标签列')
     parser.add_argument('--random_seed', type=int, default=42, help='随机种子')
-    parser.add_argument('--replace', type=bool, default=False, help='是否放回采样')
+    parser.add_argument('--replace', type=str, nargs='?', const='true', default='false', help='是否放回采样')
     # union_join 专用参数
     parser.add_argument('--merge_type', type=str,
                         choices=['union', 'join'],
@@ -1002,12 +1010,12 @@ def parse_args():
                         help='函数转换表达式，如 "x**2"、"np.log(x+1)"，默认 x**2')
     parser.add_argument('--ma_window', type=int, default=3,
                         help='移动平均窗口大小，默认 3')
-    parser.add_argument('--ma_center', type=bool, default=True,
-                        help='移动平均是否居中窗口，默认 True')
+    parser.add_argument('--ma_center', type=str, nargs='?', const='true', default='true',
+                        help='移动平均是否居中窗口，默认 true')
     parser.add_argument('--poly_degree', type=int, default=2,
                         help='多项式展开阶数，默认 2')
-    parser.add_argument('--poly_interaction_only', type=bool, default=False,
-                        help='多项式展开是否仅交互项，默认 False')
+    parser.add_argument('--poly_interaction_only', type=str, nargs='?', const='true', default='false',
+                        help='多项式展开是否仅交互项，默认 false')
     # objective_process 专用参数
     parser.add_argument('--encode_type', type=str,
                         choices=['hash', 'frequency', 'target', 'one_hot'],
@@ -1020,8 +1028,8 @@ def parse_args():
                         help='目标编码的目标变量列名')
     parser.add_argument('--target_smoothing', type=float, default=1.0,
                         help='目标编码平滑系数，默认 1.0')
-    parser.add_argument('--oh_drop_first', type=bool, default=False,
-                        help='One-Hot 是否丢弃第一个类别，默认 False')
+    parser.add_argument('--oh_drop_first', type=str, nargs='?', const='true', default='false',
+                        help='One-Hot 是否丢弃第一个类别，默认 false')
     parser.add_argument('--oh_max_categories', type=int, default=50,
                         help='One-Hot 每列最多保留类别数，默认 50')
     # outlier_detection 专用参数
@@ -1115,17 +1123,17 @@ def parse_args():
                         help='设为索引的列名（set_index 时生效）')
     parser.add_argument('--index_name_map', type=str, default='',
                         help='索引->新列名映射，如 "0:new_a,2:new_c"（rename_by_index 时生效）')
-    parser.add_argument('--index_inplace', type=bool, default=False,
+    parser.add_argument('--index_inplace', type=str, nargs='?', const='true', default='false',
                         help='按索引重命名是否就地替换（rename_by_index 时生效）')
     parser.add_argument('--index_column_order', type=str, default='',
                         help='列顺序，如 "col2,col1"（reorder 时生效）')
-    parser.add_argument('--index_keep_index', type=bool, default=False,
+    parser.add_argument('--index_keep_index', type=str, nargs='?', const='true', default='false',
                         help='输出时是否保留索引列（set_index 时生效）')
     # sort 专用参数
     parser.add_argument('--sort_columns', type=str, default='',
                         help='排序列名，多列用逗号分隔，默认所有列')
-    parser.add_argument('--sort_ascending', type=bool, default=True,
-                        help='是否升序，默认 True')
+    parser.add_argument('--sort_ascending', type=str, nargs='?', const='true', default='true',
+                        help='是否升序，默认 true')
     parser.add_argument('--sort_orders', type=str, default='',
                         help='多列分别升降序，如 "asc,desc"（与 sort_columns 一一对应，留空则统一用 ascending）')
     # run_sql 专用参数
@@ -1154,8 +1162,8 @@ def parse_args():
                         help='表达式，如 "x0 + x1 * 2"，x0=第1列（custom 时生效）')
     parser.add_argument('--combine_poly_degree', type=int, default=2,
                         help='多项式阶数（polynomial 时生效），默认 2')
-    parser.add_argument('--combine_poly_interaction', type=bool, default=False,
-                        help='是否仅生成交互项（polynomial 时生效），默认 False')
+    parser.add_argument('--combine_poly_interaction', type=str, nargs='?', const='true', default='false',
+                        help='是否仅生成交互项（polynomial 时生效），默认 false')
     # dimension_reduction 专用参数
     parser.add_argument('--dr_method', type=str, default='pca',
                         choices=['pca', 'chi2'],
@@ -1166,8 +1174,8 @@ def parse_args():
                         help='保留的维度数，默认 2')
     parser.add_argument('--dr_variance_ratio', type=float, default=0.0,
                         help='PCA 目标解释方差比例(0~1)，设置后覆盖 n_components')
-    parser.add_argument('--dr_keep_original', type=bool, default=False,
-                        help='是否保留原始列（PCA 时生效），默认 False')
+    parser.add_argument('--dr_keep_original', type=str, nargs='?', const='true', default='false',
+                        help='是否保留原始列（PCA 时生效），默认 false')
     parser.add_argument('--dr_target_column', type=str, default='',
                         help='目标列名（卡方选择时生效）')
     # feature_importance 专用参数

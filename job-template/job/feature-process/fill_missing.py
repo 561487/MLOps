@@ -15,6 +15,9 @@ def fill_mean(df, columns):
     for col in columns:
         if col not in result.columns:
             continue
+        if not pd.api.types.is_numeric_dtype(result[col]):
+            logger.info(f"均值填充 跳过非数值列'{col}'")
+            continue
         val = result[col].mean()
         n_missing = result[col].isna().sum()
         result[col] = result[col].fillna(val)
@@ -27,6 +30,9 @@ def fill_median(df, columns):
     result = df.copy()
     for col in columns:
         if col not in result.columns:
+            continue
+        if not pd.api.types.is_numeric_dtype(result[col]):
+            logger.info(f"中位数填充 跳过非数值列'{col}'")
             continue
         val = result[col].median()
         n_missing = result[col].isna().sum()
@@ -96,6 +102,9 @@ def fill_interpolate(df, columns, method='linear'):
     result = df.copy()
     for col in columns:
         if col not in result.columns:
+            continue
+        if not pd.api.types.is_numeric_dtype(result[col]):
+            logger.info(f"插值填充 跳过非数值列'{col}'")
             continue
         n_missing = result[col].isna().sum()
         result[col] = result[col].interpolate(method=method, limit_direction='both')

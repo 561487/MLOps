@@ -34,8 +34,7 @@ def equal_width_discretize(df, columns, n_bins=5):
         bins = np.linspace(col_data.min(), col_data.max(), n_bins + 1)
         bins[0] = -np.inf  # 包含最小值
         bins[-1] = np.inf  # 包含最大值
-        labels = [f"[{bins[i]:.2f}, {bins[i+1]:.2f})" for i in range(n_bins - 1)]
-        labels = [f"(-inf, {bins[1]:.2f})"] + labels + [f"[{bins[-2]:.2f}, +inf)"]
+        labels = [f"[{bins[i]:.2f}, {bins[i+1]:.2f})" for i in range(n_bins)]
 
         new_col = f"{col}_bin"
         result[new_col] = pd.cut(result[col], bins=bins, labels=labels, include_lowest=True)
