@@ -4531,7 +4531,7 @@
   },
   "model-distillation": {
     "project_name": "模型处理",
-    "image_name": "10.121.177.20:8082/mlops/model-distillation:20260611",
+    "image_name": "10.121.177.20:8082/mlops/model-distillation:20260704",
     "gitpath": "/job-template/job/model-distillation",
     "image_describe": "大模型蒸馏",
     "job_template_name": "model-distillation",
@@ -4539,7 +4539,7 @@
     "job_template_command": "python3 launcher.py",
     "job_template_volume": "",
     "job_template_account": "",
-    "job_template_env": "",
+    "job_template_env": "HF_ENDPOINT=https://hf-mirror.com",
     "job_template_expand": {
       "index": 5,
       "rec_job_template": "自定义镜像",
@@ -4547,145 +4547,130 @@
     },
     "job_template_args": {
       "模型配置": {
-        "--teacher_path": {
+        "--teacher_model": {
           "type": "str",
-          "item_type": "str",
-          "label": "Teacher 模型路径",
+          "label": "Teacher 模型",
           "require": 1,
-          "choice": [],
           "default": "",
-          "placeholder": "/mnt/models/teacher/",
-          "describe": "预训练好的大模型（Teacher）目录路径",
-          "editable": 1
+          "placeholder": "Qwen/Qwen2.5-7B-Instruct",
+          "describe": "教师模型，ModelScope ID(git仓库)或/mnt下的本地路径",
+          "editable": 1,
+          "item_type": "str"
         },
-        "--student_arch": {
+        "--student_model": {
           "type": "str",
-          "item_type": "str",
-          "label": "Student 模型结构",
+          "label": "Student 模型",
           "require": 1,
-          "choice": [
-            "bert-tiny",
-            "bert-mini",
-            "distilbert-base-uncased",
-            "google/mobilebert-uncased"
-          ],
-          "default": "bert-tiny",
-          "describe": "蒸馏后的小模型结构，bert-tiny 最小最快",
-          "editable": 1
+          "default": "",
+          "placeholder": "Qwen/Qwen2.5-1.5B-Instruct",
+          "describe": "学生模型，应为同架构/同tokenizer的小模型",
+          "editable": 1,
+          "item_type": "str"
         },
         "--output_path": {
           "type": "str",
-          "item_type": "str",
           "label": "输出路径",
           "require": 1,
-          "choice": [],
           "default": "",
           "placeholder": "/mnt/models/distilled/",
           "describe": "蒸馏后模型的保存目录",
-          "editable": 1
+          "editable": 1,
+          "item_type": "str"
+        },
+        "--distill_type": {
+          "type": "str",
+          "label": "蒸馏类型",
+          "require": 1,
+          "choice": [
+            "whitebox",
+            "blackbox"
+          ],
+          "default": "whitebox",
+          "describe": "whitebox=白盒(KL散度匹配，需Teacher权重)；blackbox=黑盒(SFT蒸馏，仅需Teacher API)",
+          "editable": 1,
+          "item_type": "str"
         }
       },
       "数据配置": {
         "--data_path": {
           "type": "str",
-          "item_type": "str",
           "label": "训练数据路径",
           "require": 1,
-          "choice": [],
           "default": "",
-          "placeholder": "/mnt/data/train.csv",
-          "describe": "CSV 或 JSONL 格式的训练数据",
-          "editable": 1
-        },
-        "--text_field": {
-          "type": "str",
-          "item_type": "str",
-          "label": "文本列名",
-          "require": 0,
-          "choice": [],
-          "default": "text",
-          "placeholder": "text",
-          "describe": "数据中文本内容的列名",
-          "editable": 1
-        },
-        "--label_field": {
-          "type": "str",
-          "item_type": "str",
-          "label": "标签列名",
-          "require": 0,
-          "choice": [],
-          "default": "label",
-          "placeholder": "label",
-          "describe": "数据中标签的列名",
-          "editable": 1
+          "placeholder": "/mnt/data/distill_train.jsonl",
+          "describe": "JSONL格式，每行{\"instruction\":\"...\",\"output\":\"...\"}",
+          "editable": 1,
+          "item_type": "str"
         },
         "--max_samples": {
           "type": "str",
-          "item_type": "str",
           "label": "最大样本数",
           "require": 0,
-          "choice": [],
           "default": "0",
           "placeholder": "10000",
           "describe": "最多使用的训练样本数，0=使用全部",
-          "editable": 1
+          "editable": 1,
+          "item_type": "str"
+        },
+        "--data_synthesis": {
+          "type": "str",
+          "label": "启用数据合成",
+          "require": 0,
+          "choice": [
+            "false",
+            "true"
+          ],
+          "default": "false",
+          "describe": "使用EasyDistill内置数据合成扩充训练数据",
+          "editable": 1,
+          "item_type": "str"
         }
       },
       "蒸馏参数": {
         "--temperature": {
           "type": "str",
-          "item_type": "str",
           "label": "温度 (Temperature)",
           "require": 0,
-          "choice": [],
           "default": "4.0",
-          "placeholder": "4.0",
-          "describe": "越高 Teacher 知识越平滑，学生学到的细节越多，常用 2~10",
-          "editable": 1
+          "describe": "softmax温度，越高Teacher知识越平滑，常用2~10",
+          "editable": 1,
+          "item_type": "str"
         },
         "--alpha": {
           "type": "str",
-          "item_type": "str",
           "label": "硬标签权重 (Alpha)",
           "require": 0,
-          "choice": [],
           "default": "0.5",
-          "placeholder": "0.5",
-          "describe": "0~1，0=纯软标签，1=纯硬标签，0.5 为平衡",
-          "editable": 1
+          "describe": "0~1，0=纯软标签，1=纯硬标签，仅白盒模式生效",
+          "editable": 1,
+          "item_type": "str"
         },
         "--epochs": {
           "type": "str",
-          "item_type": "str",
-          "label": "训练轮数 (Epochs)",
+          "label": "训练轮数",
           "require": 0,
-          "choice": [],
           "default": "3",
-          "placeholder": "3",
           "describe": "蒸馏训练的迭代轮数",
-          "editable": 1
+          "editable": 1,
+          "item_type": "str"
         },
         "--batch_size": {
           "type": "str",
-          "item_type": "str",
           "label": "批次大小",
           "require": 0,
-          "choice": [],
-          "default": "16",
-          "placeholder": "16",
-          "describe": "每批次的样本数，GPU 显存不足时调小",
-          "editable": 1
+          "default": "4",
+          "describe": "每批次样本数，LLM显存消耗大，建议2~8",
+          "editable": 1,
+          "item_type": "str"
         },
         "--learning_rate": {
           "type": "str",
-          "item_type": "str",
           "label": "学习率",
           "require": 0,
-          "choice": [],
           "default": "2e-5",
-          "placeholder": "2e-5",
           "describe": "蒸馏训练的学习率",
-          "editable": 1
+          "editable": 1,
+          "item_type": "str"
         }
       }
     }
