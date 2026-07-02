@@ -1,7 +1,15 @@
 install/docker/data/
 .git/
 node_modules/
+**/node_modules/
+**/.cache/
+**/coverage/
 venv/
+**/venv/
+**/__pycache__/
 __pycache__/
 *.pyc
 .DS_Store
+**/.DS_Store
+__MACOSX/
+**/__MACOSX/
