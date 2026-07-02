@@ -710,7 +710,7 @@ def validate_task_args(task_args, job_args):  # 两个都是字典
         for group in job_args:
             for arg_name in job_args[group]:
                 job_arg_attr = job_args[group][arg_name]
-                if arg_name in task_args and task_args[arg_name] != '' and task_args[arg_name] is not None:
+                if arg_name in task_args:
                     task_arg_value = task_args[arg_name]
                     validate_args[arg_name] = check_attr(task_arg_value, job_arg_attr)
                 elif job_arg_attr.get('require',1) and not job_arg_attr.get('default',''):
