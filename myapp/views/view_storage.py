@@ -858,7 +858,11 @@ class Storage_ModelView_Base():
     def _normalize_storage_path(self, value, allow_root=True):
         value = (value or '/').strip()
         if '\x00' in value:
-            raise Exception('invalid path')
+            raise Exception('invalid path: null byte detected')
+        if '\\' in value:
+            raise Exception('invalid path: backslash is not allowed')
+        if ':' in value:
+            raise Exception('invalid path: colon is not allowed')
         parts = [part for part in value.split('/') if part]
         if any(part == '..' for part in parts):
             raise Exception('path traversal is not allowed')
@@ -1411,6 +1415,87 @@ class Storage_ModelView_Base():
         except Exception as e:
             return self.response_error(500, message=str(e))
 
+    @expose_api(description="存储资源上传文件夹", url="/file/upload_folder/<storage_id>", methods=["POST"])
+    def file_upload_folder(self, storage_id):
+        try:
+            target_dir = self._normalize_storage_path(request.form.get('path') or '/')
+            files = request.files.getlist('files')
+            relative_paths = request.form.getlist('relative_paths')
+
+            if not files:
+                raise Exception('files are required')
+
+            max_size = int(conf.get('STORAGE_FILE_UPLOAD_MAX_SIZE', 200 * 1024 * 1024))
+            _, (k8s_client, pod) = self._file_operation_context(storage_id, write=True)
+            pod_dir = self._pod_path(target_dir)
+
+            check_command = '[ -d {target} ] && [ ! -L {target} ]'.format(target=self._sh_quote(pod_dir))
+            k8s_client.exec_pod(pod['name'], pod['namespace'], check_command)
+
+            uploaded_count = 0
+            failed_files = []
+
+            for i, upload_file in enumerate(files):
+                try:
+                    if i < len(relative_paths):
+                        relative_path = (relative_paths[i] or '').strip()
+                    else:
+                        relative_path = upload_file.filename or ''
+
+                    if not relative_path:
+                        raise Exception('invalid relative path: empty')
+
+                    if relative_path.startswith('/'):
+                        raise Exception('relative path must not start with /: {}'.format(relative_path))
+                    if '..' in relative_path.split('/'):
+                        raise Exception('path traversal in relative path: {}'.format(relative_path))
+                    if '\\' in relative_path:
+                        raise Exception('backslash in relative path: {}'.format(relative_path))
+                    if '\x00' in relative_path:
+                        raise Exception('null byte in relative path: {}'.format(relative_path))
+                    if ':' in relative_path:
+                        raise Exception('colon in relative path: {}'.format(relative_path))
+                    if len(relative_path) > 1024:
+                        raise Exception('relative path too long: {}'.format(relative_path))
+
+                    filename = posixpath.basename(relative_path)
+                    if not filename or filename in ['.', '..'] or '/' in filename or '\\' in filename:
+                        raise Exception('invalid filename in path: {}'.format(relative_path))
+                    if len(filename) > 255:
+                        raise Exception('filename too long: {}'.format(filename))
+
+                    target_file_pod = posixpath.join(pod_dir, relative_path)
+                    target_real = posixpath.normpath(target_file_pod)
+                    pod_dir_real = posixpath.normpath(pod_dir)
+                    if target_real != pod_dir_real and not target_real.startswith(pod_dir_real + '/'):
+                        raise Exception('path traversal detected: {}'.format(relative_path))
+
+                    parent_dir = posixpath.dirname(target_file_pod)
+                    mkdir_command = "mkdir -p -- {}".format(self._sh_quote(parent_dir))
+                    k8s_client.exec_pod(pod['name'], pod['namespace'], mkdir_command)
+
+                    data = upload_file.read(max_size + 1)
+                    if len(data) > max_size:
+                        raise Exception('file too large: {}'.format(relative_path))
+
+                    k8s_client.upload_to_pod(pod['name'], pod['namespace'], data, target_file_pod)
+                    uploaded_count += 1
+
+                except Exception as e:
+                    failed_files.append({
+                        "path": upload_file.filename or '',
+                        "error": str(e),
+                    })
+
+            return self.response(200, status=0, message='success', result={
+                "current_path": target_dir,
+                "uploaded_count": uploaded_count,
+                "failed_count": len(failed_files),
+                "failed_files": failed_files,
+            })
+        except Exception as e:
+            return self.response_error(500, message=str(e))
+
     @expose_api(description="存储资源下载文件", url="/file/download/<storage_id>", methods=["GET"])
     def file_download(self, storage_id):
         try:
@@ -1432,17 +1517,19 @@ class Storage_ModelView_Base():
         try:
             req_json = request.get_json(silent=True) or {}
             storage_path = self._normalize_storage_path(req_json.get('path') or '', allow_root=False)
+            item_type = req_json.get('type', '')
             recursive = bool(req_json.get('recursive'))
             _, (k8s_client, pod) = self._file_operation_context(storage_id, write=True)
             pod_path = self._pod_path(storage_path)
-            if recursive:
+            if item_type == 'directory' or recursive:
                 command = "rm -rf -- {}".format(self._sh_quote(pod_path))
             else:
-                command = "if [ -d {target} ] && [ ! -L {target} ]; then rmdir -- {target}; else rm -f -- {target}; fi".format(
-                    target=self._sh_quote(pod_path)
-                )
+                command = "rm -f -- {}".format(self._sh_quote(pod_path))
             k8s_client.exec_pod(pod['name'], pod['namespace'], command)
-            return self.response(200, status=0, message='success', result={"path": storage_path})
+            return self.response(200, status=0, message='success', result={
+                "path": storage_path,
+                "type": item_type or ('directory' if recursive else 'file'),
+            })
         except Exception as e:
             return self.response_error(500, message=str(e))
 
