@@ -106,7 +106,6 @@ def quantize_awq(model_path: str, output: str, bits: int):
     from transformers import AutoTokenizer
 
     # 猴子补丁：替换 AWQ 的数据集加载函数，使用本地数据集
-    # 检查多个可能的路径（兼容 datastes 拼写错误）
     local_dataset_path = "/mnt/storage/models-share-volume/datasets/pile-val-backup"
     if not os.path.isdir(local_dataset_path):
         alt = "/mnt/storage/models-share-volume/datastes/pile-val-backup"
@@ -118,47 +117,30 @@ def quantize_awq(model_path: str, output: str, bits: int):
         if not os.path.isdir(local_dataset_path):
             return original_fn(*args, **kwargs)
         print(f"[AWQ] 使用本地数据集: {local_dataset_path}")
-        # 尝试多种格式加载
         try:
-            ds = load_from_disk(local_dataset_path)
-            return ds["validation"] if "validation" in ds else ds
-        except Exception:
-            pass
-        try:
-            from datasets import Dataset
-            import json
-            # 尝试 MsDataset 格式（modelscope）
-            for fname in ["dataset_info.json", "config.json", "data.jsonl", "data.json"]:
-                fpath = os.path.join(local_dataset_path, fname)
-                if os.path.isfile(fpath):
-                    if fname.endswith(".jsonl"):
-                        data = [json.loads(l) for l in open(fpath, encoding="utf-8")]
-                        return Dataset.from_list(data)
-                    elif fname.endswith(".json"):
-                        with open(fpath, encoding="utf-8") as f:
-                            data = json.load(f)
-                        if isinstance(data, list):
-                            return Dataset.from_list(data)
-                        if "rows" in data:
-                            return Dataset.from_list(data["rows"])
-            # 尝试 parquet 格式
             import glob
-            parquet_files = glob.glob(os.path.join(local_dataset_path, "*.parquet"))
-            if parquet_files:
-                return Dataset.from_parquet(parquet_files[0])
-            # 尝试 CSV 格式（ModelScope 常用）
+            import pandas as pd
+            import torch
             csv_files = glob.glob(os.path.join(local_dataset_path, "*.csv"))
-            if csv_files:
-                import pandas as pd
-                df = pd.read_csv(csv_files[0])
-                ds = Dataset.from_pandas(df)
-                # 只取 text 列
-                if "text" in ds.column_names:
-                    ds = ds.select_columns("text")
-                print(f"[AWQ] 从 CSV 加载: {csv_files[0]}, {len(ds)} 条")
-                return ds
+            tokenizer = args[0] if args else kwargs.get("tokenizer")
+            nsamples = kwargs.get("nsamples", 128)
+            seqlen = kwargs.get("seqlen", 2048)
+            if not csv_files or tokenizer is None:
+                return original_fn(*args, **kwargs)
+            df = pd.read_csv(csv_files[0])
+            texts = df["text"].dropna().tolist() if "text" in df.columns else df.iloc[:, 0].dropna().tolist()
+            texts = texts[:nsamples]
+            print(f"[AWQ] 从 CSV 加载: {csv_files[0]}, {len(texts)} 条")
+            # 手动 tokenize，返回 AWQ 需要的列表格式
+            samples = []
+            for text in texts:
+                tokenized = tokenizer(text, truncation=True, max_length=seqlen, return_tensors="pt")
+                samples.append(tokenized["input_ids"].squeeze(0))
+            return samples
         except Exception as e:
             print(f"[AWQ] 本地数据集加载失败: {e}")
+            import traceback
+            traceback.print_exc()
         return original_fn(*args, **kwargs)
 
     # 两个导入路径都打补丁，确保拦截成功
