@@ -4495,21 +4495,99 @@
   },
   "model-convert": {
     "project_name": "模型处理",
-    "image_name": "python:3.9",
-    "gitpath": "/job-template/job/model_convert",
-    "image_describe": "模型转换",
+    "image_name": "10.121.177.20:8082/mlops/model-convert:latest",
+    "gitpath": "/job-template/job/model-convert",
+    "image_describe": "模型格式转换",
     "job_template_name": "model-convert",
-    "job_template_describe": "模型转换(企业版)",
-    "job_template_command": "python3 transformer2onnx.py",
-    "job_template_volume": "",
+    "job_template_describe": "模型格式转换 — PyTorch/HF → ONNX → TensorRT/TorchScript",
+    "job_template_command": "python3 launcher.py",
+    "job_template_volume": "models-storage(storage):/mnt/storage/models-storage",
     "job_template_account": "",
-    "job_template_env": "",
+    "job_template_env": "HF_ENDPOINT=https://hf-mirror.com",
     "job_template_expand": {
       "index": 2,
       "rec_job_template": "自定义镜像",
-      "help_url": "/job-template/job/model_convert"
+      "help_url": "/job-template/job/model-convert"
     },
-    "job_template_args": {}
+    "job_template_args": {
+      "模型信息": {
+        "--model_path": {
+          "type": "str",
+          "item_type": "str",
+          "label": "输入模型路径",
+          "require": 1,
+          "choice": [],
+          "range": "",
+          "default": "",
+          "placeholder": "/mnt/storage/models-storage/models/my-model",
+          "describe": "本地 PyTorch/HF 模型目录，或 HF model id（如 Qwen/Qwen2.5-0.5B）",
+          "editable": 1
+        },
+        "--output_path": {
+          "type": "str",
+          "item_type": "str",
+          "label": "输出目录",
+          "require": 1,
+          "choice": [],
+          "range": "",
+          "default": "",
+          "placeholder": "/mnt/storage/models-storage/output/converted",
+          "describe": "转换后模型输出目录",
+          "editable": 1
+        }
+      },
+      "转换配置": {
+        "--dst_format": {
+          "type": "str",
+          "item_type": "str",
+          "label": "目标格式",
+          "require": 1,
+          "choice": ["onnx", "torchscript"],
+          "range": "",
+          "default": "onnx",
+          "placeholder": "",
+          "describe": "onnx=通用推理/AI编译器, torchscript=PyTorch原生部署",
+          "editable": 1
+        },
+        "--input_shape": {
+          "type": "str",
+          "item_type": "str",
+          "label": "输入形状(JSON)",
+          "require": 0,
+          "choice": [],
+          "range": "",
+          "default": "",
+          "placeholder": "{\"input_ids\":[1,512],\"attention_mask\":[1,512]}",
+          "describe": "模型输入张量形状，JSON 格式。留空则自动推断",
+          "editable": 1
+        },
+        "--opset": {
+          "type": "int",
+          "item_type": "int",
+          "label": "ONNX Opset 版本",
+          "require": 0,
+          "choice": [],
+          "range": [11, 21],
+          "default": 17,
+          "step": 1,
+          "placeholder": "",
+          "describe": "ONNX 算子集版本，越高支持越新的算子",
+          "editable": 1
+        },
+        "--fp16": {
+          "type": "str",
+          "item_type": "str",
+          "label": "启用 FP16",
+          "require": 0,
+          "choice": ["true", "false"],
+          "range": "",
+          "default": "true",
+          "placeholder": "",
+          "describe": "半精度浮点，减小模型体积和显存占用",
+          "editable": 1
+        }
+      }
+    }
   },
   "model-quantization": {
     "project_name": "模型处理",
