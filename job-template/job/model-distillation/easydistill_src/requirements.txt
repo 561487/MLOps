@@ -1,0 +1,2 @@
+# Dependencies are managed by Dockerfile (--no-deps install)
+# This file exists only so setup.py can be parsed without error.
