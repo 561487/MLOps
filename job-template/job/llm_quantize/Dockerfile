@@ -1,10 +1,10 @@
 FROM 10.121.177.20:8082/mlops/gptqmodel:3.0.0
 
-# 安装 torchvision（gptqmodel 7.x 导入需要）
-RUN pip install --no-cache-dir torchvision
+# 安装 gptqmodel 后 torch 可能被升级到 cu130，重新降级到 cu128（匹配驱动 CUDA 12.8）
+RUN pip install --no-cache-dir torch torchvision --index-url https://download.pytorch.org/whl/cu128
 
-# 清理旧 CUDA 12 库，避免 bitsandbytes 冲突（当前 torch 2.12.1 已用 cu130）
-RUN pip uninstall -y nvidia-nvjitlink-cu12 2>/dev/null; exit 0
+# 清理旧 CUDA 12/13 库冲突
+RUN pip uninstall -y nvidia-nvjitlink-cu12 nvidia-nvjitlink-cu13 2>/dev/null; exit 0
 
 COPY launcher.py /app/launcher.py
 WORKDIR /app

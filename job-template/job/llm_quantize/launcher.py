@@ -106,7 +106,12 @@ def quantize_awq(model_path: str, output: str, bits: int):
     from transformers import AutoTokenizer
 
     # 猴子补丁：替换 AWQ 的数据集加载函数，使用本地数据集
+    # 检查多个可能的路径（兼容 datastes 拼写错误）
     local_dataset_path = "/mnt/storage/models-share-volume/datasets/pile-val-backup"
+    if not os.path.isdir(local_dataset_path):
+        alt = "/mnt/storage/models-share-volume/datastes/pile-val-backup"
+        if os.path.isdir(alt):
+            local_dataset_path = alt
     original_fn = awq.utils.calib_data.get_calib_dataset
 
     def patched_get_calib_dataset(*args, **kwargs):
