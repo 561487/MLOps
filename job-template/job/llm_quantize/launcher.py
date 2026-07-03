@@ -131,11 +131,9 @@ def quantize_awq(model_path: str, output: str, bits: int):
             texts = df["text"].dropna().tolist() if "text" in df.columns else df.iloc[:, 0].dropna().tolist()
             texts = texts[:nsamples]
             print(f"[AWQ] 从 CSV 加载: {csv_files[0]}, {len(texts)} 条")
-            # 手动 tokenize，返回 AWQ 需要的列表格式
-            samples = []
-            for text in texts:
-                tokenized = tokenizer(text, truncation=True, max_length=seqlen, return_tensors="pt")
-                samples.append(tokenized["input_ids"])
+            # 批量 tokenize，padding 到相同长度（AWQ 需要 torch.cat）
+            tokenized = tokenizer(texts, truncation=True, padding=True, max_length=seqlen, return_tensors="pt")
+            samples = [tokenized["input_ids"][i] for i in range(len(texts))]
             return samples
         except Exception as e:
             print(f"[AWQ] 本地数据集加载失败: {e}")
