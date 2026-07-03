@@ -8,7 +8,7 @@ RUN wget https://cube-studio.oss-cn-hangzhou.aliyuncs.com/aihub/deeplearning/aih
 
 COPY myapp /home/myapp/myapp
 COPY myapp/static/appbuilder/frontend /data/web/frontend
-COPY aihub /cube-studio/aihub
+# COPY aihub /cube-studio/aihub
 ENV PATH=/home/myapp/myapp/bin:${PATH:-}
 ENV PYTHONPATH=/home/myapp:${PYTHONPATH:-}
 COPY install/docker/entrypoint.sh /entrypoint.sh
