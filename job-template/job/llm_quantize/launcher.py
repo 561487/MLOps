@@ -141,6 +141,17 @@ def quantize_awq(model_path: str, output: str, bits: int):
             parquet_files = glob.glob(os.path.join(local_dataset_path, "*.parquet"))
             if parquet_files:
                 return Dataset.from_parquet(parquet_files[0])
+            # 尝试 CSV 格式（ModelScope 常用）
+            csv_files = glob.glob(os.path.join(local_dataset_path, "*.csv"))
+            if csv_files:
+                import pandas as pd
+                df = pd.read_csv(csv_files[0])
+                ds = Dataset.from_pandas(df)
+                # 只取 text 列
+                if "text" in ds.column_names:
+                    ds = ds.select_columns("text")
+                print(f"[AWQ] 从 CSV 加载: {csv_files[0]}, {len(ds)} 条")
+                return ds
         except Exception as e:
             print(f"[AWQ] 本地数据集加载失败: {e}")
         return original_fn(*args, **kwargs)
