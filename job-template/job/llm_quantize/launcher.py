@@ -110,10 +110,39 @@ def quantize_awq(model_path: str, output: str, bits: int):
     original_fn = awq.utils.calib_data.get_calib_dataset
 
     def patched_get_calib_dataset(*args, **kwargs):
-        if os.path.isdir(local_dataset_path):
-            print(f"[AWQ] 使用本地数据集: {local_dataset_path}")
+        if not os.path.isdir(local_dataset_path):
+            return original_fn(*args, **kwargs)
+        print(f"[AWQ] 使用本地数据集: {local_dataset_path}")
+        # 尝试多种格式加载
+        try:
             ds = load_from_disk(local_dataset_path)
             return ds["validation"] if "validation" in ds else ds
+        except Exception:
+            pass
+        try:
+            from datasets import Dataset
+            import json
+            # 尝试 MsDataset 格式（modelscope）
+            for fname in ["dataset_info.json", "config.json", "data.jsonl", "data.json"]:
+                fpath = os.path.join(local_dataset_path, fname)
+                if os.path.isfile(fpath):
+                    if fname.endswith(".jsonl"):
+                        data = [json.loads(l) for l in open(fpath, encoding="utf-8")]
+                        return Dataset.from_list(data)
+                    elif fname.endswith(".json"):
+                        with open(fpath, encoding="utf-8") as f:
+                            data = json.load(f)
+                        if isinstance(data, list):
+                            return Dataset.from_list(data)
+                        if "rows" in data:
+                            return Dataset.from_list(data["rows"])
+            # 尝试 parquet 格式
+            import glob
+            parquet_files = glob.glob(os.path.join(local_dataset_path, "*.parquet"))
+            if parquet_files:
+                return Dataset.from_parquet(parquet_files[0])
+        except Exception as e:
+            print(f"[AWQ] 本地数据集加载失败: {e}")
         return original_fn(*args, **kwargs)
 
     # 两个导入路径都打补丁，确保拦截成功
