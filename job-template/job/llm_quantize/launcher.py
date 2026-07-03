@@ -135,7 +135,7 @@ def quantize_awq(model_path: str, output: str, bits: int):
             samples = []
             for text in texts:
                 tokenized = tokenizer(text, truncation=True, max_length=seqlen, return_tensors="pt")
-                samples.append(tokenized["input_ids"].squeeze(0))
+                samples.append(tokenized["input_ids"])
             return samples
         except Exception as e:
             print(f"[AWQ] 本地数据集加载失败: {e}")
