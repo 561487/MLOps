@@ -72,7 +72,7 @@ HUBSECRET=[{"name":hubsecret} for hubsecret in HUBSECRET.split(',')]
 DEFAULT_POD_RESOURCES = os.getenv('DEFAULT_POD_RESOURCES','')
 DEFAULT_POD_RESOURCES = json.loads(DEFAULT_POD_RESOURCES) if DEFAULT_POD_RESOURCES else {}
 
-schedulerName = os.getenv('SCHEDULER', 'volcano')
+schedulerName = 'volcano'
 
 
 
