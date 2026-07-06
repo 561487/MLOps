@@ -8121,7 +8121,7 @@
         }
       }
     }
-  }
+  },
   "model-quantization": {
     "project_name": "模型处理",
     "image_name": "10.121.177.20:8082/mlops/gptqmodel:3.1.1",
