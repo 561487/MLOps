@@ -8,19 +8,3 @@ services:
     ports: !override
       - "18080:80"
 
-#启动/停止命令：
- #到docker文件夹下面：  cd ~/projects/mlops/install/docker/
- # 启动：docker compose -f docker-compose.yml -f docker-compose.dev.yml -p ops_zjm_dev up -d
- #docker exec -it ops_zjm_dev-myapp-1 bash
- #/entrypoint.sh或python myapp/run.py
- # 停止：docker compose -f docker-compose.yml -f docker-compose.dev.yml -p ops_zjm_dev down
-
- # 连接远程开发服务器命令：
- #ssh stu04@10.121.177.229   密码111111
-
-#网页地址是： http://10.121.177.229:18777
-  
-  # 克隆代码
-
-  # cd ~/projects
-  # git clone -b hk ssh://git@10.121.177.103:8222/mlops/mlops.git
