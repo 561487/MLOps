@@ -41,8 +41,11 @@ def main():
     parser.add_argument("--output_path", type=str, required=True,
                         help="输出目录")
     parser.add_argument("--dst_format", type=str, default="onnx",
-                        choices=["onnx", "tensorrt", "torchscript"],
+                        choices=["onnx", "tensorrt", "torchscript", "gguf"],
                         help="目标格式")
+    parser.add_argument("--out_type", type=str, default="f16",
+                        choices=["f16", "f32", "q8_0", "q4_0", "q4_k_m"],
+                        help="GGUF 量化类型 (仅 gguf)")
     parser.add_argument("--input_shape", type=str, default="",
                         help='输入形状 JSON, 如 {"input_ids":[1,512]}')
     parser.add_argument("--opset", type=int, default=17,
@@ -97,6 +100,13 @@ def main():
             raise ValueError(f"不支持 {src} → tensorrt 转换")
         from convert.to_tensorrt import convert_to_tensorrt
         convert_to_tensorrt(onnx_path, args.output_path, fp16)
+
+    elif args.dst_format == "gguf":
+        assert src in ("pytorch", "huggingface"), \
+            f"GGUF 转换需要 PyTorch/HF 源模型, 当前: {src}"
+        from convert.to_gguf import convert_to_gguf
+        convert_to_gguf(args.model_path, args.output_path,
+                        args.out_type, args.model_name if hasattr(args, 'model_name') else None)
 
     print(f"\n[OK] 转换完成! 输出目录: {args.output_path}")
     for f in sorted(os.listdir(args.output_path)):
