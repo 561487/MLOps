@@ -52,6 +52,9 @@ def convert_to_onnx(model_path: str, output_dir: str, input_shape: dict,
         raise
 
     model.eval()
+    # 关掉 KV cache，否则 trace 时返回 DynamicCache 对象导致 JIT 报错
+    if hasattr(model, 'config') and hasattr(model.config, 'use_cache'):
+        model.config.use_cache = False
 
     # 生成 dummy inputs
     if input_shape:
