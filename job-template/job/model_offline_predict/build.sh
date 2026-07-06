@@ -1,10 +1,7 @@
 #!/bin/bash
-
-set -ex
-
-docker build --network=host -t ccr.ccs.tencentyun.com/cube-studio/offline-predict:20230801 -f job/model_offline_predict/Dockerfile .
-docker push ccr.ccs.tencentyun.com/cube-studio/offline-predict:20230801
-
-
-
-
+# 构建上下文为 job-template/job（包含 pkgs/ 和 model_offline_predict/）
+cd "$(dirname "$0")/.."
+source llm_offline_predict/image_tags.conf
+docker build -t $OFFLINE_PREDICT_LAUNCHER -f model_offline_predict/Dockerfile .
+docker push $OFFLINE_PREDICT_LAUNCHER
+echo "Pushed: $OFFLINE_PREDICT_LAUNCHER"
