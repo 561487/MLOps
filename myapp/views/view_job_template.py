@@ -253,6 +253,8 @@ class Job_Template_ModelView_Base():
     check_delete_permission = check_edit_permission
 
     def pre_update(self, item):
+        if not item.args:
+            return
         self.pre_add(item)
 
     # @pysnooper.snoop()
