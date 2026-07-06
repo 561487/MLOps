@@ -1375,4 +1375,106 @@
       }
     ]
   }
+  "model-quantization": {
+    "pipeline": {
+        "name": "model-quantization",
+        "describe": "LLM量化：GPTQ/AWQ/BNB，支持主流大模型",
+        "project": "public",
+        "parameter": {
+            "demo": "true",
+            "img": "/static/assets/images/pipeline/deepseek.jpg"
+        },
+        "dag_json": {
+            "model-download": {
+                "upstream": []
+            },
+            "model-quantization-task": {
+                "upstream": [
+                    "model-download"
+                ]
+            }
+        },
+        "expand": [
+            {
+                "id": "model-download",
+                "type": "dataSet",
+                "position": {
+                    "x": 350,
+                    "y": 20
+                },
+                "data": {
+                    "info": {
+                        "describe": "model download"
+                    },
+                    "name": "model-download",
+                    "label": "model download"
+                }
+            },
+            {
+                "id": "model-quantization-task",
+                "type": "dataSet",
+                "position": {
+                    "x": 350,
+                    "y": 170
+                },
+                "data": {
+                    "info": {
+                        "describe": "LLM quant"
+                    },
+                    "name": "model-quantization-task",
+                    "label": "LLM quant"
+                }
+            },
+            {
+                "source": "model-download",
+                "arrowHeadType": "arrow",
+                "target": "model-quantization-task",
+                "id": "edge1"
+            }
+        ]
+    },
+    "tasks": [
+        {
+            "job_templete": "model-download",
+            "name": "model-download",
+            "label": "model download",
+            "volume_mount": "kubeflow-user-workspace(pvc):/mnt,models-share-volume(storage):/mnt/storage/models-share-volume",
+            "resource_memory": "4G",
+            "resource_cpu": "2",
+            "resource_gpu": "0",
+            "node_selector": "cpu=true,train=true",
+            "timeout": 0,
+            "retry": 0,
+            "args": {
+                "--from": "modelscope",
+                "--model_name": "Qwen/Qwen2.5-0.5B-Instruct",
+                "--sub_model_name": "",
+                "--model_version": "master",
+                "--model_status": "online",
+                "--save_path": "/mnt/storage/models-share-volume/models/"
+            }
+        },
+        {
+            "job_templete": "model-quantization",
+            "name": "model-quantization-task",
+            "label": "LLM quant",
+            "volume_mount": "kubeflow-user-workspace(pvc):/mnt,models-share-volume(storage):/mnt/storage/models-share-volume,models-storage(storage):/mnt/storage/models-storage",
+            "resource_memory": "8G",
+            "resource_cpu": "2",
+            "resource_gpu": "1",
+            "node_selector": "gpu=true,train=true;mps=false",
+            "timeout": 0,
+            "retry": 0,
+            "args": {
+                "--model": "/mnt/storage/models-share-volume/models/Qwen2.5-0.5B-Instruct",
+                "--output": "/mnt/storage/models-share-volume/output/quantized",
+                "--method": "gptq",
+                "--bits": "4",
+                "--group_size": "128",
+                "--dataset": "wikitext2",
+                "--nsamples": "128"
+            }
+        }
+    ]
+}
 }
