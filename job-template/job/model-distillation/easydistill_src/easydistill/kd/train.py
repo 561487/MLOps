@@ -148,6 +148,12 @@ def train(config):
     data_format = _detect_format(data_path)
     dataset = load_dataset(data_format, data_files=data_path)
 
+    # ── 支持 max_samples 截断（launcher.py 会预截断，这里作为兜底保证一致性）──
+    max_samples = int(config["dataset"].get("max_samples", 0) or 0)
+    if max_samples > 0 and len(dataset["train"]) > max_samples:
+        dataset["train"] = dataset["train"].select(range(max_samples))
+        logging.info("easydistill: truncated dataset to %d samples", max_samples)
+
     student_tokenizer = AutoTokenizer.from_pretrained(
         config["models"]["student"],
         trust_remote_code=True
