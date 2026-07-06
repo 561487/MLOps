@@ -45,7 +45,6 @@ services:
       - ../../myapp/:/home/myapp/myapp/
       - ../../aihub/:/cube-studio/aihub/
       - ../../job-template/:/cube-studio/job-template/
-      - ../../scripts/:/home/myapp/scripts/
       - ./file:/data/k8s/kubeflow
       - ./entrypoint.sh:/entrypoint.sh
       - ./config.py:/home/myapp/myapp/config.py
