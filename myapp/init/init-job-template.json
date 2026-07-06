@@ -4499,7 +4499,7 @@
     "gitpath": "/job-template/job/model-convert",
     "image_describe": "模型格式转换",
     "job_template_name": "model-convert",
-    "job_template_describe": "模型格式转换 — PyTorch/HF → ONNX → TensorRT/TorchScript",
+    "job_template_describe": "模型格式转换",
     "job_template_command": "python3 /app/launcher.py",
     "job_template_volume": "models-storage(storage):/mnt/storage/models-storage",
     "job_template_account": "",
