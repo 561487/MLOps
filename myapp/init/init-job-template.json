@@ -4356,49 +4356,13 @@
     },
     "job_template_args": {}
   },
-  "mxnet": {
-    "project_name": "深度学习",
-    "image_name": "python:3.9",
-    "gitpath": "/job-template/job/mxnet",
-    "image_describe": "mxnet分布式训练",
-    "job_template_name": "mxnet",
-    "job_template_describe": "mxnet 分布式训练(企业版)",
-    "job_template_command": "python3 launcher.py",
-    "job_template_volume": "",
-    "job_template_account": "kubeflow-pipeline",
-    "job_template_env": "NO_RESOURCE_CHECK=true\nTASK_RESOURCE_CPU=2\nTASK_RESOURCE_MEMORY=4G\nTASK_RESOURCE_GPU=0",
-    "job_template_expand": {
-      "index": 7,
-      "rec_job_template": "自定义镜像",
-      "help_url": "/job-template/job/mxnet"
-    },
-    "job_template_args": {}
-  },
-  "horovod": {
-    "project_name": "分布式加速",
-    "image_name": "python:3.9",
-    "gitpath": "/job-template/job/horovod",
-    "image_describe": "horovod 分布式训练",
-    "job_template_name": "horovod",
-    "job_template_describe": "horovod 分布式训练(企业版)",
-    "job_template_command": "python3 launcher.py",
-    "job_template_volume": "",
-    "job_template_account": "kubeflow-pipeline",
-    "job_template_env": "",
-    "job_template_expand": {
-      "index": 3,
-      "rec_job_template": "自定义镜像",
-      "help_url": "/job-template/job/horovod"
-    },
-    "job_template_args": {}
-  },
   "megatron": {
     "project_name": "分布式加速",
     "image_name": "python:3.9",
     "gitpath": "/job-template/job/megatron",
     "image_describe": "megatron 分布式训练",
     "job_template_name": "megatron",
-    "job_template_describe": "megatron 分布式训练(企业版)",
+    "job_template_describe": "megatron 分布式训练",
     "job_template_command": "python3 launcher.py",
     "job_template_volume": "",
     "job_template_account": "kubeflow-pipeline",
@@ -4446,42 +4410,6 @@
     },
     "job_template_args": {}
   },
-  "mpi": {
-    "project_name": "分布式加速",
-    "image_name": "python:3.9",
-    "gitpath": "/job-template/job/mpi",
-    "image_describe": "mpi 分布式训练",
-    "job_template_name": "mpi",
-    "job_template_describe": "mpi 分布式训练(企业版)",
-    "job_template_command": "python3 launcher.py",
-    "job_template_volume": "",
-    "job_template_account": "kubeflow-pipeline",
-    "job_template_env": "",
-    "job_template_expand": {
-      "index": 1,
-      "rec_job_template": "自定义镜像",
-      "help_url": "/job-template/job/mpi"
-    },
-    "job_template_args": {}
-  },
-  "model-evaluation": {
-    "project_name": "模型处理",
-    "image_name": "python:3.9",
-    "gitpath": "/job-template/job/model_evaluation",
-    "image_describe": "模型评估",
-    "job_template_name": "model-evaluation",
-    "job_template_describe": "模型评估(企业版)",
-    "job_template_command": "python3 launcher.py",
-    "job_template_volume": "",
-    "job_template_account": "",
-    "job_template_env": "",
-    "job_template_expand": {
-      "index": 1,
-      "rec_job_template": "自定义镜像",
-      "help_url": "/job-template/job/model_evaluation"
-    },
-    "job_template_args": {}
-  },
   "model-convert": {
     "project_name": "模型处理",
     "image_name": "python:3.9",
@@ -4497,24 +4425,6 @@
       "index": 2,
       "rec_job_template": "自定义镜像",
       "help_url": "/job-template/job/model_convert"
-    },
-    "job_template_args": {}
-  },
-  "model-quantization": {
-    "project_name": "模型处理",
-    "image_name": "python:3.9",
-    "gitpath": "/job-template/job/model-quantization",
-    "image_describe": "大模型量化",
-    "job_template_name": "model-quantization",
-    "job_template_describe": "大模型量化(企业版)",
-    "job_template_command": "python3 launcher.py",
-    "job_template_volume": "",
-    "job_template_account": "",
-    "job_template_env": "",
-    "job_template_expand": {
-      "index": 4,
-      "rec_job_template": "自定义镜像",
-      "help_url": "/job-template/job/model-quantization"
     },
     "job_template_args": {}
   },

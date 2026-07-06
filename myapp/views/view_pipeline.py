@@ -359,8 +359,6 @@ def dag_to_pipeline(pipeline, dbsession, workflow_label=None, **kwargs):
         container_envs.append(("IMAGE_PULL_POLICY", conf.get('IMAGE_PULL_POLICY','IfNotPresent')))
         if hubsecret_list:
             container_envs.append(("HUBSECRET", ','.join(hubsecret_list)))
-        if not any(env_key == "SCHEDULER" for env_key, _ in container_envs):
-            container_envs.append(("SCHEDULER", "volcano"))
 
 
         # 创建工作目录
