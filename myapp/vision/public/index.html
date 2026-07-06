@@ -9,7 +9,7 @@
     <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
     <title>cube-studio</title>
     <script>
-      const isDev = false;
+      const isDev = process.env.NODE_ENV === 'development' ? true : false;
       const assetsUrl = isDev ? '/assets' : '/static/appbuilder/assets';
 
       window.FabricConfig = {
