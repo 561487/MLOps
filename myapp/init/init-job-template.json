@@ -4542,11 +4542,11 @@
           "item_type": "str",
           "label": "目标格式",
           "require": 1,
-          "choice": ["onnx", "torchscript"],
+          "choice": ["onnx", "tensorrt", "torchscript", "gguf"],
           "range": "",
           "default": "onnx",
           "placeholder": "",
-          "describe": "onnx=通用推理/AI编译器, torchscript=PyTorch原生部署",
+          "describe": "onnx=通用推理, tensorrt=NVIDIA GPU加速, torchscript=PyTorch部署, gguf=llama.cpp/ollama",
           "editable": 1
         },
         "--input_shape": {
@@ -4583,7 +4583,19 @@
           "range": "",
           "default": "true",
           "placeholder": "",
-          "describe": "半精度浮点，减小模型体积和显存占用",
+          "describe": "半精度浮点，减小模型体积和显存占用（ONNX/TensorRT 使用）",
+          "editable": 1
+        },
+        "--out_type": {
+          "type": "str",
+          "item_type": "str",
+          "label": "GGUF 量化类型",
+          "require": 0,
+          "choice": ["f16", "f32", "q8_0", "q4_0", "q4_k_m"],
+          "range": "",
+          "default": "f16",
+          "placeholder": "",
+          "describe": "GGUF 量化级别。f16=半精度, q8_0=8bit, q4_k_m=4bit推荐, q4_0=4bit小体积。仅对 GGUF 转换生效",
           "editable": 1
         }
       }
