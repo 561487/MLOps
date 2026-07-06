@@ -260,8 +260,8 @@ export default class RelationDiagram extends D3Tool {
 			const preHandleNextData = this.preHandleNodes(dag, 'children');
 
 			for (let i = 0; i < preHandleNextData.length; i++) {
-				preHandleNextData[i].key = `node_${i}`;
-				preHandleNextData[i].parent = preHandlePreData[i].parent;
+				preHandleNextData[i].key = 
+`node_${i}`;
 			}
 
 			this.rootNode = preHandleNextData[0];
@@ -463,8 +463,9 @@ export default class RelationDiagram extends D3Tool {
 		if (d3MainView) {
 			d3MainView.onclick = (e: any) => {
 				let isNode = false
-				for (let i = 0; i < e.path.length; i++) {
-					const elem = e.path[i];
+				const path = e.composedPath?.() || e.path || []
+				for (let i = 0; i < path.length; i++) {
+					const elem = path[i];
 					if (elem.id && ~elem.id.indexOf('node_')) {
 						isNode = true
 						break
