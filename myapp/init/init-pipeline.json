@@ -1374,7 +1374,7 @@
         }
       }
     ]
-  }
+  },
   "model-quantization": {
     "pipeline": {
         "name": "model-quantization",
