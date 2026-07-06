@@ -4990,15 +4990,15 @@
       }
     }
   },
-  "model-offline-predict": {
+ "model-offline-predict": {
     "project_name": "模型服务化",
-    "image_name": "ccr.ccs.tencentyun.com/cube-studio/offline-predict:20230801",
+    "image_name": "10.121.177.20:8082/mlops/offline-predict-launcher:20260714",
     "gitpath": "/job-template/job/offline-predict",
     "image_describe": "分布式离线推理",
     "job_template_name": "model-offline-predict",
     "job_template_describe": "分布式离线推理",
     "job_template_command": "python3 launcher-rabbitmq.py",
-    "job_template_volume": "",
+    "job_template_volume": "kubeflow-user-workspace(pvc):/mnt,models-share-volume(storage):/mnt/storage/models-share-volume",
     "job_template_account": "kubeflow-pipeline",
     "job_template_env": "NO_RESOURCE_CHECK=true\nTASK_RESOURCE_CPU=4\nTASK_RESOURCE_MEMORY=4G\nTASK_RESOURCE_GPU=0",
     "job_template_expand": {
@@ -5008,40 +5008,112 @@
     },
     "job_template_args": {
       "模型离线推理": {
-        "--image": {
-          "type": "str",
-          "item_type": "str",
-          "label": "镜像",
-          "require": 1,
-          "choice": [],
-          "range": "",
-          "default": "ccr.ccs.tencentyun.com/cube-studio/ubuntu-gpu:cuda11.8.0-cudnn8-python3.9",
-          "placeholder": "",
-          "describe": "worker镜像，直接运行你代码的环境镜像<a target='_blank' href='https://github.com/data-infra/cube-studio/tree/main/images'>基础镜像</a>",
-          "editable": 1
-        },
         "--working_dir": {
           "type": "str",
           "item_type": "str",
           "label": "启动目录",
-          "require": 1,
+          "require": 0,
           "choice": [],
           "range": "",
-          "default": "/mnt/{{creator}}/pipeline/example/offline-inference/",
+          "default": "",
           "placeholder": "",
-          "describe": "启动目录",
+          "describe": "工作目录",
           "editable": 1
         },
-        "--command": {
+        "--model_path": {
           "type": "str",
           "item_type": "str",
-          "label": "启动命令",
+          "label": "模型路径",
           "require": 1,
           "choice": [],
           "range": "",
-          "default": "bash start.sh",
+          "default": "/mnt/storage/models-share-volume/models/Qwen3-0.6B",
           "placeholder": "",
-          "describe": "环境安装和任务启动命令",
+          "describe": "推理模型路径",
+          "editable": 1
+        },
+        "--input_file": {
+          "type": "str",
+          "item_type": "str",
+          "label": "输入数据文件",
+          "require": 1,
+          "choice": [],
+          "range": "",
+          "default": "/mnt/storage/models-share-volume/predict-data/input.txt",
+          "placeholder": "",
+          "describe": "推理输入文件路径，每行一条待推理文本",
+          "editable": 1
+        },
+        "--output_file": {
+          "type": "str",
+          "item_type": "str",
+          "label": "输出文件",
+          "require": 1,
+          "choice": [],
+          "range": "",
+          "default": "/mnt/storage/models-share-volume/output/inference/result.jsonl",
+          "placeholder": "",
+          "describe": "推理结果输出路径（JSONL 格式）",
+          "editable": 1
+        },
+        "--max_new_tokens": {
+          "type": "str",
+          "item_type": "str",
+          "label": "最大生成token数",
+          "require": 0,
+          "choice": [],
+          "range": "",
+          "default": "512",
+          "placeholder": "",
+          "describe": "每条数据最多生成的新 token 数量",
+          "editable": 1
+        },
+        "--temperature": {
+          "type": "str",
+          "item_type": "str",
+          "label": "采样温度 (temperature)",
+          "require": 0,
+          "choice": [],
+          "range": "",
+          "default": "0.3",
+          "placeholder": "",
+          "describe": "采样温度，控制随机性，越低越确定性（默认 0.3，范围 0.0~2.0）",
+          "editable": 1
+        },
+        "--top_k": {
+          "type": "str",
+          "item_type": "str",
+          "label": "Top-K 采样",
+          "require": 0,
+          "choice": [],
+          "range": "",
+          "default": "10",
+          "placeholder": "",
+          "describe": "Top-K 采样，只保留概率最高的 K 个 token（默认 10，设为 1 即贪婪解码）",
+          "editable": 1
+        },
+        "--top_p": {
+          "type": "str",
+          "item_type": "str",
+          "label": "Top-P 采样 (nucleus)",
+          "require": 0,
+          "choice": [],
+          "range": "",
+          "default": "0.7",
+          "placeholder": "",
+          "describe": "Top-P (nucleus) 采样，累积概率阈值（默认 0.7，范围 0.0~1.0）",
+          "editable": 1
+        },
+        "--backend": {
+          "type": "str",
+          "item_type": "str",
+          "label": "推理后端",
+          "require": 0,
+          "choice": ["transformers", "vllm"],
+          "range": "",
+          "default": "transformers",
+          "placeholder": "",
+          "describe": "推理引擎：transformers（默认）或 vllm（加速）",
           "editable": 1
         },
         "--num_worker": {
@@ -5053,7 +5125,7 @@
           "range": "",
           "default": "3",
           "placeholder": "",
-          "describe": "占用机器个数",
+          "describe": "占用机器个数（1个生产者+N-1个消费者）",
           "editable": 1,
           "regex": "^[0-9]*$"
         }
