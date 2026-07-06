@@ -2705,17 +2705,6 @@
           "placeholder": "",
           "describe": "数据集的保存地址",
           "editable": 1
-        },
-        "--download_limit": {
-          "type": "str",
-          "item_type": "str",
-          "label": "下载数量限制",
-          "require": 0,
-          "choice": [],
-          "default": "0",
-          "placeholder": "100",
-          "describe": "限制数据数量，0=全部。「当前平台」按文件数限制；「modelscope」按parquet行数限制",
-          "editable": 1
         }
       }
     }
@@ -4531,7 +4520,7 @@
   },
   "model-distillation": {
     "project_name": "模型处理",
-    "image_name": "10.121.177.20:8082/mlops/model-distillation:20260704",
+    "image_name": "10.121.177.20:8082/mlops/model-distillation:20260704-v6",
     "gitpath": "/job-template/job/model-distillation",
     "image_describe": "大模型蒸馏",
     "job_template_name": "model-distillation",
