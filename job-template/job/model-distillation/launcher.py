@@ -37,11 +37,40 @@ def check_skip(output_path):
     return False
 
 
+# 常见 ModelScope 命名空间，用于从本地路径反查模型 ID
+_MODELSCOPE_NAMESPACES = ['Qwen', 'qwen', 'deepseek-ai', 'damo', 'llava']
+
+
 def resolve_model_path(model_name, cache_dir):
-    """ModelScope ID → 本地路径；已是本地路径直接返回"""
+    """ModelScope ID → 本地路径；已是本地路径直接返回
+
+    支持两种输入:
+    1. ModelScope ID（如 Qwen/Qwen2.5-0.5B-Instruct）: 下载到 cache_dir
+    2. 本地路径（如 /mnt/models/Qwen2.5-0.5B-Instruct）: 直接用；不存在则尝试反查 ModelScope ID
+    """
     if os.path.isdir(model_name):
         print(f'使用本地模型: {model_name}')
         return model_name
+
+    # 如果看起来像本地路径（以 / ./ ../ 开头）但目录不存在，提取模型名重试
+    if model_name.startswith('/') or model_name.startswith('./') or model_name.startswith('../'):
+        model_basename = os.path.basename(model_name.rstrip('/'))
+        print(f'本地模型不存在: {model_name}，尝试从 ModelScope 下载')
+        from modelscope import snapshot_download
+        for ns in _MODELSCOPE_NAMESPACES:
+            model_id = f'{ns}/{model_basename}'
+            try:
+                print(f'  尝试: {model_id}')
+                local_dir = snapshot_download(model_id, cache_dir=cache_dir)
+                print(f'模型下载完成: {local_dir}')
+                return local_dir
+            except Exception:
+                continue
+        raise FileNotFoundError(
+            f'本地模型路径不存在且无法从 ModelScope 自动下载: {model_name}\n'
+            f'请确保上游 "模型导入" 步骤已成功执行，或手动提供有效的 ModelScope ID。')
+
+    # 纯 ModelScope ID（如 Qwen/Qwen2.5-0.5B-Instruct）
     print(f'从 ModelScope 下载模型: {model_name}')
     from modelscope import snapshot_download
     local_dir = snapshot_download(model_name, cache_dir=cache_dir)
@@ -50,11 +79,12 @@ def resolve_model_path(model_name, cache_dir):
 
 
 def resolve_data_path(data_path):
-    """解析数据路径，支持目录（取第一个 jsonl/json/parquet）"""
+    """解析数据路径，支持目录（取第一个 jsonl/json/parquet/csv）"""
     if os.path.isdir(data_path):
         files = glob.glob(os.path.join(data_path, '*.jsonl')) + \
                 glob.glob(os.path.join(data_path, '*.json')) + \
-                glob.glob(os.path.join(data_path, '*.parquet'))
+                glob.glob(os.path.join(data_path, '*.parquet')) + \
+                glob.glob(os.path.join(data_path, '*.csv'))
         return files[0] if files else data_path
     return data_path
 
@@ -66,6 +96,8 @@ def detect_data_format(data_path):
         return 'json'
     elif ext == '.parquet':
         return 'parquet'
+    elif ext == '.csv':
+        return 'csv'
     else:
         return 'json'  # 默认按 JSON 尝试
 
@@ -102,7 +134,7 @@ def format_sample_with_tokenizer(tokenizer, instruction, output):
 # Teacher Logits 预计算（白盒蒸馏核心）
 # ---------------------------------------------------------------------------
 
-def generate_teacher_logits(teacher_path, data_path, logits_path, max_length=512):
+def generate_teacher_logits(teacher_path, data_path, logits_path, max_length=512, max_samples=0):
     """
     预计算 Teacher 模型的概率分布（替代 easydistill kd/infer.py，不依赖 vllm）
 
@@ -145,47 +177,61 @@ def generate_teacher_logits(teacher_path, data_path, logits_path, max_length=512
     # 加载数据（自动检测 JSON/JSONL/Parquet 格式）
     data_format = detect_data_format(data_path)
     dataset = load_dataset(data_format, data_files=data_path, split="train")
+    if max_samples > 0 and len(dataset) > max_samples:
+        dataset = dataset.select(range(max_samples))
     print(f'训练样本数: {len(dataset)}')
     inst_col, out_col = auto_detect_columns(dataset)
 
     # 逐条处理
     print(f'开始生成 logits → {logits_path}')
+    import time as _time
+    skipped = 0
     with jsonlines.open(logits_path, 'w') as writer:
         for idx, example in enumerate(dataset):
-            instruction = example.get(inst_col, "")
-            output = example.get(out_col, "")
+            try:
+                instruction = example.get(inst_col, "")
+                output = example.get(out_col, "")
 
-            # 使用 tokenizer 自带的 chat_template 格式化（自动适配架构）
-            text = format_sample_with_tokenizer(tokenizer, instruction, output)
-            inputs = tokenizer(
-                text, return_tensors="pt",
-                max_length=max_length, truncation=True, padding=False,
-            )
-            seq_len = inputs["input_ids"].shape[1]
-
-            # 前向推理
-            with torch.no_grad():
-                outputs = model(
-                    input_ids=inputs["input_ids"].to(model.device),
-                    attention_mask=inputs["attention_mask"].to(model.device),
+                # 使用 tokenizer 自带的 chat_template 格式化（自动适配架构）
+                text = format_sample_with_tokenizer(tokenizer, instruction, output)
+                inputs = tokenizer(
+                    text, return_tensors="pt",
+                    max_length=max_length, truncation=True, padding=False,
                 )
-                logits = outputs.logits[0]  # [seq_len, vocab_size]
+                seq_len = inputs["input_ids"].shape[1]
 
-            # softmax → 概率，保留 top-k 并重新归一化
-            probs = torch.softmax(logits.float(), dim=-1)
-            sample_data = []
-            for pos in range(seq_len):
-                pos_probs = probs[pos]
+                # 进度提前打印（含 seq_len），方便定位卡死样本
+                if (idx + 1) % 10 == 0 or idx == 0:
+                    print(f'  进度: {idx + 1}/{len(dataset)} (seq_len={seq_len})')
+
+                _t0 = _time.time()
+                # 前向推理
+                with torch.no_grad():
+                    outputs = model(
+                        input_ids=inputs["input_ids"].to(model.device),
+                        attention_mask=inputs["attention_mask"].to(model.device),
+                    )
+                    logits = outputs.logits[0]  # [seq_len, vocab_size]
+
+                # softmax → 概率，保留 top-k 并重新归一化（向量化：一次 topk 处理所有位置）
+                probs = torch.softmax(logits.float(), dim=-1)  # [seq_len, vocab_size]
                 k = min(TOP_K_LOGITS, teacher_vocab_size)
-                topk_vals, topk_ids = torch.topk(pos_probs, k=k)
-                topk_vals = topk_vals / topk_vals.sum()  # 重新归一化
-                pos_dict = {int(tid): float(tv) for tid, tv in zip(topk_ids.cpu(), topk_vals.cpu())}
-                sample_data.append(pos_dict)
+                topk_vals, topk_ids = torch.topk(probs, k=k, dim=-1)  # [seq_len, k]
+                topk_vals = topk_vals / topk_vals.sum(dim=-1, keepdim=True)  # 重新归一化
+                sample_data = []
+                for pos in range(seq_len):
+                    pos_dict = {int(tid): float(tv) for tid, tv in zip(topk_ids[pos].cpu(), topk_vals[pos].cpu())}
+                    sample_data.append(pos_dict)
 
-            writer.write(sample_data)
+                writer.write(sample_data)
+                _elapsed = _time.time() - _t0
+                if _elapsed > 30:
+                    print(f'  [慢] 样本 {idx + 1}: seq_len={seq_len}, 耗时={_elapsed:.1f}s')
 
-            if (idx + 1) % 10 == 0 or idx == 0:
-                print(f'  进度: {idx + 1}/{len(dataset)} (seq_len={seq_len})')
+            except Exception as e:
+                skipped += 1
+                print(f'  [跳过] 样本 {idx + 1} 处理失败: {e}')
+                continue
 
     # 清理 Teacher 显存
     del model
@@ -201,7 +247,7 @@ def generate_teacher_logits(teacher_path, data_path, logits_path, max_length=512
 # ---------------------------------------------------------------------------
 
 def build_config(args, teacher_path, student_path, data_path, work_dir, template_path,
-                 inst_col='instruction', out_col='output'):
+                 inst_col='instruction', out_col='output', data_format='json'):
     """将命令行参数转换为 EasyDistill 配置 JSON"""
 
     distill_type = args.distill_type
@@ -214,6 +260,7 @@ def build_config(args, teacher_path, student_path, data_path, work_dir, template
             "student": student_path,
         },
         "dataset": {
+            "data_format": data_format,
             "instruction_path": data_path,
             "labeled_path": data_path,
             "template": template_path,
@@ -300,6 +347,15 @@ def main():
         _format = detect_data_format(data_path)
         _ds = _load_ds(_format, data_files=data_path, split="train")
         inst_col, out_col = auto_detect_columns(_ds)
+        print(f'列名映射: instruction → "{inst_col}", output → "{out_col}"')
+
+        # ----- 3.5 截断数据到 max_samples（logits 和训练共用） -----
+        max_samples = int(args.max_samples) if args.max_samples else 0
+        if max_samples > 0 and len(_ds) > max_samples:
+            _ds = _ds.select(range(max_samples))
+        limited_data_path = os.path.join(work_dir, 'limited_train.jsonl')
+        _ds.to_json(limited_data_path, force_ascii=False)
+        print(f'截断后样本数: {len(_ds)} → {limited_data_path}')
         del _ds
 
         # ----- 4. 白盒: 预计算 Teacher logits -----
@@ -307,14 +363,15 @@ def main():
             logits_path = os.path.join(work_dir, 'teacher_logits.jsonl')
             generate_teacher_logits(
                 teacher_path=teacher_path,
-                data_path=data_path,
+                data_path=limited_data_path,
                 logits_path=logits_path,
                 max_length=512,
+                max_samples=0,  # 数据已在 limited_data_path 中截断
             )
 
         # ----- 5. 构建 EasyDistill 配置 -----
-        config = build_config(args, teacher_path, student_path, data_path, work_dir, template_path,
-                              inst_col=inst_col, out_col=out_col)
+        config = build_config(args, teacher_path, student_path, limited_data_path, work_dir, template_path,
+                              inst_col=inst_col, out_col=out_col, data_format='json')  # limited_train.jsonl 始终为 json 格式
 
         config_path = os.path.join(work_dir, 'easydistill_config.json')
         with open(config_path, 'w') as f:
