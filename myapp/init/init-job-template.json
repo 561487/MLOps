@@ -4500,7 +4500,7 @@
     "image_describe": "模型格式转换",
     "job_template_name": "model-convert",
     "job_template_describe": "模型格式转换 — PyTorch/HF → ONNX → TensorRT/TorchScript",
-    "job_template_command": "python3 launcher.py",
+    "job_template_command": "python3 /app/launcher.py",
     "job_template_volume": "models-storage(storage):/mnt/storage/models-storage",
     "job_template_account": "",
     "job_template_env": "HF_ENDPOINT=https://hf-mirror.com",
@@ -4542,7 +4542,12 @@
           "item_type": "str",
           "label": "目标格式",
           "require": 1,
-          "choice": ["onnx", "tensorrt", "torchscript", "gguf"],
+          "choice": [
+            "onnx",
+            "tensorrt",
+            "torchscript",
+            "gguf"
+          ],
           "range": "",
           "default": "onnx",
           "placeholder": "",
@@ -4567,7 +4572,10 @@
           "label": "ONNX Opset 版本",
           "require": 0,
           "choice": [],
-          "range": [11, 21],
+          "range": [
+            11,
+            21
+          ],
           "default": 17,
           "step": 1,
           "placeholder": "",
@@ -4579,7 +4587,10 @@
           "item_type": "str",
           "label": "启用 FP16",
           "require": 0,
-          "choice": ["true", "false"],
+          "choice": [
+            "true",
+            "false"
+          ],
           "range": "",
           "default": "true",
           "placeholder": "",
@@ -4591,7 +4602,13 @@
           "item_type": "str",
           "label": "GGUF 量化类型",
           "require": 0,
-          "choice": ["f16", "f32", "q8_0", "q4_0", "q4_k_m"],
+          "choice": [
+            "f16",
+            "f32",
+            "q8_0",
+            "q4_0",
+            "q4_k_m"
+          ],
           "range": "",
           "default": "f16",
           "placeholder": "",
