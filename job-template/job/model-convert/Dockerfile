@@ -15,6 +15,8 @@ RUN pip3 config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple
 RUN pip3 install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cu121
 RUN pip3 install --no-cache-dir onnx onnxruntime optimum transformers safetensors
 RUN pip3 install --no-cache-dir gguf sentencepiece protobuf
+RUN pip3 install --no-cache-dir tensorrt --index-url https://pypi.nvidia.com || \
+    echo "[WARN] tensorrt 需要 GPU 驱动, ONNX→TensorRT 转换仅在 GPU 节点可用"
 
 COPY job-template/job/model-convert/ /app/
 RUN chmod +x /app/launcher.py

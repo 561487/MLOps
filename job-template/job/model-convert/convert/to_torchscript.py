@@ -23,7 +23,9 @@ def convert_to_torchscript(model_path: str, output_dir: str, input_shape: dict =
 
     print(f"[INFO] 开始 TorchScript trace → {out_path}")
     try:
-        dummy = torch.randint(0, 1000, (1, 32), dtype=torch.long)
+        # 用 input_shape 或默认 (1, 32)
+        shape = input_shape.get("input_ids", [1, 32]) if input_shape else [1, 32]
+        dummy = torch.randint(0, 1000, shape, dtype=torch.long)
         traced = torch.jit.trace(model, dummy)
         torch.jit.save(traced, out_path)
         print(f"[OK] TorchScript 模型: {out_path}")
