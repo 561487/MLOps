@@ -13,25 +13,23 @@ KFJ_PIPELINE_ID = os.getenv("KFJ_PIPELINE_ID", "0")
 def detect_src_format(model_path: str) -> str:
     """从文件后缀自动检测源格式."""
     if not os.path.exists(model_path) and not model_path.startswith('/'):
-        # 可能是 HF model id
-        return "huggingface"
+        return "huggingface"  # HF model id
 
     if os.path.isdir(model_path):
-        # 目录 → 可能是 HF 或 saved_model
         if os.path.exists(os.path.join(model_path, "config.json")):
             return "huggingface"
         if os.path.exists(os.path.join(model_path, "saved_model.pb")):
             return "tensorflow"
+        return "huggingface"  # 含权重的目录，当作 HF
+
+    # 单文件 → 找同目录的 config.json
+    parent_dir = os.path.dirname(model_path)
+    if parent_dir and os.path.exists(os.path.join(parent_dir, "config.json")):
+        return "huggingface"
 
     ext = os.path.splitext(model_path)[1].lower()
-    mapping = {
-        ".safetensors": "pytorch",
-        ".bin": "pytorch",
-        ".pt": "pytorch",
-        ".pth": "pytorch",
-        ".onnx": "onnx",
-    }
-    return mapping.get(ext, "pytorch")
+    return {"safetensors": "pytorch", ".bin": "pytorch",
+            ".pt": "pytorch", ".pth": "pytorch", ".onnx": "onnx"}.get(ext, "pytorch")
 
 
 def main():
@@ -58,6 +56,7 @@ def main():
     args = parser.parse_args()
     fp16 = args.fp16.lower() in ("true", "1", "yes")
     input_shape = json.loads(args.input_shape) if args.input_shape else None
+    dynamic_axes = json.loads(args.dynamic_axes) if args.dynamic_axes else None
 
     print("=" * 60)
     print("模型格式转换")
@@ -79,7 +78,7 @@ def main():
             f"不支持 {src} → onnx 转换"
         from convert.to_onnx import convert_to_onnx
         convert_to_onnx(args.model_path, args.output_path,
-                        input_shape, args.opset, fp16)
+                        input_shape, args.opset, fp16, dynamic_axes)
 
     elif args.dst_format == "torchscript":
         assert src in ("pytorch", "huggingface"), \
@@ -93,7 +92,7 @@ def main():
             print("[INFO] 先转换 PyTorch → ONNX ...")
             from convert.to_onnx import convert_to_onnx
             onnx_path = convert_to_onnx(args.model_path, args.output_path,
-                                        input_shape, args.opset, fp16)
+                                        input_shape, args.opset, fp16, dynamic_axes)
         elif src == "onnx":
             onnx_path = args.model_path
         else:
@@ -105,8 +104,7 @@ def main():
         assert src in ("pytorch", "huggingface"), \
             f"GGUF 转换需要 PyTorch/HF 源模型, 当前: {src}"
         from convert.to_gguf import convert_to_gguf
-        convert_to_gguf(args.model_path, args.output_path,
-                        args.out_type, args.model_name if hasattr(args, 'model_name') else None)
+        convert_to_gguf(args.model_path, args.output_path, args.out_type)
 
     print(f"\n[OK] 转换完成! 输出目录: {args.output_path}")
     for f in sorted(os.listdir(args.output_path)):

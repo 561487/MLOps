@@ -1,5 +1,5 @@
 """PyTorch / HuggingFace → ONNX"""
-import os, json
+import os
 import tempfile
 import torch
 import onnx
@@ -17,22 +17,15 @@ def convert_to_onnx(model_path: str, output_dir: str, input_shape: dict,
     os.makedirs(output_dir, exist_ok=True)
 
     print(f"[INFO] 加载模型: {model_path}")
-    from transformers import AutoModelForCausalLM, AutoModelForSeq2SeqLM
-    from transformers import AutoModelForSequenceClassification, AutoTokenizer
+    from transformers import AutoModelForCausalLM, AutoTokenizer
 
-    # 先试 HF 加载
     try:
-        if os.path.isdir(model_path) or model_path.startswith('/'):
-            model = AutoModelForCausalLM.from_pretrained(
-                model_path, torch_dtype=torch.float32, trust_remote_code=True)
-            tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
-        else:
-            model = AutoModelForCausalLM.from_pretrained(
-                model_path, torch_dtype=torch.float32, trust_remote_code=True)
-            tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
+        model = AutoModelForCausalLM.from_pretrained(
+            model_path, torch_dtype=torch.float32, trust_remote_code=True)
+        tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
         print(f"[INFO] 检测到 HuggingFace CausalLM 模型")
     except Exception as e:
-        print(f"[WARN] HF CausalLM 加载失败: {e}")
+        print(f"[ERROR] HF 加载失败: {e}")
         raise
 
     model.eval()
