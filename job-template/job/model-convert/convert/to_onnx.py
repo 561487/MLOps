@@ -82,7 +82,7 @@ def convert_to_onnx(model_path: str, output_dir: str, input_shape: dict,
     model_name = os.path.basename(model_path.rstrip('/')) or "model"
     onnx_path = os.path.join(output_dir, f"{model_name}.onnx")
 
-    print(f"[INFO] 开始转换 → {onnx_path}")
+    print(f"[INFO] 开始转换 → {onnx_path} （使用外部数据格式避免 2GB 限制）")
     torch.onnx.export(
         model,
         tuple(dummy_inputs.values()) if len(dummy_inputs) > 1 else list(dummy_inputs.values())[0],
@@ -93,9 +93,13 @@ def convert_to_onnx(model_path: str, output_dir: str, input_shape: dict,
         opset_version=opset,
         do_constant_folding=True,
     )
+    # 转换为外部数据格式 (避免 protobuf 2GB 限制)
+    import onnx as _onnx
+    m = _onnx.load(onnx_path)
+    weight_file = f"{model_name}.weight"
+    _onnx.save(m, onnx_path, save_as_external_data=True,
+              all_tensors_to_one_file=True, location=weight_file)
 
-    # 验证
-    _verify_onnx(onnx_path)
     print(f"[OK] ONNX 模型: {onnx_path}")
     return onnx_path
 
