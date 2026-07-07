@@ -15,12 +15,13 @@ def convert_to_torchscript(model_path: str, output_dir: str, input_shape: dict =
     model = AutoModelForCausalLM.from_pretrained(
         model_path, torch_dtype=torch.float32, trust_remote_code=True)
     model.eval()
+    if hasattr(model, 'config') and hasattr(model.config, 'use_cache'):
+        model.config.use_cache = False
 
     model_name = os.path.basename(model_path.rstrip('/')) or "model"
     out_path = os.path.join(output_dir, f"{model_name}.pt")
 
     print(f"[INFO] 开始 TorchScript trace → {out_path}")
-    # 用 trace（jit.trace 比 script 更稳定）
     try:
         dummy = torch.randint(0, 1000, (1, 32), dtype=torch.long)
         traced = torch.jit.trace(model, dummy)
