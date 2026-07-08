@@ -1,23 +1,15 @@
+FROM 10.121.177.20:8082/mlops/offline-predict-launcher:20260705_v2
 
-FROM python:3.9
+# ============================================================
+# 增量构建：基于上一版镜像，只覆盖更新文件，构建速度快
+# ============================================================
 
-ENV TZ Asia/Shanghai
-ENV DEBIAN_FRONTEND noninteractive
+# 覆盖更新文件
+COPY model_offline_predict/* /app/
+COPY llm_offline_predict/image_tags.conf /app/
+COPY pkgs /app/job/pkgs
 
-ARG TARGETARCH=amd64
-
-RUN wget https://github.com/stern/stern/releases/download/v1.21.0/stern_1.21.0_linux_${TARGETARCH}.tar.gz && tar -zxvf stern_1.21.0_linux_${TARGETARCH}.tar.gz && rm stern_1.21.0_linux_${TARGETARCH}.tar.gz && chmod +x stern &&  mv stern /usr/bin/stern
-
-RUN /usr/local/bin/python -m pip install --upgrade pip
-
-RUN pip install kubernetes==21.7.0 pysnooper psutil requests numpy  pyinstaller argparse pika
-COPY job/model_offline_predict/* /app/
-COPY job/pkgs /app/job/pkgs
 WORKDIR /app
 ENV PYTHONPATH=/app:$PYTHONPATH
 
 ENTRYPOINT ["python3", "launcher-rabbitmq.py"]
-
-
-
-
