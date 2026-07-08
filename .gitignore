@@ -53,3 +53,4 @@ CLAUDE.md
 *.docker-timestamp
 models/eval_output/
 test_tensorboard.pydoc/
+/docharbor/
