@@ -49,3 +49,7 @@ venv/
 /myapp/frontend/package-lock.json
 /myapp/vision/package-lock.json
 /myapp/visionPlus/package-lock.json
+CLAUDE.md
+*.docker-timestamp
+models/eval_output/
+test_tensorboard.py
