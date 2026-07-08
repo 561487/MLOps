@@ -29,15 +29,18 @@ def convert_to_onnx(model_path: str, output_dir: str, input_shape: dict,
     model_name = os.path.basename(model_path.rstrip('/')) or "model"
     onnx_path = os.path.join(output_dir, f"{model_name}.onnx")
 
-    # dummy inputs
-    dummy = tokenizer("Hello, this is a test", return_tensors="pt")
+    # dummy inputs — 统一转成 dict 格式
     if input_shape:
         dummy = {}
         for name, shape in input_shape.items():
             is_int = 'input_ids' in name or 'mask' in name or 'token' in name
             dtype = torch.int64 if is_int else (torch.float16 if fp16 else torch.float32)
-            dummy[name] = (torch.randint(0, 1000, shape, dtype=dtype) if is_int
-                           else torch.randn(shape, dtype=dtype))
+            t = (torch.randint(0, 1000, shape, dtype=dtype) if is_int
+                 else torch.randn(shape, dtype=dtype))
+            dummy[name] = t.to(device)
+    else:
+        tok_out = tokenizer("Hello, this is a test", return_tensors="pt")
+        dummy = {k: v.to(device) for k, v in tok_out.items()}
 
     # 优先用 dynamo_export（torch 2.x, 比 JIT trace 快 3-10x）
     try:
