@@ -1,8 +1,6 @@
 """PyTorch / HuggingFace → ONNX"""
 import os
-import tempfile
 import torch
-import onnx
 
 
 def convert_to_onnx(model_path: str, output_dir: str, input_shape: dict,
@@ -24,40 +22,64 @@ def convert_to_onnx(model_path: str, output_dir: str, input_shape: dict,
         model = model.half()
         print("[INFO] 模型转 FP16")
 
-    # dummy inputs
-    if input_shape:
-        dummy_inputs = {}
-        for name, shape in input_shape.items():
-            is_int = 'input_ids' in name or 'mask' in name or 'token' in name
-            dtype = torch.int64 if is_int else (torch.float16 if fp16 else torch.float32)
-            dummy_inputs[name] = (torch.randint(0, 1000, shape, dtype=dtype) if is_int
-                                  else torch.randn(shape, dtype=dtype))
-    else:
-        dummy_inputs = tokenizer("Hello, this is a test", return_tensors="pt")
-
-    print(f"[INFO] Dummy inputs: {list(dummy_inputs.keys())}")
-
-    if dynamic_axes is None:
-        dynamic_axes = {name: {0: "batch_size"} for name in dummy_inputs}
-
     model_name = os.path.basename(model_path.rstrip('/')) or "model"
     onnx_path = os.path.join(output_dir, f"{model_name}.onnx")
 
-    # 导出到临时文件 → 外部数据格式
+    # dummy inputs
+    dummy = tokenizer("Hello, this is a test", return_tensors="pt")
+    if input_shape:
+        dummy = {}
+        for name, shape in input_shape.items():
+            is_int = 'input_ids' in name or 'mask' in name or 'token' in name
+            dtype = torch.int64 if is_int else (torch.float16 if fp16 else torch.float32)
+            dummy[name] = (torch.randint(0, 1000, shape, dtype=dtype) if is_int
+                           else torch.randn(shape, dtype=dtype))
+
+    # 优先用 dynamo_export（torch 2.x, 比 JIT trace 快 3-10x）
+    try:
+        print(f"[INFO] 使用 dynamo_export...")
+        from torch.export import Dim
+        if isinstance(dummy, dict):
+            batch_dim = {name: Dim("batch", min=1, max=32) for name in dummy}
+            exported = torch.onnx.dynamo_export(
+                model, **dummy, export_options=torch.onnx.ExportOptions(
+                    dynamic_shapes=batch_dim))
+        else:
+            exported = torch.onnx.dynamo_export(model, dummy)
+        exported.save(onnx_path)
+        print(f"[OK] dynamo_export 完成: {onnx_path}")
+    except Exception as e:
+        print(f"[WARN] dynamo_export 失败: {e}, 回退 JIT trace")
+        export_jit(model, dummy, onnx_path, opset, model_name, output_dir)
+
+    size = os.path.getsize(onnx_path)
+    print(f"[OK] ONNX: {onnx_path} ({size/(1024*1024):.1f}MB)")
+    return onnx_path
+
+
+def export_jit(model, dummy, onnx_path, opset, model_name, output_dir):
+    """回退方案: JIT trace + 外部数据格式"""
+    import tempfile, onnx
+
+    if isinstance(dummy, dict):
+        inputs = tuple(dummy.values())
+        input_names = list(dummy.keys())
+    else:
+        inputs = dummy
+        input_names = ["input_ids", "attention_mask"]
+
+    dynamic_axes = {name: {0: "batch_size"} for name in input_names}
+
     tmp_fd, tmp_path = tempfile.mkstemp(suffix=".onnx")
     os.close(tmp_fd)
     try:
-        print(f"[INFO] 转换中 → {onnx_path}")
         torch.onnx.export(
-            model,
-            tuple(dummy_inputs.values()) if len(dummy_inputs) > 1
-            else list(dummy_inputs.values())[0],
-            tmp_path,
-            input_names=list(dummy_inputs.keys()),
+            model, inputs, tmp_path,
+            input_names=input_names,
             output_names=["logits"],
             dynamic_axes=dynamic_axes,
             opset_version=opset,
-            do_constant_folding=False,  # 关掉大幅提速，大模型减少 50%+ 时间
+            do_constant_folding=False,
         )
         m = onnx.load(tmp_path)
         onnx.save(m, onnx_path, save_as_external_data=True,
@@ -66,9 +88,3 @@ def convert_to_onnx(model_path: str, output_dir: str, input_shape: dict,
     finally:
         if os.path.exists(tmp_path):
             os.remove(tmp_path)
-
-    total = os.path.getsize(onnx_path)
-    for f in os.listdir(output_dir):
-        total += os.path.getsize(os.path.join(output_dir, f))
-    print(f"[OK] ONNX: {onnx_path} (总计 ~{total/(1024*1024):.1f}MB)")
-    return onnx_path
