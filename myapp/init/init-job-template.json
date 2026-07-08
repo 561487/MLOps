@@ -2810,6 +2810,102 @@
       }
     }
   },
+  "labelstudio-import": {
+    "project_name": "数据导入导出",
+    "image_name": "10.121.177.20:8082/mlops/labelstudio-import:20260706",
+    "gitpath": "/job-template/job/labelstudio-import",
+    "image_describe": "LabelStudio标注数据导入",
+    "job_template_name": "labelstudio-import",
+    "job_template_describe": "从LabelStudio标注平台导入标注数据到平台PVC目录",
+    "job_template_command": "python3 launcher.py",
+    "job_template_volume": "/data/k8s/kubeflow/pipeline/workspace/(hostpath):/mnt/",
+    "job_template_account": "",
+    "job_template_env": "",
+    "job_template_expand": {
+      "index": 4,
+      "rec_job_template": "自定义镜像",
+      "help_url": "/job-template/job/labelstudio-import"
+    },
+    "job_template_args": {
+      "标注导入": {
+        "--ls_api_token": {
+          "type": "str",
+          "item_type": "str",
+          "label": "API Token",
+          "require": 1,
+          "choice": [],
+          "range": "",
+          "default": "",
+          "placeholder": "在LabelStudio右上角 → Account Settings → Access Token 获取",
+          "describe": "LabelStudio 用户 API Token，用于认证 API 请求",
+          "editable": 1,
+          "encrypted": 1
+        },
+        "--project_id": {
+          "type": "int",
+          "item_type": "int",
+          "label": "项目ID",
+          "require": 1,
+          "choice": [],
+          "range": "",
+          "default": "1",
+          "placeholder": "",
+          "describe": "LabelStudio 项目 ID，在项目页面 URL 中查看（如 /projects/1/ 中的数字 1）",
+          "editable": 1
+        },
+        "--save_path": {
+          "type": "str",
+          "item_type": "str",
+          "label": "保存路径",
+          "require": 1,
+          "choice": [],
+          "range": "",
+          "default": "/mnt/{{creator}}/labelstudio/",
+          "placeholder": "",
+          "describe": "标注数据保存的 PVC 目录路径，{{creator}} 运行时替换为当前用户名",
+          "editable": 1
+        }
+      },
+      "可选参数": {
+        "--ls_url": {
+          "type": "str",
+          "item_type": "str",
+          "label": "LabelStudio地址",
+          "require": 0,
+          "choice": [],
+          "range": "",
+          "default": "http://labelstudio.kubeflow:8080",
+          "placeholder": "",
+          "describe": "LabelStudio 服务地址，默认使用集群内部地址，一般无需修改",
+          "editable": 1
+        },
+        "--export_format": {
+          "type": "enum",
+          "item_type": "str",
+          "label": "导出格式",
+          "require": 0,
+          "choice": ["JSON", "JSON_MIN", "COCO", "YOLO", "CSV", "TSV"],
+          "range": "",
+          "default": "JSON",
+          "placeholder": "",
+          "describe": "标注数据导出格式。JSON=完整标注(含标注人/时间)；JSON_MIN=精简标注；COCO/YOLO=目标检测标准格式；CSV/TSV=表格格式",
+          "editable": 1
+        },
+        "--download_media": {
+          "type": "enum",
+          "item_type": "str",
+          "label": "下载媒体文件",
+          "require": 0,
+          "choice": ["true", "false"],
+          "range": "",
+          "default": "true",
+          "placeholder": "",
+          "describe": "是否将标注关联的图片/音频等原始文件下载到保存路径下的 media/ 目录",
+          "editable": 1
+        }
+      }
+    }
+  },
   "hadoop": {
     "project_name": "数据处理工具",
     "image_name": "python:3.9",
