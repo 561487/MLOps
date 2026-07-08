@@ -49,10 +49,16 @@
   <div class="storage-files-toolbar">
     <input class="form-control" id="mkdir-name" style="width: 220px;" placeholder="新目录名或路径">
     <button class="btn btn-primary btn-sm" id="btn-mkdir">新建目录</button>
-    <input type="file" id="upload-file">
-    <button class="btn btn-primary btn-sm" id="btn-upload">上传文件</button>
+    <input type="file" id="fileInput" style="display:none">
+    <button class="btn btn-default btn-sm" id="btn-select-file">选择文件</button>
+    <input type="file" id="folderInput" multiple webkitdirectory directory style="display:none">
+    <button class="btn btn-default btn-sm" id="btn-select-folder">选择文件夹</button>
+    <span class="storage-files-message" id="selection-status">未选择任何文件或文件夹</span>
+    <button class="btn btn-primary btn-sm" id="btn-upload">上传</button>
     <button class="btn btn-default btn-sm" id="btn-refresh">刷新</button>
   </div>
+
+  <div id="folder-preview" style="display:none; margin: 0 0 8px 0; padding: 8px 12px; background: #f9f9f9; border: 1px solid #e0e0e0; border-radius: 4px; font-size: 13px; max-height: 240px; overflow-y: auto;"></div>
 
   <table>
     <thead>
@@ -83,6 +89,10 @@
   var listBody = document.getElementById('file-list');
   var currentPathEl = document.getElementById('current-path');
   var messageEl = document.getElementById('message');
+
+  var selectedMode = null;
+  var selectedFiles = [];
+  var selectedRelativePaths = [];
 
   function setMessage(text, isError) {
     messageEl.textContent = text || '';
@@ -206,7 +216,13 @@
       deleteBtn.className = 'btn btn-xs btn-danger';
       deleteBtn.style.marginLeft = '6px';
       deleteBtn.textContent = '删除';
-      deleteBtn.onclick = function () { remove(item.path); };
+      deleteBtn.onclick = function () {
+        if (item.type === 'directory') {
+          removeDirectory(item.path, item.name);
+        } else {
+          removeFile(item.path);
+        }
+      };
       actionTd.appendChild(deleteBtn);
       tr.appendChild(actionTd);
       listBody.appendChild(tr);
@@ -228,29 +244,166 @@
     });
   }
 
-  function upload() {
-    var fileInput = document.getElementById('upload-file');
-    if (!fileInput.files || !fileInput.files.length) return setMessage('请选择文件', true);
-    var data = new FormData();
-    data.append('path', currentPath);
-    data.append('file', fileInput.files[0]);
+  function escapeHtml(text) {
+    var div = document.createElement('div');
+    div.appendChild(document.createTextNode(text));
+    return div.innerHTML;
+  }
+
+  function updateSelectionStatus() {
+    var el = document.getElementById('selection-status');
+    if (!selectedMode || selectedFiles.length === 0) {
+      el.textContent = '未选择任何文件或文件夹';
+      el.style.color = '#666';
+      return;
+    }
+    el.style.color = '#666';
+    if (selectedMode === 'file') {
+      el.textContent = '已选择文件：' + (selectedFiles[0] ? selectedFiles[0].name : '');
+    } else if (selectedMode === 'folder') {
+      var folderName = '';
+      if (selectedRelativePaths.length > 0) {
+        folderName = selectedRelativePaths[0].split('/')[0];
+      }
+      el.textContent = '已选择文件夹：' + folderName + '，共 ' + selectedFiles.length + ' 个文件';
+    }
+  }
+
+  function renderFolderPreview() {
+    var container = document.getElementById('folder-preview');
+    if (selectedMode !== 'folder' || selectedRelativePaths.length === 0) {
+      container.style.display = 'none';
+      container.innerHTML = '';
+      return;
+    }
+    var maxPreview = 20;
+    var shown = selectedRelativePaths.slice(0, maxPreview);
+    var html = '<div style="font-weight:600; margin-bottom:4px;">文件夹内容预览：';
+    if (selectedRelativePaths.length > maxPreview) {
+      html += '仅展示前 ' + maxPreview + ' 个，共 ' + selectedRelativePaths.length + ' 个文件';
+    } else {
+      html += '共 ' + selectedRelativePaths.length + ' 个文件';
+    }
+    html += '</div><ul style="margin:0; padding:0 0 0 20px;">';
+    for (var i = 0; i < shown.length; i++) {
+      html += '<li>' + escapeHtml(shown[i]) + '</li>';
+    }
+    html += '</ul>';
+    container.innerHTML = html;
+    container.style.display = 'block';
+  }
+
+  function clearSelection() {
+    document.getElementById('fileInput').value = '';
+    document.getElementById('folderInput').value = '';
+    selectedMode = null;
+    selectedFiles = [];
+    selectedRelativePaths = [];
+    updateSelectionStatus();
+    renderFolderPreview();
+  }
+
+  function onFileSelected() {
+    var input = document.getElementById('fileInput');
+    if (input.files && input.files.length > 0) {
+      selectedMode = 'file';
+      selectedFiles = [input.files[0]];
+      selectedRelativePaths = [input.files[0].name];
+      document.getElementById('folderInput').value = '';
+      updateSelectionStatus();
+      renderFolderPreview();
+    }
+  }
+
+  function onFolderSelected() {
+    var input = document.getElementById('folderInput');
+    if (input.files && input.files.length > 0) {
+      selectedMode = 'folder';
+      selectedFiles = Array.prototype.slice.call(input.files);
+      selectedRelativePaths = selectedFiles.map(function (f) {
+        return f.webkitRelativePath || f.name;
+      });
+      document.getElementById('fileInput').value = '';
+      updateSelectionStatus();
+      renderFolderPreview();
+    }
+  }
+
+  function uploadSingleFile() {
+    var formData = new FormData();
+    formData.append('path', currentPath);
+    formData.append('file', selectedFiles[0]);
     setMessage('上传中...');
     requestJson('/storage_modelview/api/file/upload/' + storageId, {
       method: 'POST',
-      body: data
+      body: formData
     }).then(function () {
-      fileInput.value = '';
+      clearSelection();
       load(currentPath);
     }).catch(function (error) {
       setMessage(error.message || String(error), true);
     });
   }
 
-  function remove(path) {
-    if (!window.confirm('确定删除 ' + path + ' ?')) return;
+  function uploadFolderFiles() {
+    var formData = new FormData();
+    formData.append('path', currentPath);
+    for (var i = 0; i < selectedFiles.length; i++) {
+      formData.append('files', selectedFiles[i]);
+      formData.append('relative_paths', selectedRelativePaths[i]);
+    }
+    setMessage('上传文件夹中（' + selectedFiles.length + ' 个文件）...');
+    requestJson('/storage_modelview/api/file/upload_folder/' + storageId, {
+      method: 'POST',
+      body: formData
+    }).then(function (result) {
+      clearSelection();
+      var msg = '上传完成：成功 ' + (result.uploaded_count || 0) + ' 个';
+      if (result.failed_count) {
+        msg += '，失败 ' + result.failed_count + ' 个';
+      }
+      setMessage(msg, result.failed_count > 0);
+      load(currentPath);
+    }).catch(function (error) {
+      clearSelection();
+      setMessage(error.message || String(error), true);
+    });
+  }
+
+  function uploadSelected() {
+    if (!selectedMode || selectedFiles.length === 0) {
+      var el = document.getElementById('selection-status');
+      el.textContent = '请选择文件或文件夹';
+      el.style.color = '#c00';
+      return;
+    }
+    if (selectedMode === 'file') {
+      uploadSingleFile();
+    } else if (selectedMode === 'folder') {
+      uploadFolderFiles();
+    }
+  }
+
+  function removeFile(path) {
+    if (!window.confirm('确认删除文件「' + path + '」吗？')) return;
     requestJson('/storage_modelview/api/file/delete/' + storageId, {
       method: 'DELETE',
-      body: JSON.stringify({ path: path, recursive: false })
+      body: JSON.stringify({ path: path, type: 'file' })
+    }).then(function () {
+      load(currentPath);
+    }).catch(function (error) {
+      setMessage(error.message || String(error), true);
+    });
+  }
+
+  function removeDirectory(path, name) {
+    if (!window.confirm(
+      '确认删除目录「' + (name || path) + '」吗？\n\n' +
+      '该操作会递归删除目录下所有文件和子目录，删除后不可恢复。'
+    )) return;
+    requestJson('/storage_modelview/api/file/delete/' + storageId, {
+      method: 'DELETE',
+      body: JSON.stringify({ path: path, type: 'directory', recursive: true })
     }).then(function () {
       load(currentPath);
     }).catch(function (error) {
@@ -273,7 +426,15 @@
   document.getElementById('btn-up').onclick = function () { load(parentPath(currentPath)); };
   document.getElementById('btn-refresh').onclick = function () { load(currentPath); };
   document.getElementById('btn-mkdir').onclick = mkdir;
-  document.getElementById('btn-upload').onclick = upload;
+  document.getElementById('btn-select-file').onclick = function () {
+    document.getElementById('fileInput').click();
+  };
+  document.getElementById('fileInput').onchange = onFileSelected;
+  document.getElementById('btn-select-folder').onclick = function () {
+    document.getElementById('folderInput').click();
+  };
+  document.getElementById('folderInput').onchange = onFolderSelected;
+  document.getElementById('btn-upload').onclick = uploadSelected;
   document.getElementById('btn-close-preview').onclick = function () {
     document.getElementById('preview-panel').className = 'storage-files-card hidden';
   };

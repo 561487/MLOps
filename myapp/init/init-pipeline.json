@@ -567,195 +567,195 @@
     ]
   },
   "electric-bicycle": {
-        "pipeline": {
-            "name": "electric-bicycle",
-            "describe": "示例：电瓶车全流程(自动化标注-微调-部署)",
-            "project": "public",
-            "parameter": {},
-            "dag_json": {
-                "download-model": {},
-                "labelstudio-train": {
-                    "upstream": [
-                        "download-model"
-                    ]
-                },
-                "yolov8-object-recognition": {
-                    "upstream": [
-                        "labelstudio-train"
-                    ]
-                },
-                "deploy-yolov8-web-service": {
-                    "upstream": [
-                        "yolov8-object-recognition"
-                    ]
-                }
-            },
-            "global_env": "YYYYMMDD={{datetime.datetime.now().strftime('%Y-%m-%d')}}",
-            "expand": [
-                {
-                    "id": "labelstudio-train",
-                    "type": "dataSet",
-                    "position": {
-                        "x": 400,
-                        "y": 247
-                    },
-                    "data": {
-                        "info": {
-                            "describe": "使用用户自定义镜像作为运行镜像"
-                        },
-                        "name": "labelstudio-train",
-                        "label": "标注结果转为训练数据"
-                    }
-                },
-                {
-                    "id": "yolov8-object-recognition",
-                    "type": "dataSet",
-                    "position": {
-                        "x": 400,
-                        "y": 363
-                    },
-                    "data": {
-                        "info": {
-                            "describe": "yolo目标识别"
-                        },
-                        "name": "yolov8-object-recognition",
-                        "label": "目标识别训练"
-                    }
-                },
-                {
-                    "id": "deploy-yolov8-web-service",
-                    "type": "dataSet",
-                    "position": {
-                        "x": 400,
-                        "y": 463
-                    },
-                    "data": {
-                        "info": {
-                            "describe": "模型部署推理服务"
-                        },
-                        "name": "deploy-yolov8-web-service",
-                        "label": "部署模型web服务"
-                    }
-                },
-                {
-                    "id": "download-model",
-                    "type": "dataSet",
-                    "position": {
-                        "x": 400,
-                        "y": 127
-                    },
-                    "data": {
-                        "info": {
-                            "describe": "使用用户自定义镜像作为运行镜像"
-                        },
-                        "name": "download-model",
-                        "label": "下载校验数据和预训练模型"
-                    }
-                },
-                {
-                    "source": "download-model",
-                    "arrowHeadType": "arrow",
-                    "target": "labelstudio-train",
-                    "id": "logic__edge-download-modelnull-labelstudio-trainnull"
-                },
-                {
-                    "source": "labelstudio-train",
-                    "arrowHeadType": "arrow",
-                    "target": "yolov8-object-recognition",
-                    "id": "logic__edge-labelstudio-trainnull-yolov8-object-recognitionnull"
-                },
-                {
-                    "source": "yolov8-object-recognition",
-                    "arrowHeadType": "arrow",
-                    "target": "deploy-yolov8-web-service",
-                    "id": "logic__edge-yolov8-object-recognitionnull-deploy-yolov8-web-servicenull"
-                }
-            ]
+    "pipeline": {
+      "name": "electric-bicycle",
+      "describe": "示例：电瓶车全流程(自动化标注-微调-部署)",
+      "project": "public",
+      "parameter": {},
+      "dag_json": {
+        "download-model": {},
+        "labelstudio-train": {
+          "upstream": [
+            "download-model"
+          ]
         },
-        "tasks": [
-            {
-                "job_templete": "自定义镜像",
-                "name": "labelstudio-train",
-                "label": "标注结果转为训练数据",
-                "volume_mount": "kubeflow-user-workspace(pvc):/mnt/,/data/k8s/kubeflow/labelstudio(hostpath):/labelstudio/",
-                "resource_memory": "2G",
-                "resource_cpu": "2",
-                "resource_gpu": "0",
-                "resource_rdma": "0",
-                "args": {
-                    "images": "ccr.ccs.tencentyun.com/cube-studio/ubuntu-gpu:cuda11.8.0-cudnn8-python3.9",
-                    "workdir": "/mnt/{{creator}}/pipeline/example/yolo/electric-bicycle",
-                    "command": "python yolo-data-process.py"
-                }
+        "yolov8-object-recognition": {
+          "upstream": [
+            "labelstudio-train"
+          ]
+        },
+        "deploy-yolov8-web-service": {
+          "upstream": [
+            "yolov8-object-recognition"
+          ]
+        }
+      },
+      "global_env": "YYYYMMDD={{datetime.datetime.now().strftime('%Y-%m-%d')}}",
+      "expand": [
+        {
+          "id": "labelstudio-train",
+          "type": "dataSet",
+          "position": {
+            "x": 400,
+            "y": 247
+          },
+          "data": {
+            "info": {
+              "describe": "使用用户自定义镜像作为运行镜像"
             },
-            {
-                "job_templete": "yolov8",
-                "name": "yolov8-object-recognition",
-                "label": "目标识别训练",
-                "volume_mount": "kubeflow-user-workspace(pvc):/mnt/",
-                "resource_memory": "5G",
-                "resource_cpu": "5",
-                "resource_gpu": "1",
-                "resource_rdma": "0",
-                "args": {
-                    "--train": "/mnt/{{creator}}/pipeline/example/yolo/electric-bicycle/dataset/train.txt",
-                    "--val": "/mnt/{{creator}}/pipeline/example/yolo/electric-bicycle/val1.txt",
-                    "--classes": "Electric-bicycle",
-                    "--batch_size": "1",
-                    "--epoch": "1",
-                    "--weights": "/mnt/{{creator}}/pipeline/example/yolo/electric-bicycle/electric-bicycle-new.pt",
-                    "--save_model_path": "/mnt/{{creator}}/pipeline/example/yolo/electric-bicycle/electric-bicycle-new.pt"
-                }
+            "name": "labelstudio-train",
+            "label": "标注结果转为训练数据"
+          }
+        },
+        {
+          "id": "yolov8-object-recognition",
+          "type": "dataSet",
+          "position": {
+            "x": 400,
+            "y": 363
+          },
+          "data": {
+            "info": {
+              "describe": "yolo目标识别"
             },
-            {
-                "job_templete": "deploy-service",
-                "name": "deploy-yolov8-web-service",
-                "label": "部署模型web服务",
-                "volume_mount": "kubeflow-user-workspace(pvc):/mnt/",
-                "resource_memory": "2G",
-                "resource_cpu": "2",
-                "resource_gpu": "0",
-                "resource_rdma": "0",
-                "args": {
-                    "--project_name": "public",
-                    "--label": "目标识别推理服务",
-                    "--model_name": "electric-bicycle",
-                    "--model_version": "v20240701",
-                    "--model_path": "/mnt/{{creator}}/pipeline/example/yolo/electric-bicycle/electric-bicycle-new.pt",
-                    "--service_type": "serving",
-                    "--images": "ccr.ccs.tencentyun.com/cube-studio/yolov8:2024.07",
-                    "--working_dir": "/yolov8",
-                    "--command": "python server.py",
-                    "--env": "MODELPATH=/mnt/admin/pipeline/example/yolo/electric-bicycle/electric-bicycle-new.pt\nYOLO_SAVE_DIR=/mnt/admin/pipeline/example/yolo/inference/\nYOLO_EXAMPLE=https://cube-studio.oss-cn-hangzhou.aliyuncs.com/labelstudio/vision/electric-bicycle/2020_2582.jpg",
-                    "--host": "",
-                    "--ports": "8080",
-                    "--replicas": "1",
-                    "--resource_memory": "5G",
-                    "--resource_cpu": "5",
-                    "--resource_gpu": "1",
-                    "--volume_mount": "kubeflow-user-workspace(pvc):/mnt,/data/k8s/kubeflow/labelstudio(hostpath):/labelstudio/",
-                    "--inference_config": "",
-                    "--metrics": "",
-                    "--health": ""
-                }
+            "name": "yolov8-object-recognition",
+            "label": "目标识别训练"
+          }
+        },
+        {
+          "id": "deploy-yolov8-web-service",
+          "type": "dataSet",
+          "position": {
+            "x": 400,
+            "y": 463
+          },
+          "data": {
+            "info": {
+              "describe": "模型部署推理服务"
             },
-            {
-                "job_templete": "自定义镜像",
-                "name": "download-model",
-                "label": "下载校验数据和预训练模型",
-                "volume_mount": "kubeflow-user-workspace(pvc):/mnt",
-                "resource_memory": "2G",
-                "resource_cpu": "2",
-                "resource_gpu": "0",
-                "resource_rdma": "0",
-                "args": {
-                    "images": "ccr.ccs.tencentyun.com/cube-studio/ubuntu-gpu:cuda11.8.0-cudnn8-python3.9",
-                    "workdir": "/mnt/{{creator}}/pipeline/example/yolo/",
-                    "command": "rm -rf electric-bicycle.zip && wget https://cube-studio.oss-cn-hangzhou.aliyuncs.com/pipeline/electric-bicycle/electric-bicycle.zip --no-check-certificate && unzip -n electric-bicycle.zip && cd electric-bicycle && sh reset.sh"
-                }
-            }
-        ]
+            "name": "deploy-yolov8-web-service",
+            "label": "部署模型web服务"
+          }
+        },
+        {
+          "id": "download-model",
+          "type": "dataSet",
+          "position": {
+            "x": 400,
+            "y": 127
+          },
+          "data": {
+            "info": {
+              "describe": "使用用户自定义镜像作为运行镜像"
+            },
+            "name": "download-model",
+            "label": "下载校验数据和预训练模型"
+          }
+        },
+        {
+          "source": "download-model",
+          "arrowHeadType": "arrow",
+          "target": "labelstudio-train",
+          "id": "logic__edge-download-modelnull-labelstudio-trainnull"
+        },
+        {
+          "source": "labelstudio-train",
+          "arrowHeadType": "arrow",
+          "target": "yolov8-object-recognition",
+          "id": "logic__edge-labelstudio-trainnull-yolov8-object-recognitionnull"
+        },
+        {
+          "source": "yolov8-object-recognition",
+          "arrowHeadType": "arrow",
+          "target": "deploy-yolov8-web-service",
+          "id": "logic__edge-yolov8-object-recognitionnull-deploy-yolov8-web-servicenull"
+        }
+      ]
     },
+    "tasks": [
+      {
+        "job_templete": "自定义镜像",
+        "name": "labelstudio-train",
+        "label": "标注结果转为训练数据",
+        "volume_mount": "kubeflow-user-workspace(pvc):/mnt/,/data/k8s/kubeflow/labelstudio(hostpath):/labelstudio/",
+        "resource_memory": "2G",
+        "resource_cpu": "2",
+        "resource_gpu": "0",
+        "resource_rdma": "0",
+        "args": {
+          "images": "ccr.ccs.tencentyun.com/cube-studio/ubuntu-gpu:cuda11.8.0-cudnn8-python3.9",
+          "workdir": "/mnt/{{creator}}/pipeline/example/yolo/electric-bicycle",
+          "command": "python yolo-data-process.py"
+        }
+      },
+      {
+        "job_templete": "yolov8",
+        "name": "yolov8-object-recognition",
+        "label": "目标识别训练",
+        "volume_mount": "kubeflow-user-workspace(pvc):/mnt/",
+        "resource_memory": "5G",
+        "resource_cpu": "5",
+        "resource_gpu": "1",
+        "resource_rdma": "0",
+        "args": {
+          "--train": "/mnt/{{creator}}/pipeline/example/yolo/electric-bicycle/dataset/train.txt",
+          "--val": "/mnt/{{creator}}/pipeline/example/yolo/electric-bicycle/val1.txt",
+          "--classes": "Electric-bicycle",
+          "--batch_size": "1",
+          "--epoch": "1",
+          "--weights": "/mnt/{{creator}}/pipeline/example/yolo/electric-bicycle/electric-bicycle-new.pt",
+          "--save_model_path": "/mnt/{{creator}}/pipeline/example/yolo/electric-bicycle/electric-bicycle-new.pt"
+        }
+      },
+      {
+        "job_templete": "deploy-service",
+        "name": "deploy-yolov8-web-service",
+        "label": "部署模型web服务",
+        "volume_mount": "kubeflow-user-workspace(pvc):/mnt/",
+        "resource_memory": "2G",
+        "resource_cpu": "2",
+        "resource_gpu": "0",
+        "resource_rdma": "0",
+        "args": {
+          "--project_name": "public",
+          "--label": "目标识别推理服务",
+          "--model_name": "electric-bicycle",
+          "--model_version": "v20240701",
+          "--model_path": "/mnt/{{creator}}/pipeline/example/yolo/electric-bicycle/electric-bicycle-new.pt",
+          "--service_type": "serving",
+          "--images": "ccr.ccs.tencentyun.com/cube-studio/yolov8:2024.07",
+          "--working_dir": "/yolov8",
+          "--command": "python server.py",
+          "--env": "MODELPATH=/mnt/admin/pipeline/example/yolo/electric-bicycle/electric-bicycle-new.pt\nYOLO_SAVE_DIR=/mnt/admin/pipeline/example/yolo/inference/\nYOLO_EXAMPLE=https://cube-studio.oss-cn-hangzhou.aliyuncs.com/labelstudio/vision/electric-bicycle/2020_2582.jpg",
+          "--host": "",
+          "--ports": "8080",
+          "--replicas": "1",
+          "--resource_memory": "5G",
+          "--resource_cpu": "5",
+          "--resource_gpu": "1",
+          "--volume_mount": "kubeflow-user-workspace(pvc):/mnt,/data/k8s/kubeflow/labelstudio(hostpath):/labelstudio/",
+          "--inference_config": "",
+          "--metrics": "",
+          "--health": ""
+        }
+      },
+      {
+        "job_templete": "自定义镜像",
+        "name": "download-model",
+        "label": "下载校验数据和预训练模型",
+        "volume_mount": "kubeflow-user-workspace(pvc):/mnt",
+        "resource_memory": "2G",
+        "resource_cpu": "2",
+        "resource_gpu": "0",
+        "resource_rdma": "0",
+        "args": {
+          "images": "ccr.ccs.tencentyun.com/cube-studio/ubuntu-gpu:cuda11.8.0-cudnn8-python3.9",
+          "workdir": "/mnt/{{creator}}/pipeline/example/yolo/",
+          "command": "rm -rf electric-bicycle.zip && wget https://cube-studio.oss-cn-hangzhou.aliyuncs.com/pipeline/electric-bicycle/electric-bicycle.zip --no-check-certificate && unzip -n electric-bicycle.zip && cd electric-bicycle && sh reset.sh"
+        }
+      }
+    ]
+  },
   "llm-finetune-eval-full": {
     "pipeline": {
       "name": "llm-finetune-eval-full",
@@ -1074,6 +1074,407 @@
         }
       }
     ]
-  }
+  },
+  "llm-distillation-eval-full": {
+    "pipeline": {
+      "name": "llm-distillation-eval-full",
+      "describe": "大模型模板：蒸馏评测注册",
+      "project": "public",
+      "parameter": {
+        "demo": "true",
+        "img": "/static/assets/images/pipeline/deepseek.jpg",
+        "volume_mount": "models-share-volume(storage):/mnt/storage/models-share-volume"
+      },
+      "dag_json": {
+        "dataset-import": {
+          "upstream": []
+        },
+        "model-download-teacher": {
+          "upstream": []
+        },
+        "model-download-student": {
+          "upstream": []
+        },
+        "model-distillation": {
+          "upstream": [
+            "dataset-import",
+            "model-download-teacher",
+            "model-download-student"
+          ]
+        },
+        "model-evaluate": {
+          "upstream": [
+            "model-distillation"
+          ]
+        },
+        "model-register": {
+          "upstream": [
+            "model-evaluate"
+          ]
+        }
+      },
+      "expand": [
+        {
+          "id": "dataset-import",
+          "type": "dataSet",
+          "position": {
+            "x": 200,
+            "y": 20
+          },
+          "data": {
+            "info": {
+              "describe": "数据集导入"
+            },
+            "name": "dataset-import",
+            "label": "数据集导入"
+          }
+        },
+        {
+          "id": "model-download-teacher",
+          "type": "dataSet",
+          "position": {
+            "x": 500,
+            "y": 20
+          },
+          "data": {
+            "info": {
+              "describe": "导入Teacher模型"
+            },
+            "name": "model-download-teacher",
+            "label": "Teacher模型导入"
+          }
+        },
+        {
+          "id": "model-download-student",
+          "type": "dataSet",
+          "position": {
+            "x": 800,
+            "y": 20
+          },
+          "data": {
+            "info": {
+              "describe": "导入Student模型"
+            },
+            "name": "model-download-student",
+            "label": "Student模型导入"
+          }
+        },
+        {
+          "id": "model-distillation",
+          "type": "dataSet",
+          "position": {
+            "x": 500,
+            "y": 170
+          },
+          "data": {
+            "info": {
+              "describe": "大模型蒸馏"
+            },
+            "name": "model-distillation",
+            "label": "模型蒸馏"
+          }
+        },
+        {
+          "id": "model-evaluate",
+          "type": "dataSet",
+          "position": {
+            "x": 500,
+            "y": 320
+          },
+          "data": {
+            "info": {
+              "describe": "大模型评测"
+            },
+            "name": "model-evaluate",
+            "label": "大模型评测"
+          }
+        },
+        {
+          "id": "model-register",
+          "type": "dataSet",
+          "position": {
+            "x": 500,
+            "y": 460
+          },
+          "data": {
+            "info": {
+              "describe": "注册模型"
+            },
+            "name": "model-register",
+            "label": "模型注册"
+          }
+        },
+        {
+          "source": "dataset-import",
+          "arrowHeadType": "arrow",
+          "target": "model-distillation",
+          "id": "distill__edge-dataset-distillation"
+        },
+        {
+          "source": "model-download-teacher",
+          "arrowHeadType": "arrow",
+          "target": "model-distillation",
+          "id": "distill__edge-teacher-distillation"
+        },
+        {
+          "source": "model-download-student",
+          "arrowHeadType": "arrow",
+          "target": "model-distillation",
+          "id": "distill__edge-student-distillation"
+        },
+        {
+          "source": "model-distillation",
+          "arrowHeadType": "arrow",
+          "target": "model-evaluate",
+          "id": "distill__edge-distillation-evaluate"
+        },
+        {
+          "source": "model-evaluate",
+          "arrowHeadType": "arrow",
+          "target": "model-register",
+          "id": "distill__edge-evaluate-register"
+        }
+      ]
+    },
+    "tasks": [
+      {
+        "job_templete": "dataset",
+        "name": "dataset-import",
+        "label": "数据集导入",
+        "volume_mount": "kubeflow-user-workspace(pvc):/mnt,models-share-volume(storage):/mnt/storage/models-share-volume,models-storage(storage):/mnt/storage/models-storage",
+        "resource_memory": "2G",
+        "resource_cpu": "2",
+        "resource_gpu": "0",
+        "resource_rdma": "0",
+        "timeout": 0,
+        "retry": 0,
+        "args": {
+          "--src_type": "modelscope",
+          "--name": "damo/nlp_polylm_multialpaca_sft",
+          "--version": "master",
+          "--partition": "",
+          "--save_dir": "/mnt/storage/models-share-volume/datasets/distill-dataset"
+        }
+      },
+      {
+        "job_templete": "model-download",
+        "name": "model-download-teacher",
+        "label": "Teacher模型导入",
+        "volume_mount": "kubeflow-user-workspace(pvc):/mnt,models-share-volume(storage):/mnt/storage/models-share-volume",
+        "resource_memory": "4G",
+        "resource_cpu": "2",
+        "resource_gpu": "0",
+        "resource_rdma": "0",
+        "timeout": 0,
+        "retry": 0,
+        "node_selector": "cpu=true,train=true",
+        "args": {
+          "--from": "modelscope",
+          "--model_name": "Qwen/Qwen2.5-0.5B-Instruct",
+          "--sub_model_name": "",
+          "--model_version": "master",
+          "--model_status": "online",
+          "--save_path": "/mnt/storage/models-share-volume/models/"
+        }
+      },
+      {
+        "job_templete": "model-download",
+        "name": "model-download-student",
+        "label": "Student模型导入",
+        "volume_mount": "kubeflow-user-workspace(pvc):/mnt,models-share-volume(storage):/mnt/storage/models-share-volume",
+        "resource_memory": "4G",
+        "resource_cpu": "2",
+        "resource_gpu": "0",
+        "resource_rdma": "0",
+        "timeout": 0,
+        "retry": 0,
+        "node_selector": "cpu=true,train=true",
+        "args": {
+          "--from": "modelscope",
+          "--model_name": "Qwen/Qwen2.5-0.5B",
+          "--sub_model_name": "",
+          "--model_version": "master",
+          "--model_status": "online",
+          "--save_path": "/mnt/storage/models-share-volume/models/"
+        }
+      },
+      {
+        "job_templete": "model-distillation",
+        "name": "model-distillation",
+        "label": "模型蒸馏",
+        "volume_mount": "kubeflow-user-workspace(pvc):/mnt,models-share-volume(storage):/mnt/storage/models-share-volume",
+        "resource_memory": "16G",
+        "resource_cpu": "4",
+        "resource_gpu": "1",
+        "resource_rdma": "0",
+        "timeout": 0,
+        "retry": 0,
+        "node_selector": "gpu=true,train=true;mps=false",
+        "args": {
+          "--teacher_model": "/mnt/storage/models-share-volume/models/Qwen2.5-0.5B-Instruct",
+          "--student_model": "/mnt/storage/models-share-volume/models/Qwen2.5-0.5B",
+          "--output_path": "/mnt/storage/models-share-volume/output/distill/qwen-05b-kd",
+          "--distill_type": "whitebox",
+          "--data_path": "/mnt/storage/models-share-volume/datasets/distill-dataset",
+          "--epochs": "1",
+          "--batch_size": "2",
+          "--learning_rate": "2e-5"
+        }
+      },
+      {
+        "job_templete": "model-evaluate",
+        "name": "model-evaluate",
+        "label": "大模型评测",
+        "volume_mount": "kubeflow-user-workspace(pvc):/mnt,models-share-volume(storage):/mnt/storage/models-share-volume,models-storage(storage):/mnt/storage/models-storage",
+        "resource_memory": "8G",
+        "resource_cpu": "2",
+        "resource_gpu": "1",
+        "resource_rdma": "0",
+        "timeout": 0,
+        "retry": 0,
+        "node_selector": "gpu=true;train=true;mps=false",
+        "args": {
+          "--model_path": "/mnt/storage/models-share-volume/output/distill/qwen-05b-kd",
+          "--model_name": "qwen-05b-kd",
+          "--model_type": "hf_chat",
+          "--model_version": "v1",
+          "--output_path": "/mnt/storage/models-share-volume/output/opencompass",
+          "--datasets": "gsm8k_gen",
+          "--num_gpus": 1,
+          "--batch_size": 64,
+          "--max_seq_len": 2048,
+          "--max_out_len": 512,
+          "--few_shot": 0,
+          "--max_samples": 10,
+          "--datasets_cache_dir": "",
+          "--model_kwargs": ""
+        }
+      },
+      {
+        "job_templete": "model-register",
+        "name": "model-register",
+        "label": "模型注册",
+        "volume_mount": "kubeflow-user-workspace(pvc):/mnt,models-share-volume(storage):/mnt/storage/models-share-volume",
+        "resource_memory": "2G",
+        "resource_cpu": "2",
+        "resource_gpu": "0",
+        "resource_rdma": "0",
+        "timeout": 0,
+        "retry": 0,
+        "node_selector": "cpu=true,train=true",
+        "args": {
+          "--project_name": "public",
+          "--model_name": "qwen-05b-kd",
+          "--model_version": "v1",
+          "--model_path": "/mnt/storage/models-share-volume/output/distill/qwen-05b-kd",
+          "--model_metric": "accuracy:0.8",
+          "--describe": "Qwen2.5-0.5B蒸馏模型",
+          "--framework": "tf",
+          "--inference_framework": "tfserving"
+        }
+      }
+    ]
+  },
+  "model-quantization": {
+    "pipeline": {
+        "name": "model-quantization",
+        "describe": "LLM量化：GPTQ/AWQ/BNB，支持主流大模型",
+        "project": "public",
+        "parameter": {
+            "demo": "true",
+            "img": "/static/assets/images/pipeline/deepseek.jpg"
+        },
+        "dag_json": {
+            "model-download": {
+                "upstream": []
+            },
+            "model-quantization-task": {
+                "upstream": [
+                    "model-download"
+                ]
+            }
+        },
+        "expand": [
+            {
+                "id": "model-download",
+                "type": "dataSet",
+                "position": {
+                    "x": 350,
+                    "y": 20
+                },
+                "data": {
+                    "info": {
+                        "describe": "model download"
+                    },
+                    "name": "model-download",
+                    "label": "model download"
+                }
+            },
+            {
+                "id": "model-quantization-task",
+                "type": "dataSet",
+                "position": {
+                    "x": 350,
+                    "y": 170
+                },
+                "data": {
+                    "info": {
+                        "describe": "LLM quant"
+                    },
+                    "name": "model-quantization-task",
+                    "label": "LLM quant"
+                }
+            },
+            {
+                "source": "model-download",
+                "arrowHeadType": "arrow",
+                "target": "model-quantization-task",
+                "id": "edge1"
+            }
+        ]
+    },
+    "tasks": [
+        {
+            "job_templete": "model-download",
+            "name": "model-download",
+            "label": "model download",
+            "volume_mount": "kubeflow-user-workspace(pvc):/mnt,models-share-volume(storage):/mnt/storage/models-share-volume",
+            "resource_memory": "4G",
+            "resource_cpu": "2",
+            "resource_gpu": "0",
+            "node_selector": "cpu=true,train=true",
+            "timeout": 0,
+            "retry": 0,
+            "args": {
+                "--from": "modelscope",
+                "--model_name": "Qwen/Qwen2.5-0.5B-Instruct",
+                "--sub_model_name": "",
+                "--model_version": "master",
+                "--model_status": "online",
+                "--save_path": "/mnt/storage/models-share-volume/models/"
+            }
+        },
+        {
+            "job_templete": "model-quantization",
+            "name": "model-quantization-task",
+            "label": "LLM quant",
+            "volume_mount": "kubeflow-user-workspace(pvc):/mnt,models-share-volume(storage):/mnt/storage/models-share-volume,models-storage(storage):/mnt/storage/models-storage",
+            "resource_memory": "8G",
+            "resource_cpu": "2",
+            "resource_gpu": "1",
+            "node_selector": "gpu=true,train=true;mps=false",
+            "timeout": 0,
+            "retry": 0,
+            "args": {
+                "--model": "/mnt/storage/models-share-volume/models/Qwen2.5-0.5B-Instruct",
+                "--output": "/mnt/storage/models-share-volume/output/quantized",
+                "--method": "gptq",
+                "--bits": "4",
+                "--group_size": "128",
+                "--dataset": "wikitext2",
+                "--nsamples": "128"
+            }
+        }
+    ]
 }
-
+}
