@@ -52,4 +52,4 @@ venv/
 CLAUDE.md
 *.docker-timestamp
 models/eval_output/
-test_tensorboard.py
+test_tensorboard.pydoc/
