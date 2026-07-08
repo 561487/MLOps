@@ -18,14 +18,17 @@ def convert_to_torchscript(model_path: str, output_dir: str, input_shape: dict =
     if hasattr(model, 'config') and hasattr(model.config, 'use_cache'):
         model.config.use_cache = False
 
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    model = model.to(device)
+    print(f"[INFO] 设备: {device}")
+
     model_name = os.path.basename(model_path.rstrip('/')) or "model"
     out_path = os.path.join(output_dir, f"{model_name}.pt")
 
     print(f"[INFO] 开始 TorchScript trace → {out_path}")
     try:
-        # 用 input_shape 或默认 (1, 32)
         shape = input_shape.get("input_ids", [1, 32]) if input_shape else [1, 32]
-        dummy = torch.randint(0, 1000, shape, dtype=torch.long)
+        dummy = torch.randint(0, 1000, shape, dtype=torch.long).to(device)
         traced = torch.jit.trace(model, dummy)
         torch.jit.save(traced, out_path)
         print(f"[OK] TorchScript 模型: {out_path}")
