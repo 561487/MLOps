@@ -683,6 +683,33 @@ const Model: React.FC<ModelProps> = props => {
                 )
               }
 
+              // 加密字段：使用密码输入框（输入内容不可见）
+              if (args.encrypted === 1) {
+                return (
+                  <React.Fragment key={key}>
+                    <TextField
+                      label={`${key}`}
+                      type="password"
+                      canRevealPassword
+                      value={keyValue || ''}
+                      required={args.require === 1}
+                      disabled={args.editable !== 1}
+                      onChange={(event: FormEvent, value?: string) => {
+                        handleOnChange(key, value ? value : '', args.type);
+                      }}
+                      onRenderDescription={() => {
+                        return (
+                          <div className={style.argsDescription}>
+                            <span dangerouslySetInnerHTML={{ __html: args.describe }}></span>
+                            {args.tip ? tip_tooltip : null}
+                          </div>
+                        );
+                      }}
+                    />
+                  </React.Fragment>
+                );
+              }
+
               return (
                 <React.Fragment key={key}>
                    {

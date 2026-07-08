@@ -12,6 +12,7 @@ import pysnooper
 from myapp.models.model_job import Job_Template, Task, Pipeline
 from flask_appbuilder.forms import GeneralModelConverter
 from myapp.utils import core
+from myapp.utils.crypto import encrypt_value, decrypt_value, is_encrypted
 from myapp import app, appbuilder, db, event_logger
 from wtforms.ext.sqlalchemy.fields import QuerySelectField
 from jinja2 import Environment, BaseLoader, DebugUndefined
@@ -38,6 +39,59 @@ from flask_appbuilder import expose
 import datetime, time, json
 
 conf = app.config
+
+
+# ---------------------------------------------------------------------------
+# 敏感参数加解密辅助函数
+# ---------------------------------------------------------------------------
+
+def _find_encrypted_arg_names(job_args):
+    """从 job_template_args 中找出所有标记了 encrypted: 1 的参数名"""
+    encrypted_names = set()
+    if not job_args:
+        return encrypted_names
+    for group in job_args.values():
+        if not isinstance(group, dict):
+            continue
+        for arg_name, arg_attr in group.items():
+            if isinstance(arg_attr, dict) and arg_attr.get('encrypted') == 1:
+                encrypted_names.add(arg_name)
+    return encrypted_names
+
+
+def _arg_name_to_env(arg_name):
+    """将 --ls_api_token 转为 LS_API_TOKEN 形式的环境变量名"""
+    name = arg_name.lstrip('-')
+    return name.upper().replace('-', '_')
+
+
+def _encrypt_sensitive_args(task_args, job_args):
+    """对 task_args 中标记了 encrypted 的字段进行加密，原地修改"""
+    encrypted_names = _find_encrypted_arg_names(job_args)
+    for name in encrypted_names:
+        if name in task_args and task_args[name] and not is_encrypted(str(task_args[name])):
+            task_args[name] = encrypt_value(str(task_args[name]))
+
+
+def _decrypt_and_extract_sensitive_args(task_args, job_args):
+    """
+    解密 task_args 中的敏感字段，并返回 (cleaned_args, extra_env) 元组。
+    - cleaned_args: 移除了敏感值的 args（敏感字段置空）
+    - extra_env: 解密后的环境变量字典，如 {'LS_API_TOKEN': 'xxx'}
+    """
+    extra_env = {}
+    cleaned = dict(task_args)
+    encrypted_names = _find_encrypted_arg_names(job_args)
+    for name in encrypted_names:
+        if name in cleaned and cleaned[name]:
+            value = str(cleaned[name])
+            if is_encrypted(value):
+                extra_env[_arg_name_to_env(name)] = decrypt_value(value)
+            else:
+                # 未加密的旧数据（兼容），也迁移到环境变量
+                extra_env[_arg_name_to_env(name)] = value
+            cleaned[name] = ''  # 敏感值不再出现在 CLI args 中
+    return cleaned, extra_env
 
 
 class Task_ModelView_Base():
@@ -275,7 +329,14 @@ class Task_ModelView_Base():
             key:(task_args[key].strip(' ') if type(task_args[key])==str else task_args[key]) for key in task_args
         }
         job_args = json.loads(item.job_template.args)
-        item.args = json.dumps(core.validate_task_args(task_args, job_args), indent=4, ensure_ascii=False)
+
+        # 先校验
+        validated = core.validate_task_args(task_args, job_args)
+
+        # 加密标记了 "encrypted": 1 的敏感参数（仅对非空值加密）
+        _encrypt_sensitive_args(validated, job_args)
+
+        item.args = json.dumps(validated, indent=4, ensure_ascii=False)
 
         if item.volume_mount and ":" not in item.volume_mount:
             raise MyappException('volume_mount is not valid, must contain : or null')
@@ -508,6 +569,11 @@ class Task_ModelView_Base():
 
         # 模板中环境变量
         task_env = task.job_template.env + "\n" if task.job_template.env else ''
+
+        # 注入解密后的敏感参数（如 API Token）
+        if hasattr(task, '_extra_env') and task._extra_env:
+            for env_key, env_val in task._extra_env.items():
+                task_env += f'{env_key}={env_val}\n'
 
         HostNetwork = json.loads(task.job_template.expand).get("HostNetwork", False) if task.job_template.expand else False
         byte_string = run_id.encode('utf-8')
@@ -819,6 +885,11 @@ class Task_ModelView_Base():
             ops_args = []
 
             task_args = json.loads(task.args) if task.args else {}
+
+            # 解密敏感参数，提取为环境变量（不在 CLI args 中暴露）
+            job_args = json.loads(task.job_template.args) if task.job_template.args else {}
+            task_args, extra_env = _decrypt_and_extract_sensitive_args(task_args, job_args)
+            task._extra_env = extra_env  # 传递给 run_pod
 
             for task_attr_name in task_args:
                 # 布尔型只添加参数名
