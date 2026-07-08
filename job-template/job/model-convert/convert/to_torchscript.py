@@ -29,17 +29,19 @@ def convert_to_torchscript(model_path: str, output_dir: str, input_shape: dict =
     try:
         shape = input_shape.get("input_ids", [1, 32]) if input_shape else [1, 32]
         dummy = torch.randint(0, 1000, shape, dtype=torch.long).to(device)
-        traced = torch.jit.trace(model, dummy)
+        traced = torch.jit.trace(model, dummy, strict=False)
         torch.jit.save(traced, out_path)
-        print(f"[OK] TorchScript 模型: {out_path}")
-    except Exception as e:
-        print(f"[ERROR] trace 失败: {e}, 尝试 script...")
+        print(f"[OK] TorchScript: {out_path}")
+    except Exception as e1:
+        print(f"[WARN] trace 失败: {e1}")
         try:
             scripted = torch.jit.script(model)
             torch.jit.save(scripted, out_path)
-            print(f"[OK] TorchScript(script) 模型: {out_path}")
+            print(f"[OK] TorchScript(script): {out_path}")
         except Exception as e2:
-            raise RuntimeError(f"TorchScript 转换失败, trace 和 script 均不兼容: {e2}")
+            print(f"[ERROR] TorchScript 不兼容此模型: {e2}")
+            print("[HINT] 新模型(Qwen3/Llama3+)不支持 TorchScript，建议用 ONNX")
+            raise
 
     size_mb = os.path.getsize(out_path) / (1024 * 1024)
     print(f"[INFO] TorchScript 大小: {size_mb:.1f}MB")
