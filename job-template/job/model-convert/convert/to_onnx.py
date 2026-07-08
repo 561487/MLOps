@@ -18,6 +18,10 @@ def convert_to_onnx(model_path: str, output_dir: str, input_shape: dict,
     model.eval()
     if hasattr(model, 'config') and hasattr(model.config, 'use_cache'):
         model.config.use_cache = False
+    # GPU 可用则移到 GPU
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    model = model.to(device)
+    print(f"[INFO] 设备: {device}")
     if fp16:
         model = model.half()
         print("[INFO] 模型转 FP16")
