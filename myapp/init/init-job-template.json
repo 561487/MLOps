@@ -2705,17 +2705,6 @@
           "placeholder": "",
           "describe": "数据集的保存地址",
           "editable": 1
-        },
-        "--download_limit": {
-          "type": "str",
-          "item_type": "str",
-          "label": "下载数量限制",
-          "require": 0,
-          "choice": [],
-          "default": "0",
-          "placeholder": "100",
-          "describe": "限制数据数量，0=全部。「当前平台」按文件数限制；「modelscope」按parquet行数限制",
-          "editable": 1
         }
       }
     }
@@ -4638,7 +4627,7 @@
   },
   "model-distillation": {
     "project_name": "模型处理",
-    "image_name": "10.121.177.20:8082/mlops/model-distillation:20260704",
+    "image_name": "10.121.177.20:8082/mlops/model-distillation:20260704-v6",
     "gitpath": "/job-template/job/model-distillation",
     "image_describe": "大模型蒸馏",
     "job_template_name": "model-distillation",
@@ -5108,15 +5097,15 @@
       }
     }
   },
-  "model-offline-predict": {
+ "model-offline-predict": {
     "project_name": "模型服务化",
-    "image_name": "ccr.ccs.tencentyun.com/cube-studio/offline-predict:20230801",
+    "image_name": "10.121.177.20:8082/mlops/offline-predict-launcher:20260714",
     "gitpath": "/job-template/job/offline-predict",
     "image_describe": "分布式离线推理",
     "job_template_name": "model-offline-predict",
     "job_template_describe": "分布式离线推理",
     "job_template_command": "python3 launcher-rabbitmq.py",
-    "job_template_volume": "",
+    "job_template_volume": "kubeflow-user-workspace(pvc):/mnt,models-share-volume(storage):/mnt/storage/models-share-volume",
     "job_template_account": "kubeflow-pipeline",
     "job_template_env": "NO_RESOURCE_CHECK=true\nTASK_RESOURCE_CPU=4\nTASK_RESOURCE_MEMORY=4G\nTASK_RESOURCE_GPU=0",
     "job_template_expand": {
@@ -5126,40 +5115,112 @@
     },
     "job_template_args": {
       "模型离线推理": {
-        "--image": {
-          "type": "str",
-          "item_type": "str",
-          "label": "镜像",
-          "require": 1,
-          "choice": [],
-          "range": "",
-          "default": "ccr.ccs.tencentyun.com/cube-studio/ubuntu-gpu:cuda11.8.0-cudnn8-python3.9",
-          "placeholder": "",
-          "describe": "worker镜像，直接运行你代码的环境镜像<a target='_blank' href='https://github.com/data-infra/cube-studio/tree/main/images'>基础镜像</a>",
-          "editable": 1
-        },
         "--working_dir": {
           "type": "str",
           "item_type": "str",
           "label": "启动目录",
-          "require": 1,
+          "require": 0,
           "choice": [],
           "range": "",
-          "default": "/mnt/{{creator}}/pipeline/example/offline-inference/",
+          "default": "",
           "placeholder": "",
-          "describe": "启动目录",
+          "describe": "工作目录",
           "editable": 1
         },
-        "--command": {
+        "--model_path": {
           "type": "str",
           "item_type": "str",
-          "label": "启动命令",
+          "label": "模型路径",
           "require": 1,
           "choice": [],
           "range": "",
-          "default": "bash start.sh",
+          "default": "/mnt/storage/models-share-volume/models/Qwen3-0.6B",
           "placeholder": "",
-          "describe": "环境安装和任务启动命令",
+          "describe": "推理模型路径",
+          "editable": 1
+        },
+        "--input_file": {
+          "type": "str",
+          "item_type": "str",
+          "label": "输入数据文件",
+          "require": 1,
+          "choice": [],
+          "range": "",
+          "default": "/mnt/storage/models-share-volume/predict-data/input.txt",
+          "placeholder": "",
+          "describe": "推理输入文件路径，每行一条待推理文本",
+          "editable": 1
+        },
+        "--output_file": {
+          "type": "str",
+          "item_type": "str",
+          "label": "输出文件",
+          "require": 1,
+          "choice": [],
+          "range": "",
+          "default": "/mnt/storage/models-share-volume/output/inference/result.jsonl",
+          "placeholder": "",
+          "describe": "推理结果输出路径（JSONL 格式）",
+          "editable": 1
+        },
+        "--max_new_tokens": {
+          "type": "str",
+          "item_type": "str",
+          "label": "最大生成token数",
+          "require": 0,
+          "choice": [],
+          "range": "",
+          "default": "512",
+          "placeholder": "",
+          "describe": "每条数据最多生成的新 token 数量",
+          "editable": 1
+        },
+        "--temperature": {
+          "type": "str",
+          "item_type": "str",
+          "label": "采样温度 (temperature)",
+          "require": 0,
+          "choice": [],
+          "range": "",
+          "default": "0.3",
+          "placeholder": "",
+          "describe": "采样温度，控制随机性，越低越确定性（默认 0.3，范围 0.0~2.0）",
+          "editable": 1
+        },
+        "--top_k": {
+          "type": "str",
+          "item_type": "str",
+          "label": "Top-K 采样",
+          "require": 0,
+          "choice": [],
+          "range": "",
+          "default": "10",
+          "placeholder": "",
+          "describe": "Top-K 采样，只保留概率最高的 K 个 token（默认 10，设为 1 即贪婪解码）",
+          "editable": 1
+        },
+        "--top_p": {
+          "type": "str",
+          "item_type": "str",
+          "label": "Top-P 采样 (nucleus)",
+          "require": 0,
+          "choice": [],
+          "range": "",
+          "default": "0.7",
+          "placeholder": "",
+          "describe": "Top-P (nucleus) 采样，累积概率阈值（默认 0.7，范围 0.0~1.0）",
+          "editable": 1
+        },
+        "--backend": {
+          "type": "str",
+          "item_type": "str",
+          "label": "推理后端",
+          "require": 0,
+          "choice": ["transformers", "vllm"],
+          "range": "",
+          "default": "transformers",
+          "placeholder": "",
+          "describe": "推理引擎：transformers（默认）或 vllm（加速）",
           "editable": 1
         },
         "--num_worker": {
@@ -5171,7 +5232,7 @@
           "range": "",
           "default": "3",
           "placeholder": "",
-          "describe": "占用机器个数",
+          "describe": "占用机器个数（1个生产者+N-1个消费者）",
           "editable": 1,
           "regex": "^[0-9]*$"
         }
@@ -8167,5 +8228,85 @@
         }
       }
     }
-  }
+  },
+  "model-quantization": {
+    "project_name": "模型处理",
+    "image_name": "10.121.177.20:8082/mlops/gptqmodel:3.1.1",
+    "gitpath": "/job-template/job/llm_quantize",
+    "image_describe": "LLM量化(GPTQModel)",
+    "job_template_name": "model-quantization",
+    "job_template_describe": "LLM量化：GPTQ/AWQ/bitsandbytes，支持主流大模型",
+    "job_template_command": "python3 /app/launcher.py",
+    "job_template_volume": "models-storage(storage):/mnt/storage/models-storage,models-share-volume(storage):/mnt/storage/models-share-volume",
+    "job_template_account": "",
+    "job_template_env": "",
+    "job_template_expand": {
+        "index": 4,
+        "rec_job_template": "自定义镜像",
+        "help_url": "/job-template/job/llm_quantize"
+    },
+    "job_template_args": {
+        "模型参数": {
+            "--model": {
+                "type": "str",
+                "default": "",
+                "describe": "待量化模型路径或 HuggingFace Model ID（必填）",
+                "item_type": "str",
+                "require": 1,
+                "editable": 1
+            },
+            "--output": {
+                "type": "str",
+                "default": "/mnt/admin/models/quant",
+                "describe": "量化后模型保存路径",
+                "item_type": "str",
+                "editable": 1
+            }
+        },
+        "量化配置": {
+            "--method": {
+                "type": "str",
+                "default": "gptq",
+                "describe": "选择量化算法",
+                "choice": {
+                    "gptq": "GPTQ（精度好，需校准数据）",
+                    "awq": "AWQ（速度快精度高）",
+                    "bnb": "bitsandbytes（无需校准，快速试用）"
+                },
+                "editable": 1
+            },
+            "--bits": {
+                "type": "int",
+                "default": 4,
+                "range": "2,8",
+                "step": 1,
+                "describe": "量化位数，推荐 4bit",
+                "editable": 1
+            },
+            "--group_size": {
+                "type": "int",
+                "default": 128,
+                "range": "32,256",
+                "step": 32,
+                "describe": "GPTQ 分组大小，128 是标准值",
+                "editable": 1
+            },
+            "--dataset": {
+                "type": "str",
+                "default": "/mnt/storage/models-storage/datasets/wikitext2",
+                "describe": "校准数据集路径（完整路径或短名称 wikitext2）",
+                "item_type": "str",
+                "editable": 1
+            },
+            "--nsamples": {
+                "type": "int",
+                "default": 128,
+                "range": "16,1024",
+                "step": 16,
+                "describe": "GPTQ 校准使用的样本数量",
+                "editable": 1
+            }
+        }
+    }
+}
 }
