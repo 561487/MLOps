@@ -45,14 +45,44 @@ def convert_to_onnx(model_path: str, output_dir: str, input_shape: dict,
         inputs = tuple(v.to(device) for v in tok.values())
         input_names = list(tok.keys())
 
+    dynamic = {n: {0: "batch_size"} for n in input_names}
     print(f"[INFO] ONNX 导出中...")
-    torch.onnx.export(
-        model, inputs, onnx_path,
-        input_names=input_names, output_names=["logits"],
-        dynamic_axes={n: {0: "batch_size"} for n in input_names},
-        opset_version=opset, do_constant_folding=False,
-    )
+    try:
+        torch.onnx.export(
+            model, inputs, onnx_path,
+            input_names=input_names, output_names=["logits"],
+            dynamic_axes=dynamic,
+            opset_version=opset, do_constant_folding=False,
+        )
+    except Exception as e:
+        # 大模型超 protobuf 2GB 限制 → 用外部数据格式
+        if "EncodeError" in str(e) or "protobuf" in str(e).lower() or os.path.getsize(onnx_path) == 0:
+            print(f"[INFO] 模型超过 2GB，使用外部数据格式...")
+            os.remove(onnx_path) if os.path.exists(onnx_path) else None
+            import tempfile, onnx
+            tmp_fd, tmp_path = tempfile.mkstemp(suffix=".onnx")
+            os.close(tmp_fd)
+            try:
+                torch.onnx.export(
+                    model, inputs, tmp_path,
+                    input_names=input_names, output_names=["logits"],
+                    dynamic_axes=dynamic,
+                    opset_version=opset, do_constant_folding=False,
+                )
+                m = onnx.load(tmp_path)
+                onnx.save(m, onnx_path, save_as_external_data=True,
+                          all_tensors_to_one_file=True,
+                          location=f"{model_name}_data.bin")
+            finally:
+                os.remove(tmp_path) if os.path.exists(tmp_path) else None
+        else:
+            raise
 
     size_mb = os.path.getsize(onnx_path) / (1024 * 1024)
-    print(f"[OK] ONNX: {onnx_path} ({size_mb:.1f}MB)")
+    data_files = [f for f in os.listdir(output_dir) if f.endswith('.bin') and f.startswith(model_name)]
+    if data_files:
+        data_size = sum(os.path.getsize(os.path.join(output_dir, f)) for f in data_files)
+        print(f"[OK] ONNX: {onnx_path} ({size_mb:.1f}MB) + {data_files[0]} ({data_size/(1024*1024):.1f}MB)")
+    else:
+        print(f"[OK] ONNX: {onnx_path} ({size_mb:.1f}MB)")
     return onnx_path
