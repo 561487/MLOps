@@ -4495,7 +4495,7 @@
   },
   "model-convert": {
     "project_name": "模型处理",
-    "image_name": "10.121.177.20:8082/mlops/model-convert:20260707-093205",
+    "image_name": "10.121.177.20:8082/mlops/model-convert:20260708-031955",
     "gitpath": "/job-template/job/model-convert",
     "image_describe": "模型格式转换",
     "job_template_name": "model-convert",
