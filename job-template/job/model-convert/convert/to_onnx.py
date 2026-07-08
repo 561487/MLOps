@@ -45,24 +45,14 @@ def convert_to_onnx(model_path: str, output_dir: str, input_shape: dict,
         inputs = tuple(v.to(device) for v in tok.values())
         input_names = list(tok.keys())
 
-    # JIT trace + 外部数据（do_constant_folding=False 大幅提速）
-    import tempfile, onnx
-    tmp_fd, tmp_path = tempfile.mkstemp(suffix=".onnx")
-    os.close(tmp_fd)
-    try:
-        print(f"[INFO] ONNX 导出中...")
-        torch.onnx.export(
-            model, inputs, tmp_path,
-            input_names=input_names, output_names=["logits"],
-            dynamic_axes={n: {0: "batch_size"} for n in input_names},
-            opset_version=opset, do_constant_folding=False,
-        )
-        m = onnx.load(tmp_path)
-        onnx.save(m, onnx_path, save_as_external_data=True,
-                  all_tensors_to_one_file=True, location=f"{model_name}.weight")
-    finally:
-        if os.path.exists(tmp_path):
-            os.remove(tmp_path)
+    print(f"[INFO] ONNX 导出中...")
+    torch.onnx.export(
+        model, inputs, onnx_path,
+        input_names=input_names, output_names=["logits"],
+        dynamic_axes={n: {0: "batch_size"} for n in input_names},
+        opset_version=opset, do_constant_folding=False,
+    )
 
-    print(f"[OK] ONNX: {onnx_path} ({os.path.getsize(onnx_path)/(1024*1024):.1f}MB)")
+    size_mb = os.path.getsize(onnx_path) / (1024 * 1024)
+    print(f"[OK] ONNX: {onnx_path} ({size_mb:.1f}MB)")
     return onnx_path
