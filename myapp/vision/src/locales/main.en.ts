@@ -194,6 +194,7 @@ const translation = {
   "调度周期": "scheduling cycle",
   "调度类型": "scheduling type",
   "调度优先级": "priority",
+  "资源紧张时，高优先级任务流将优先调度": "When resources are constrained, high-priority pipelines are scheduled first",
   "新建": "new",
   "任务": "task",
   "补录起点": "make up the starting point",
