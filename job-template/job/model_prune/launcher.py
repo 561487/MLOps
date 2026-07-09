@@ -23,13 +23,15 @@ def _copy_config(src: str, dst: str):
 
 def _load_calib_text(dataset: str, nsamples: int):
     """加载校准文本（优先从 PVC，再试内嵌样本，最后从 HuggingFace 下载）"""
-    local_path = f"/mnt/storage/models-storage/datasets/{dataset}"
-    if os.path.isdir(local_path):
-        from datasets import load_from_disk
-        ds = load_from_disk(local_path)
-        texts = ds.select(range(min(nsamples, len(ds))))["text"]
-        print(f"  从 PVC 加载校准数据: {local_path}")
-        return texts
+    # 检查多个可能的数据集路径
+    for base in ["/mnt/storage/models-storage/datasets", "/mnt/storage/models-share-volume/datasets"]:
+        local_path = f"{base}/{dataset}"
+        if os.path.isdir(local_path):
+            from datasets import load_from_disk
+            ds = load_from_disk(local_path)
+            texts = ds.select(range(min(nsamples, len(ds))))["text"]
+            print(f"  从 PVC 加载校准数据: {local_path}")
+            return texts
 
     if dataset == "wikitext2":
         # 内嵌校准样本（无需网络，离线环境可用）
@@ -83,7 +85,7 @@ def prune_structural(model_path: str, output: str, ratio: float,
 
     print(f"[Prune] 构建依赖图, 剪枝比例: {ratio}")
     # 重要性标准: L1 范数
-    imp = tp.importance.GroupNormImportance(p=2)
+    imp = tp.importance.GroupMagnitudeImportance(p=2)
 
     # 构建依赖图并进行剪枝
     pruner = tp.pruner.MetaPruner(
@@ -126,29 +128,124 @@ def prune_llm(model_path: str, output: str, ratio: float,
         trust_remote_code=True,
     )
     model.eval()
+    # 修补 Torch-Pruning 的 bug：_record_grad_fn 未处理多层嵌套元组
+    import torch_pruning.dependency.graph as _tpg
+    import torch.nn as nn
+    import torch_pruning.utils as utils
+    import torch_pruning.ops as ops
+
+    _orig_trace = _tpg.DependencyGraph._trace
+    def _patched_trace(self, model, example_inputs, forward_fn, output_transform):
+        model.eval()
+        gradfn2module = {}
+        visited = {}
+        self._2d_4d = True
+
+        def _safe_record_grad_fn(module, inputs, outputs):
+            if module not in visited:
+                visited[module] = 1
+            else:
+                visited[module] += 1
+            if isinstance(module, nn.Linear) and len(outputs.shape) == 3:
+                self._2d_4d = False
+            # 安全解嵌套元组，直到拿到非 tuple 且非 None 的输出
+            _out = outputs
+            while isinstance(_out, tuple) and len(_out) > 0:
+                _out = _out[0]
+            if isinstance(_out, torch.nn.utils.rnn.PackedSequence):
+                _out = _out.data
+            if _out is not None and hasattr(_out, 'grad_fn') and _out.grad_fn is not None:
+                gradfn2module[_out.grad_fn] = module
+
+        registered_types = tuple(ops.type2class(t) for t in self.REGISTERED_PRUNERS.keys()) + tuple(self.CUSTOMIZED_PRUNERS.keys())
+        hooks = [m.register_forward_hook(_safe_record_grad_fn) for m in model.modules()
+                 if (isinstance(m, registered_types) and m not in self.IGNORED_LAYERS_IN_TRACING)]
+
+        if forward_fn is not None:
+            out = forward_fn(model, example_inputs)
+        elif isinstance(example_inputs, dict):
+            out = model(**example_inputs)
+        else:
+            try:
+                out = model(*example_inputs)
+            except:
+                out = model(example_inputs)
+        for hook in hooks:
+            hook.remove()
+
+        reused = [m for (m, count) in visited.items() if count > 1]
+        if output_transform is not None:
+            out = output_transform(out)
+
+        module2node = {}
+        visited = set()
+        for o in utils.flatten_as_list(out):
+            # 跳过无 grad_fn 的输出（如 tuple、None 等）
+            if hasattr(o, 'grad_fn') and o.grad_fn is not None:
+                self._trace_computational_graph(module2node, o, gradfn2module, reused, visited=visited)
+
+        if len(self.unwrapped_parameters) > 0:
+            for node in module2node.values():
+                if node.type in (ops.OPTYPE.CONCAT, ops.OPTYPE.SPLIT):
+                    stack = [node]
+                    v = set()
+                    while len(stack) > 0:
+                        n = stack.pop(-1)
+                        v.add(n)
+                        if n.type == ops.OPTYPE.PARAMETER and len(n.module.shape) == 3:
+                            node.enable_index_mapping = False
+                            break
+                        else:
+                            for ni in n.inputs:
+                                if ni not in v:
+                                    stack.append(ni)
+        return module2node
+
+    _tpg.DependencyGraph._trace = _patched_trace
 
     # 加载校准文本用于计算激活分布
     print(f"[Prune] 加载校准数据: {dataset}, {nsamples} 条")
     texts = _load_calib_text(dataset, nsamples)
     calib_text = " ".join(texts[:nsamples])
-    example_inputs = tokenizer(calib_text, return_tensors="pt", truncation=True, max_length=2048)
-    if hasattr(example_inputs, "input_ids"):
-        example_inputs = example_inputs["input_ids"]
-
+    encoded = tokenizer(calib_text, return_tensors="pt", truncation=True, max_length=2048)
+    example_inputs = encoded["input_ids"]
     meta = {"engine": "torch_pruning", "method": "llm", "ratio": ratio,
             "prune_heads": prune_heads, "prune_layers": prune_layers,
             "n_layers_remove": n_layers_remove}
 
+    # 构建依赖图（Torch-Pruning 通用 API）
+    dg = tp.DependencyGraph().build_dependency(model, example_inputs=example_inputs)
+
     if prune_layers and n_layers_remove > 0:
-        print(f"[Prune] 移除 {n_layers_remove} 层 Transformer 层")
-        # 使用 Torch-Pruning 的 LLM 层剪枝
-        tp.prune_llm_layers(model, example_inputs, n_remove=n_layers_remove)
-        meta["layers_removed"] = n_layers_remove
+        print(f"[Prune] 移除最后 {n_layers_remove} 层 Transformer 层")
+        if hasattr(model, 'model') and hasattr(model.model, 'layers'):
+            original_layers = model.config.num_hidden_layers
+            model.config.num_hidden_layers = original_layers - n_layers_remove
+            model.model.layers = model.model.layers[:-n_layers_remove]
+            meta["layers_removed"] = n_layers_remove
+            print(f"[Prune] 层数从 {original_layers} 减少到 {model.config.num_hidden_layers}")
+        else:
+            print(f"[Prune] 警告: 不支持该模型的层移除操作")
 
     if prune_heads and ratio > 0:
         print(f"[Prune] LLM 结构化剪枝, 比例: {ratio}")
-        # 使用 Torch-Pruning 的 LLM 结构化剪枝
-        tp.prune_llm(model, example_inputs, pruning_ratio=ratio)
+        imp = tp.importance.GroupMagnitudeImportance(p=2)
+        # 排除 lm_head 和 embedding 层
+        ignored_layers = []
+        for name, module in model.named_modules():
+            if isinstance(module, (torch.nn.Embedding, torch.nn.LayerNorm)):
+                ignored_layers.append(module)
+        pruner = tp.pruner.MetaPruner(
+            model,
+            example_inputs,
+            importance=imp,
+            pruning_ratio=ratio,
+            ignored_layers=ignored_layers,
+            iterative_steps=1,
+        )
+        for group in pruner.step(interactive=True):
+            print(f"[Prune] 剪枝: {group}")
+            group.prune()
 
     os.makedirs(output, exist_ok=True)
     model.save_pretrained(output)

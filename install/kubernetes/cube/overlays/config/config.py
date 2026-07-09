@@ -747,6 +747,20 @@ USER_CUSTOMIZE_IMAGES=[CUSTOMIZE_JOB,'hyperparam-search-nni']  # 使用用户自
 ADMIN_USER='admin'
 # pipeline任务的运行空间，目前必填pipeline
 PIPELINE_NAMESPACE = 'pipeline'
+# pipeline 调度优先级映射
+PIPELINE_PRIORITY_CONFIG = {
+    "high": {
+        "argo_priority": 100,
+        "priority_class_name": "pipeline-high",
+        "weight": 100,
+    },
+    "low": {
+        "argo_priority": 0,
+        "priority_class_name": "pipeline-low",
+        "weight": 0,
+    },
+}
+PIPELINE_PRIORITY_DEFAULT = "high"
 # 服务pipeline运行的空间，必填service
 SERVICE_PIPELINE_NAMESPACE='service'
 # 超参搜索命名空间，必填automl

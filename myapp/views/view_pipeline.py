@@ -33,6 +33,7 @@ from flask_appbuilder.fieldwidgets import BS3TextFieldWidget, Select2ManyWidget,
 from myapp.forms import MyBS3TextAreaFieldWidget, MySelect2Widget, MySelectMultipleField
 from myapp.models.model_job import Repository
 from myapp.utils.storage_volume import available_volume_choices, filter_selected_volume_mount, split_volume_mount
+from myapp.utils.pipeline_priority import get_pipeline_priority_config
 from myapp.utils.py import py_k8s
 import re, copy
 from kubernetes.client.models import (
@@ -81,6 +82,7 @@ class Pipeline_Filter(MyappFilter):
 def make_workflow_yaml(pipeline,workflow_label,hubsecret_list,dag_templates,containers_templates,dbsession=db.session):
     name = pipeline.name+"-"+uuid.uuid4().hex[:4]
     workflow_label['workflow-name']=name
+    priority_cfg = get_pipeline_priority_config(pipeline.priority)
     workflow_crd_json={
         "apiVersion": "argoproj.io/v1alpha1",
         "kind": "Workflow",
@@ -101,6 +103,7 @@ def make_workflow_yaml(pipeline,workflow_label,hubsecret_list,dag_templates,cont
             },
             "archiveLogs": True,  # 打包日志
             "entrypoint": pipeline.name,
+            "priority": priority_cfg.get("argo_priority", 0),
             "templates": [
                              {
                                  "name": pipeline.name,
@@ -160,6 +163,8 @@ def dag_to_pipeline(pipeline, dbsession, workflow_label=None, **kwargs):
     template_kwargs=kwargs
     if 'execution_date' not in template_kwargs:
         template_kwargs['execution_date'] = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    priority_cfg = get_pipeline_priority_config(pipeline.priority)
+    priority_class = priority_cfg.get("priority_class_name")
 
     # 渲染字符串模板变量
     # @pysnooper.snoop()
@@ -287,7 +292,7 @@ def dag_to_pipeline(pipeline, dbsession, workflow_label=None, **kwargs):
                 condition = task.logical_condition or ''
                 return _build_branch_template(task.name, input_path, condition, k8s_volume_mounts, k8s_volumes)
 
-            return {
+            template = {
                 "name": task.name,
                 "container": {
                     "name": task.name + "-" + uuid.uuid4().hex[:4],
@@ -297,6 +302,9 @@ def dag_to_pipeline(pipeline, dbsession, workflow_label=None, **kwargs):
                     "imagePullPolicy": conf.get('IMAGE_PULL_POLICY', 'Always')
                 }
             }
+            if priority_class:
+                template["priorityClassName"] = priority_class
+            return template
         ops_args = []
         task_args = json.loads(task.args)
         for task_attr_name in task_args:
@@ -604,6 +612,8 @@ def dag_to_pipeline(pipeline, dbsession, workflow_label=None, **kwargs):
             ],
             "activeDeadlineSeconds": task.timeout if task.timeout else None
         }
+        if priority_class:
+            task_template["priorityClassName"] = priority_class
 
         # 统一添加一些固定环境变量，比如hostip，podip等
         task_template['container']['env'].append({
@@ -653,7 +663,7 @@ def dag_to_pipeline(pipeline, dbsession, workflow_label=None, **kwargs):
         _cond_match = re.match(r'^\s*(\S+)\s*(>=|<=|!=|==|>|<)\s*(.+)\s*$', condition)
         if not _cond_match:
             # 无法解析，回退为 alpine echo
-            return {
+            template = {
                 "name": task_name,
                 "container": {
                     "name": task_name + "-" + uuid.uuid4().hex[:4],
@@ -663,6 +673,9 @@ def dag_to_pipeline(pipeline, dbsession, workflow_label=None, **kwargs):
                     "imagePullPolicy": conf.get('IMAGE_PULL_POLICY', 'Always')
                 }
             }
+            if priority_class:
+                template["priorityClassName"] = priority_class
+            return template
 
         field, op, value = _cond_match.group(1), _cond_match.group(2), _cond_match.group(3).strip()
 
@@ -724,7 +737,7 @@ def dag_to_pipeline(pipeline, dbsession, workflow_label=None, **kwargs):
         ]
         script = '\n'.join(script_lines)
 
-        return {
+        template = {
             "name": task_name,
             "outputs": {
                 "parameters": [
@@ -741,6 +754,9 @@ def dag_to_pipeline(pipeline, dbsession, workflow_label=None, **kwargs):
             },
             "volumes": volumes or []
         }
+        if priority_class:
+            template["priorityClassName"] = priority_class
+        return template
 
     # 添加个人创建的所有仓库秘钥
     image_pull_secrets = conf.get('HUBSECRET', [])
@@ -767,6 +783,7 @@ def dag_to_pipeline(pipeline, dbsession, workflow_label=None, **kwargs):
     workflow_label['save-time'] = datetime.datetime.now().strftime('%Y-%m-%dT%H-%M-%S')
     workflow_label['pipeline-id'] = str(pipeline.id)
     workflow_label['pipeline-name'] = str(pipeline.name)
+    workflow_label['pipeline-priority'] = (pipeline.priority or conf.get("PIPELINE_PRIORITY_DEFAULT", "high")).lower()
     workflow_label['app'] = str(pipeline.name)
     workflow_label['run-id'] = global_envs.get('KFJ_RUN_ID', '')  # 以此来绑定运行时id，不能用kfp的run—id。那个是传到kfp以后才产生的。
     workflow_label['cluster'] = pipeline.project.cluster['NAME']
@@ -831,10 +848,10 @@ class Pipeline_ModelView_Base():
     }
     add_columns = ['project', 'name', 'describe', 'parameter']
     edit_columns = ['project', 'name', 'describe', 'schedule_type', 'cron_time', 'depends_on_past', 'max_active_runs',
-                    'expired_limit', 'parallelism', 'global_env', 'parameter', 'alert_status', 'alert_user',
+                    'expired_limit', 'parallelism', 'priority', 'global_env', 'parameter', 'alert_status', 'alert_user',
                     'cronjob_start_time']
     show_columns = ['project', 'name', 'describe', 'schedule_type', 'cron_time', 'depends_on_past', 'max_active_runs',
-                    'expired_limit', 'parallelism', 'global_env', 'dag_json', 'pipeline_file', 'pipeline_argo_id',
+                    'expired_limit', 'parallelism', 'priority', 'global_env', 'dag_json', 'pipeline_file', 'pipeline_argo_id',
                     'run_id', 'created_by', 'changed_by', 'created_on', 'changed_on', 'expand',
                     'parameter', 'alert_status', 'alert_user', 'cronjob_start_time']
     # show_columns = ['project','name','describe','schedule_type','cron_time','depends_on_past','max_active_runs','parallelism','global_env','dag_json','pipeline_file_html','pipeline_argo_id','version_id','run_id','created_by','changed_by','created_on','changed_on','expand']
@@ -913,6 +930,14 @@ class Pipeline_ModelView_Base():
             description= _("一个任务流实例中可同时运行的task数目"),
             widget=BS3TextFieldWidget(),
             default=3,
+            validators=[DataRequired()]
+        ),
+        "priority": SelectField(
+            _('调度优先级'),
+            widget=Select2Widget(),
+            default=conf.get('PIPELINE_PRIORITY_DEFAULT', 'high'),
+            description=_('资源紧张时优先调度高优先级任务流'),
+            choices=[['high', 'high'], ['low', 'low']],
             validators=[DataRequired()]
         ),
         "volume_mount": MySelectMultipleField(
@@ -1210,6 +1235,8 @@ class Pipeline_ModelView_Base():
             item.global_env = '\n'.join(pipeline_global_env)
 
         item.name = item.name.replace('_', '-')[0:54].lower().strip('-')
+        if item.priority not in ('high', 'low'):
+            item.priority = conf.get('PIPELINE_PRIORITY_DEFAULT', 'high')
         item.namespace = item.project.pipeline_namespace
         # item.alert_status = ','.join(item.alert_status)
         self.pipeline_args_check(item)
@@ -1255,6 +1282,8 @@ class Pipeline_ModelView_Base():
             item.global_env = '\n'.join(pipeline_global_env)
 
         item.name = item.name.replace('_', '-')[0:54].lower()
+        if item.priority not in ('high', 'low'):
+            item.priority = conf.get('PIPELINE_PRIORITY_DEFAULT', 'high')
         # item.alert_status = ','.join(item.alert_status)
         self.pipeline_args_check(item)
         item.change_datetime = datetime.datetime.now()
@@ -1692,7 +1721,7 @@ class Pipeline_ModelView_Api(Pipeline_ModelView_Base, MyappModelRestApi):
     list_columns = ['id', 'project', 'pipeline_url', 'creator', 'modified']
     add_columns = ['project', 'name', 'describe', 'parameter']
     edit_columns = ['project', 'name', 'describe', 'schedule_type', 'cron_time', 'depends_on_past', 'max_active_runs',
-                    'expired_limit', 'parallelism', 'parameter', 'dag_json', 'global_env', 'alert_status', 'alert_user', 'expand',
+                    'expired_limit', 'parallelism', 'priority', 'parameter', 'dag_json', 'global_env', 'alert_status', 'alert_user', 'expand',
                     'cronjob_start_time']
 
     related_views = [Task_ModelView_Api, ]
