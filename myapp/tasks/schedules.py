@@ -30,6 +30,7 @@ from myapp.models.model_job import (
 from myapp.models.model_notebook import Notebook
 from myapp.models.model_serving import InferenceService, Service
 from myapp.views.view_pipeline import run_pipeline,dag_to_pipeline
+from myapp.utils.pipeline_priority import get_pipeline_priority_config
 from sqlalchemy import or_
 from myapp import security_manager
 
@@ -41,6 +42,48 @@ conf = app.config
 model_map = {
     "workflows": Workflow,
 }
+
+
+def _pipeline_priority_weight(pipeline):
+    priority_cfg = get_pipeline_priority_config(getattr(pipeline, 'priority', None))
+    return priority_cfg.get("weight", 0)
+
+
+def _upload_timeruns_by_priority(dbsession, pipeline_ids, stop_time):
+    candidates = []
+    for pipeline_id in sorted(set(pipeline_ids)):
+        pipeline = dbsession.query(Pipeline).filter(Pipeline.id == int(pipeline_id)).first()
+        if not pipeline or not pipeline.cronjob_start_time:
+            continue
+
+        running_workflows = pipeline.get_workflow()
+        running_workflows = [
+            running_workflow for running_workflow in running_workflows
+            if running_workflow['status'] in ('Running', 'Created', 'Pending')
+        ]
+        available_slots = int(pipeline.max_active_runs) - len(running_workflows)
+        if available_slots <= 0:
+            continue
+
+        timeruns = dbsession.query(RunHistory) \
+            .filter(RunHistory.pipeline_id == pipeline.id) \
+            .filter(RunHistory.execution_date > pipeline.cronjob_start_time) \
+            .filter(RunHistory.execution_date <= stop_time) \
+            .filter(RunHistory.status == 'comed') \
+            .order_by(RunHistory.execution_date.asc()) \
+            .limit(available_slots) \
+            .all()
+
+        for timerun in timeruns:
+            candidates.append((pipeline, timerun))
+
+    candidates.sort(key=lambda item: (-_pipeline_priority_weight(item[0]), item[1].execution_date))
+    for pipeline, timerun in candidates:
+        kwargs = {
+            "timerun_id": timerun.id,
+            "pipeline_id": pipeline.id
+        }
+        upload_workflow.apply_async(kwargs=kwargs, expires=120, retry=False)
 
 
 def _parse_k8s_time(value):
@@ -598,6 +641,8 @@ def make_timerun_config(task):
             resolution = conf.get("PIPELINE_TASK_CRON_RESOLUTION", 0) * 60  # 设置最小发送时间间隔，15分钟
 
             pipelines = dbsession.query(Pipeline).filter(Pipeline.schedule_type=='crontab').all()  # 获取model记录
+            stop_at = datetime.datetime.now() + datetime.timedelta(seconds=300)
+            concurrent_pipeline_ids = []
             for pipeline in pipelines:  # 循环发起每一个调度
                 # 无效定时时间，退出
                 if not pipeline.cron_time:
@@ -615,8 +660,6 @@ def make_timerun_config(task):
                     last_execution_date = datetime.datetime.strptime(last_run.execution_date,'%Y-%m-%d %H:%M:%S')
                     if last_execution_date>start_at:
                         start_at=last_execution_date
-
-                stop_at = datetime.datetime.now() + datetime.timedelta(seconds=300)   # 下一个调度时间点，强制5分钟调度一次。这之前的 任务，该调度的都发起或者延迟发起
 
                 # logging.info('begin make timerun config %s'%pipeline.name)
                 # 计算start_at和stop_at之间，每一个任务的调度时间，并保障最小周期不超过设定的resolution。
@@ -662,7 +705,16 @@ def make_timerun_config(task):
                     logging.error(e1)
                     logging.error('Traceback: %s', traceback.format_exc())
 
-                upload_timerun(pipeline_id=pipeline.id,stop_time=stop_at.strftime('%Y-%m-%d %H:%M:%S'))
+                if pipeline.depends_on_past or pipeline.expired_limit:
+                    upload_timerun(pipeline_id=pipeline.id, stop_time=stop_at.strftime('%Y-%m-%d %H:%M:%S'))
+                else:
+                    concurrent_pipeline_ids.append(pipeline.id)
+
+            _upload_timeruns_by_priority(
+                dbsession=dbsession,
+                pipeline_ids=concurrent_pipeline_ids,
+                stop_time=stop_at.strftime('%Y-%m-%d %H:%M:%S')
+            )
 
         except Exception as e:
             logging.error(e)
