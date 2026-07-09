@@ -1,0 +1,17 @@
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: pipeline-high
+value: 10000
+globalDefault: false
+description: "High priority for MLOps pipeline workloads"
+preemptionPolicy: PreemptLowerPriority
+---
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: pipeline-low
+value: 1000
+globalDefault: false
+description: "Low priority for MLOps pipeline workloads"
+preemptionPolicy: PreemptLowerPriority

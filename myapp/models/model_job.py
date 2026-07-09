@@ -524,7 +524,8 @@ class Pipeline(Model,ImportMixin,AuditMixinNullable,MyappModelBase):
             parallelism=self.parallelism,
             alert_status=self.alert_status,
             expand=self.expand,
-            parameter=self.parameter
+            parameter=self.parameter,
+            priority=self.priority
         )
 
 

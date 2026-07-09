@@ -265,8 +265,10 @@ const Setting: React.FC = () => {
             onChange={(event: FormEvent, option?: IDropdownOption) => {
               handleOnChange('priority', `${option?.text}` || '');
             }}
-            disabled
           />
+          <div style={{ fontSize: 12, color: '#605e5c', marginTop: 4 }}>
+            {t('资源紧张时，高优先级任务流将优先调度')}
+          </div>
           <div className={style.splitLine}></div>
           <Dropdown
             label={t('调度类型')}
