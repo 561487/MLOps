@@ -151,6 +151,14 @@ export const innerDynamicRouterConfig: IRouterConfigPlusItem[] = [
         hidden: true,
         element: lazy2Compont(() => import("./pages/ModelMarket/ServiceDetail") as any)
     },
+    // ===== 🆕 Chat v2.0 智能体对话 =====
+    {
+        path: '/startchat',
+        key: 'startchat',
+        title: '灵犀助手',
+        menu_type: 'innerRoute',
+        element: lazy2Compont(() => import("./pages/Chat") as any)
+    },
 ]
 
 const innerDynamicRouterConfigMap = innerDynamicRouterConfig.reduce((pre, next) => ({
