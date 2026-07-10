@@ -35,3 +35,9 @@ from . import view_bill
 from . import view_llm_gateway
 from . import view_model_market
 
+
+# ========== 🆕 Chat API v2.0 Blueprint ==========
+from . import view_chat_v2
+from myapp import appbuilder
+
+appbuilder.get_app.register_blueprint(view_chat_v2.chat_api_bp)

@@ -921,7 +921,7 @@ AI:
                     history.append((search_text, canswar))
                     history = history[0 - int(chat.session_num):]
                     try:
-                        cache.set('chat_' + session_id, history, timeout=300)   # 人连续对话的时间跨度
+                        cache.set('chat_' + session_id, history, timeout=604800)   # 人连续对话的时间跨度
                     except Exception as e:
                         print(e)
 
@@ -1123,17 +1123,22 @@ AI:
     def get_llm_url_header(self,chat,stream=False):
         """
         获取访问地址和有效token
+        兼容新旧两套凭证格式
         @param chat:
         @param stream:
         @return:
         """
-        url = json.loads(chat.service_config).get("llm_url", '')
-        headers = json.loads(chat.service_config).get("llm_headers", {})
+        service_config = json.loads(chat.service_config) if chat.service_config else {}
+        credentials = json.loads(chat.credentials) if chat.credentials else {}
+        url = service_config.get("llm_url", "")
+        headers = service_config.get("llm_headers", {})
         if stream:
             headers['Accept'] = 'text/event-stream'
         else:
             headers['Accept'] = 'application/json'
 
+        if not url:
+            url = credentials.get("apiEndpoint", "")
         if not url:
             llm_url = conf.get('CHATGPT_CHAT_URL', 'https://api.openai.com/v1')
             if llm_url:
@@ -1144,13 +1149,17 @@ AI:
                 url=llm_url
         if '/chat/completions' not in url:
             url = url.strip('/')+"/chat/completions"
-        llm_tokens = json.loads(chat.service_config).get("llm_tokens", [])
+        llm_tokens = service_config.get("llm_tokens", [])
         llm_token = ''
+        if not llm_tokens:
+            api_key = credentials.get("apiKey", "")
+            if api_key:
+                llm_tokens = [api_key]
         if llm_tokens:
             if type(llm_tokens) != list:
                 llm_tokens = [llm_tokens]
             # 如果有过多错误的token，则直接废弃
-            error_token = json.loads(chat.service_config).get("miss_tokens",{})
+            error_token = service_config.get("miss_tokens",{})
             if error_token:
                 right_llm_tokens= [token for token in llm_token if int(error_token.get(token,0))<100]
                 if right_llm_tokens:
@@ -1316,6 +1325,10 @@ AI:
             }
             data.update(json.loads(chat.service_config).get("llm_data", {}))
 
+            # 支持 qwen3 等模型的 thinking 模式控制
+            chat_template_kwargs = service_config.get("chat_template_kwargs", None)
+            if chat_template_kwargs:
+                data["chat_template_kwargs"] = chat_template_kwargs
 
             if stream:
                 # 返回流响应
@@ -1361,7 +1374,7 @@ AI:
                                     history.append((search_text, back_message))
                                     history = history[0 - int(chat.session_num):]
                                     try:
-                                        cache.set('chat_' + session_id, history, timeout=300)  # 人连续对话的时间跨度
+                                        cache.set('chat_' + session_id, history, timeout=604800)  # 人连续对话的时间跨度
                                     except Exception as e:
                                         print(e)
                             else:
@@ -1441,7 +1454,7 @@ AI:
                         history.append((search_text, mes))
                         history = history[0 - int(chat.session_num):]
                         try:
-                            cache.set('chat_' + session_id, history, timeout=300)  # 人连续对话的时间跨度
+                            cache.set('chat_' + session_id, history, timeout=604800)  # 人连续对话的时间跨度
                         except Exception as e:
                             print(e)
                     return 0, mes
