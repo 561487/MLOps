@@ -6213,23 +6213,134 @@
   },
   "nlp-replace-private-data": {
     "project_name": "文本处理",
-    "image_name": "python:3.9",
-    "gitpath": "",
-    "image_describe": "文本算法类的数据处理",
+    "image_name": "10.121.177.20:8082/mlops/nlp-replace-private-data:20260710",
+    "gitpath": "/job-template/job/nlp-replace-private-data",
+    "image_describe": "基于规则与大模型的隐私信息替换",
     "job_template_name": "nlp-replace-private-data",
-    "job_template_describe": "去除隐私信息(企业版)",
+    "job_template_describe": "基于规则与大模型的 Markdown/文本隐私信息替换",
     "job_template_version": "Release",
-    "job_template_workdir": "",
-    "job_template_command": "python launcher.py",
+    "job_template_workdir": "/app",
+    "job_template_command": "python3 launcher.py",
     "job_template_volume": "",
     "job_template_account": "",
     "job_template_env": "",
     "job_template_expand": {
       "index": 3,
       "rec_job_template": "自定义镜像",
-      "help_url": ""
+      "help_url": "/job-template/job/nlp-replace-private-data"
     },
-    "job_template_args": {}
+    "job_template_args": {
+      "参数设置": {
+        "--input_dir": {
+          "type": "str",
+          "item_type": "str",
+          "label": "输入目录",
+          "require": 1,
+          "choice": [],
+          "range": "",
+          "default": "",
+          "placeholder": "/mnt/data/input",
+          "describe": "输入文档目录，仅递归处理 Markdown(.md) 和纯文本(.txt) 文件",
+          "editable": 1
+        },
+        "--output_dir": {
+          "type": "str",
+          "item_type": "str",
+          "label": "输出目录",
+          "require": 1,
+          "choice": [],
+          "range": "",
+          "default": "",
+          "placeholder": "/mnt/data/output",
+          "describe": "脱敏文件与 processing_report.json 的输出目录，不得位于输入目录内",
+          "editable": 1
+        },
+        "--base_url": {
+          "type": "str",
+          "item_type": "str",
+          "label": "模型服务地址",
+          "require": 1,
+          "choice": [],
+          "range": "",
+          "default": "",
+          "placeholder": "http://model-service/v1",
+          "describe": "OpenAI Chat Completions 兼容地址，须以 /v1 或 /chat/completions 结尾",
+          "editable": 1
+        },
+        "--api_key": {
+          "type": "str",
+          "item_type": "str",
+          "label": "API 密钥",
+          "require": 0,
+          "choice": [],
+          "range": "",
+          "default": "",
+          "placeholder": "",
+          "describe": "模型服务 API 密钥；留空时读取环境变量 API_SECRET_KEY",
+          "editable": 1
+        },
+        "--model_name": {
+          "type": "str",
+          "item_type": "str",
+          "label": "模型名称",
+          "require": 1,
+          "choice": [],
+          "range": "",
+          "default": "",
+          "placeholder": "model-name",
+          "describe": "模型服务支持的模型名称",
+          "editable": 1
+        },
+        "--temperature": {
+          "type": "float",
+          "item_type": "float",
+          "label": "生成温度",
+          "require": 0,
+          "choice": [],
+          "range": "0,2",
+          "default": "0",
+          "placeholder": "0",
+          "describe": "隐私实体识别的生成温度，建议保持为 0",
+          "editable": 1
+        },
+        "--timeout": {
+          "type": "int",
+          "item_type": "int",
+          "label": "请求超时",
+          "require": 0,
+          "choice": [],
+          "range": "1,3600",
+          "default": "120",
+          "placeholder": "120",
+          "describe": "单次模型请求超时秒数，必须大于 0",
+          "editable": 1
+        },
+        "--max_retries": {
+          "type": "int",
+          "item_type": "int",
+          "label": "最大重试次数",
+          "require": 0,
+          "choice": [],
+          "range": "0,10",
+          "default": "3",
+          "placeholder": "3",
+          "describe": "模型请求或响应校验失败后的最大重试次数",
+          "editable": 1
+        },
+        "--chunk_size": {
+          "type": "int",
+          "item_type": "int",
+          "label": "文本块大小",
+          "require": 0,
+          "choice": [],
+          "range": "500,30000",
+          "default": "6000",
+          "placeholder": "6000",
+          "describe": "单次模型处理的最大字符数，范围 500-30000",
+          "editable": 1
+        }
+      }
+    }
   },
   "nlp-analyze-data": {
     "project_name": "文本处理",
@@ -6310,45 +6421,172 @@
     },
     "job_template_args": {}
   },
-  "question-answer-generation": {
+  "question-answer-generation-extension": {
     "project_name": "文本处理",
-    "image_name": "python:3.9",
-    "gitpath": "",
-    "image_describe": "文本算法类的数据处理",
-    "job_template_name": "question-answer-generation",
-    "job_template_describe": "问答对生成(企业版)",
+    "image_name": "10.121.177.20:8082/mlops/question-answer-generation-extension:20260710",
+    "gitpath": "/job-template/job/question-answer-generation-extension",
+    "image_describe": "基于原文证据生成并泛化问答对",
+    "job_template_name": "question-answer-generation-extension",
+    "job_template_describe": "基于大模型的问答对生成与问题泛化",
     "job_template_version": "Release",
-    "job_template_workdir": "",
-    "job_template_command": "python launcher.py",
+    "job_template_workdir": "/app",
+    "job_template_command": "python3 launcher.py",
     "job_template_volume": "",
     "job_template_account": "",
     "job_template_env": "",
     "job_template_expand": {
       "index": 6,
       "rec_job_template": "自定义镜像",
-      "help_url": ""
+      "help_url": "/job-template/job/question-answer-generation-extension"
     },
-    "job_template_args": {}
-  },
-  "question-answer-extension": {
-    "project_name": "文本处理",
-    "image_name": "python:3.9",
-    "gitpath": "",
-    "image_describe": "文本算法类的数据处理",
-    "job_template_name": "question-answer-extension",
-    "job_template_describe": "问答对扩充(企业版)",
-    "job_template_version": "Release",
-    "job_template_workdir": "",
-    "job_template_command": "python launcher.py",
-    "job_template_volume": "",
-    "job_template_account": "",
-    "job_template_env": "",
-    "job_template_expand": {
-      "index": 7,
-      "rec_job_template": "自定义镜像",
-      "help_url": ""
-    },
-    "job_template_args": {}
+    "job_template_args": {
+      "参数设置": {
+        "--input_dir": {
+          "type": "str",
+          "item_type": "str",
+          "label": "输入目录",
+          "require": 1,
+          "choice": [],
+          "range": "",
+          "default": "",
+          "placeholder": "/mnt/data/input",
+          "describe": "输入文档目录，仅递归处理 Markdown(.md) 和纯文本(.txt) 文件",
+          "editable": 1
+        },
+        "--output_dir": {
+          "type": "str",
+          "item_type": "str",
+          "label": "输出目录",
+          "require": 1,
+          "choice": [],
+          "range": "",
+          "default": "",
+          "placeholder": "/mnt/data/output",
+          "describe": "qa_pairs.jsonl 与 processing_report.json 的输出目录；存在失败时另写 qa_pairs.partial.jsonl 且不覆盖正式数据，不得位于输入目录内",
+          "editable": 1
+        },
+        "--base_url": {
+          "type": "str",
+          "item_type": "str",
+          "label": "模型服务地址",
+          "require": 1,
+          "choice": [],
+          "range": "",
+          "default": "",
+          "placeholder": "http://model-service/v1",
+          "describe": "OpenAI Chat Completions 兼容地址，须以 /v1 或 /chat/completions 结尾",
+          "editable": 1
+        },
+        "--api_key": {
+          "type": "str",
+          "item_type": "str",
+          "label": "API 密钥",
+          "require": 0,
+          "choice": [],
+          "range": "",
+          "default": "",
+          "placeholder": "",
+          "describe": "模型服务 API 密钥；留空时读取环境变量 API_SECRET_KEY",
+          "editable": 1
+        },
+        "--model_name": {
+          "type": "str",
+          "item_type": "str",
+          "label": "模型名称",
+          "require": 1,
+          "choice": [],
+          "range": "",
+          "default": "",
+          "placeholder": "model-name",
+          "describe": "模型服务支持的模型名称",
+          "editable": 1
+        },
+        "--temperature": {
+          "type": "float",
+          "item_type": "float",
+          "label": "生成温度",
+          "require": 0,
+          "choice": [],
+          "range": "0,2",
+          "default": "0.2",
+          "placeholder": "0.2",
+          "describe": "问答对生成与泛化的生成温度",
+          "editable": 1
+        },
+        "--timeout": {
+          "type": "int",
+          "item_type": "int",
+          "label": "请求超时",
+          "require": 0,
+          "choice": [],
+          "range": "1,3600",
+          "default": "120",
+          "placeholder": "120",
+          "describe": "单次模型请求超时秒数，必须大于 0",
+          "editable": 1
+        },
+        "--max_retries": {
+          "type": "int",
+          "item_type": "int",
+          "label": "最大重试次数",
+          "require": 0,
+          "choice": [],
+          "range": "0,10",
+          "default": "3",
+          "placeholder": "3",
+          "describe": "模型请求、JSON 解析或业务校验失败后的最大重试次数",
+          "editable": 1
+        },
+        "--chunk_size": {
+          "type": "int",
+          "item_type": "int",
+          "label": "文本块大小",
+          "require": 0,
+          "choice": [],
+          "range": "500,30000",
+          "default": "6000",
+          "placeholder": "6000",
+          "describe": "单次模型处理的最大字符数，范围 500-30000",
+          "editable": 1
+        },
+        "--min_chunk_chars": {
+          "type": "int",
+          "item_type": "int",
+          "label": "最小文本块长度",
+          "require": 0,
+          "choice": [],
+          "range": "1,30000",
+          "default": "80",
+          "placeholder": "80",
+          "describe": "去除空白后短于该字符数的文本块不生成问答",
+          "editable": 1
+        },
+        "--questions_per_chunk": {
+          "type": "int",
+          "item_type": "int",
+          "label": "每块问答数量",
+          "require": 0,
+          "choice": [],
+          "range": "1,20",
+          "default": "5",
+          "placeholder": "5",
+          "describe": "每个文本块最多生成的标准问答对数量，范围 1-20",
+          "editable": 1
+        },
+        "--extensions_per_question": {
+          "type": "int",
+          "item_type": "int",
+          "label": "每题泛化数量",
+          "require": 0,
+          "choice": [],
+          "range": "0,10",
+          "default": "3",
+          "placeholder": "3",
+          "describe": "每个标准问题最多保留的等价问法数量，范围 0-10",
+          "editable": 1
+        }
+      }
+    }
   },
   "vision-quality-assessment": {
     "project_name": "图像处理",
