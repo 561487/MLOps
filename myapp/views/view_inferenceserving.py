@@ -40,6 +40,10 @@ from flask import (
 )
 from .base import MyappFilter
 from .baseApi import (
+    API_ADD_COLUMNS_RES_KEY,
+    API_ADD_FIELDSETS_RIS_KEY,
+    API_EDIT_COLUMNS_RES_KEY,
+    API_EDIT_FIELDSETS_RIS_KEY,
     MyappModelRestApi
 )
 
@@ -95,6 +99,8 @@ INFERNENCE_PORTS={
     "triton-server":"8000,8002"
 }
 INFERNENCE_METRICS={
+    "vllm": "8000:/metrics",
+    "vllm-distributed": "8000:/metrics",
     "tfserving":'8501:/metrics',
     "torch-server":"8082:/metrics",
     "triton-server":"8002:/metrics"
@@ -106,6 +112,43 @@ INFERNENCE_HEALTH={
     "tfserving":'8501:/v1/models/$model_name/versions/$model_version/metadata',
     "torch-server":"8080:/ping",
     "triton-server":"8000:/v2/health/ready"
+}
+
+KEDA_PROMETHEUS_SERVER = conf.get("PROMETHEUS", "prometheus-k8s.monitoring:9090")
+KEDA_AUTOSCALING_TEMPLATES = {
+    "waiting_requests": {
+        "metricName": "engine_waiting_requests",
+        "threshold": "10",
+        "activationThreshold": "1"
+    },
+    "qps": {
+        "metricName": "engine_qps",
+        "threshold": "5",
+        "activationThreshold": "1"
+    },
+    "running_requests": {
+        "metricName": "engine_running_requests",
+        "threshold": "20",
+        "activationThreshold": "1"
+    }
+}
+KEDA_ENGINE_METRIC_QUERIES = {
+    "vllm": {
+        "waiting_requests": 'sum(vllm:num_requests_waiting{kubernetes_namespace="{{namespace}}",kubernetes_name="{{service_name}}"})',
+        "qps": 'sum(rate(http_requests_total{kubernetes_namespace="{{namespace}}",kubernetes_name="{{service_name}}",handler="/v1/chat/completions",method="POST"}[1m]))',
+        "running_requests": 'sum(vllm:num_requests_running{kubernetes_namespace="{{namespace}}",kubernetes_name="{{service_name}}"})'
+    },
+    "vllm-distributed": {
+        "waiting_requests": 'sum(vllm:num_requests_waiting{kubernetes_namespace="{{namespace}}",kubernetes_name="{{service_name}}"})',
+        "qps": 'sum(rate(http_requests_total{kubernetes_namespace="{{namespace}}",kubernetes_name="{{service_name}}",handler="/v1/chat/completions",method="POST"}[1m]))',
+        "running_requests": 'sum(vllm:num_requests_running{kubernetes_namespace="{{namespace}}",kubernetes_name="{{service_name}}"})'
+    },
+    "triton-server": {
+        "qps": 'sum(rate(nv_inference_request_success{kubernetes_namespace="{{namespace}}",kubernetes_name="{{service_name}}"}[1m]))'
+    },
+    "default": {
+        "qps": 'sum(rate(http_requests_total{kubernetes_namespace="{{namespace}}",kubernetes_name="{{service_name}}"}[1m]))'
+    }
 }
 
 
@@ -155,7 +198,7 @@ class InferenceService_ModelView_base():
 
     # add_columns = ['service_type','project','name', 'label','images','resource_memory','resource_cpu','resource_gpu','min_replicas','max_replicas','ports','host','hpa','metrics','health']
     columns = ['service_type', 'project', 'label', 'model_name', 'model_version', 'images', 'model_path',
-                   'resource_memory', 'resource_cpu', 'resource_gpu', 'min_replicas', 'max_replicas', 'hpa', 'priority',
+                   'resource_memory', 'resource_cpu', 'resource_gpu', 'min_replicas', 'max_replicas', 'expand', 'hpa', 'priority',
                    'canary', 'shadow', 'host', 'inference_config', 'working_dir', 'command', 'env',
                    'ports', 'metrics', 'health', 'sidecar']
     show_columns = ['service_type', 'project', 'name', 'label', 'model_name', 'model_version', 'images', 'model_path',
@@ -420,9 +463,20 @@ sglang：支持大语言模型高性能推理服务，模型地址通常为本�
     edit_form_extra_fields = add_form_extra_fields
     # edit_form_extra_fields['name']=StringField(_('名称'), description='英文名(小写字母、数字、- 组成)，最长50个字符',widget=MyBS3TextFieldWidget(readonly=True), validators=[Regexp("^[a-z][a-z0-9\-]*[a-z0-9]$"),Length(1,54)]),
 
+    expand_columns = {
+        "expand": {}
+    }
+
     model_columns = ['service_type', 'project', 'label', 'model_name', 'model_version', 'images', 'model_path']
-    service_columns = ['resource_memory', 'resource_cpu', 'resource_gpu', 'min_replicas', 'max_replicas', 'hpa',
+    service_columns = ['resource_memory', 'resource_cpu', 'resource_gpu', 'min_replicas', 'max_replicas', 'expand', 'hpa',
                        'priority', 'canary', 'shadow', 'host', 'volume_mount', 'sidecar']
+    # form fieldsets can reference expand-derived UI fields (autoscaling_type, etc.)
+    service_fieldset_columns = [
+        'resource_memory', 'resource_cpu', 'resource_gpu', 'min_replicas', 'max_replicas',
+        'autoscaling_type', 'hpa',
+        'autoscaling_metric_mode', 'autoscaling_threshold',
+        'priority', 'canary', 'shadow', 'host', 'volume_mount', 'sidecar'
+    ]
     admin_columns = ['inference_config', 'working_dir', 'command', 'env', 'ports', 'metrics', 'health']
 
     add_fieldsets = [
@@ -432,7 +486,7 @@ sglang：支持大语言模型高性能推理服务，模型地址通常为本�
         ),
         (
             _('推理配置'),
-            {"fields": service_columns, "expanded": True},
+            {"fields": service_fieldset_columns, "expanded": True},
         ),
         (
             _('管理员配置'),
@@ -462,9 +516,209 @@ sglang：支持大语言模型高性能推理服务，模型地址通常为本�
         }
         self.add_columns = self.columns + ['volume_mount']
         self.edit_columns = self.columns + ['volume_mount']
+        self._set_autoscaling_form_fields(item)
         self._set_inference_volume_mount_field(item)
 
     pre_update_web=pre_add_web
+
+    def _safe_expand_json(self, expand_text):
+        if not expand_text:
+            return {}
+        try:
+            return json.loads(expand_text)
+        except Exception:
+            return {}
+
+    def _set_autoscaling_form_fields(self, item=None):
+        expand = self._safe_expand_json(item.expand if item else '{}')
+        autoscaling = expand.get('autoscaling', {}) if isinstance(expand.get('autoscaling', {}), dict) else {}
+        trigger = autoscaling.get('triggers', [{}])[0] if autoscaling.get('triggers') else {}
+        trigger_metadata = trigger.get('metadata', {}) if isinstance(trigger, dict) else {}
+
+        autoscaling_type = 'none'
+        if autoscaling.get('type') == 'keda-prometheus':
+            autoscaling_type = 'keda-prometheus'
+        elif item and item.hpa:
+            autoscaling_type = 'hpa'
+
+        autoscaling_metric_mode = autoscaling.get('mode', 'waiting_requests')
+        if autoscaling_metric_mode not in KEDA_AUTOSCALING_TEMPLATES:
+            autoscaling_metric_mode = 'waiting_requests'
+        template = KEDA_AUTOSCALING_TEMPLATES[autoscaling_metric_mode]
+
+        self.expand_columns['expand'] = {
+            "autoscaling_type": SelectField(
+                label=_('弹性伸缩方式'),
+                default=autoscaling_type,
+                description=_('三选一：不启用 / 资源指标伸缩 / 引擎指标伸缩(KEDA)'),
+                widget=MySelect2Widget(retry_info=True),
+                choices=[
+                    ['none', _('不启用')],
+                    ['hpa', _('资源指标伸缩')],
+                    ['keda-prometheus', _('引擎指标伸缩(KEDA)')]
+                ],
+                validators=[DataRequired()]
+            ),
+            "autoscaling_metric_mode": SelectField(
+                label=_('KEDA指标模板'),
+                default=autoscaling_metric_mode,
+                description=_('KEDA 指标模板：排队数 / QPS / 运行中请求数'),
+                widget=MySelect2Widget(),
+                choices=[
+                    ['waiting_requests', _('排队数(首选)')],
+                    ['qps', _('QPS')],
+                    ['running_requests', _('运行中请求数')]
+                ],
+                validators=[]
+            ),
+            "autoscaling_threshold": StringField(
+                label=_('KEDA阈值'),
+                default=trigger_metadata.get('threshold', template['threshold']),
+                description=_('达到该阈值触发扩容，例如 10'),
+                widget=BS3TextFieldWidget(),
+                validators=[]
+            )
+        }
+
+    def _safe_int(self, value, default_value):
+        try:
+            return int(value)
+        except Exception:
+            return default_value
+
+    def _get_keda_metric_query(self, service_type, mode):
+        engine_queries = KEDA_ENGINE_METRIC_QUERIES.get(service_type, {})
+        if mode in engine_queries:
+            return engine_queries[mode]
+
+        default_queries = KEDA_ENGINE_METRIC_QUERIES.get("default", {})
+        return default_queries.get(mode)
+
+    def _normalize_autoscaling_form_data(self, item):
+        expand = self._safe_expand_json(item.expand)
+        autoscaling_type = str(expand.pop('autoscaling_type', '')).strip()
+        autoscaling_metric_mode = str(expand.pop('autoscaling_metric_mode', '')).strip()
+        autoscaling_threshold = str(expand.pop('autoscaling_threshold', '')).strip()
+        expand.pop('autoscaling_activation_threshold', '')
+        expand.pop('autoscaling_polling_interval', '')
+        expand.pop('autoscaling_cooldown_period', '')
+        expand.pop('autoscaling_query', '')
+        expand.pop('autoscaling_server_address', '')
+
+        if not autoscaling_type:
+            item.expand = json.dumps(expand, indent=4, ensure_ascii=False)
+            return
+
+        if autoscaling_type == 'none':
+            item.hpa = ''
+            expand.pop('autoscaling', None)
+            item.expand = json.dumps(expand, indent=4, ensure_ascii=False)
+            return
+
+        if autoscaling_type == 'hpa':
+            if not item.hpa:
+                item.hpa = 'cpu:50%,mem:50%,gpu:50%'
+            expand.pop('autoscaling', None)
+            item.expand = json.dumps(expand, indent=4, ensure_ascii=False)
+            return
+
+        if autoscaling_type != 'keda-prometheus':
+            item.expand = json.dumps(expand, indent=4, ensure_ascii=False)
+            return
+
+        item.hpa = ''
+        mode = autoscaling_metric_mode or 'waiting_requests'
+        if mode not in KEDA_AUTOSCALING_TEMPLATES:
+            mode = 'waiting_requests'
+        template = KEDA_AUTOSCALING_TEMPLATES[mode]
+        query = self._get_keda_metric_query(item.service_type, mode)
+        threshold = autoscaling_threshold or template['threshold']
+        activation_threshold = template['activationThreshold']
+        server_address = KEDA_PROMETHEUS_SERVER
+
+        polling_interval = 15
+        cooldown_period = 180
+
+        expand['autoscaling'] = {
+            "type": "keda-prometheus",
+            "mode": mode,
+            "pollingInterval": polling_interval,
+            "cooldownPeriod": cooldown_period,
+            "triggers": [{
+                "name": mode,
+                "metricName": template['metricName'],
+                "query": query,
+                "threshold": str(threshold),
+                "activationThreshold": str(activation_threshold),
+                "serverAddress": server_address
+            }]
+        }
+        item.expand = json.dumps(expand, indent=4, ensure_ascii=False)
+
+    def _render_keda_query(self, query, namespace, service_name, model_name, deployment_name):
+        if not query:
+            return query
+        replacements = {
+            "{{namespace}}": namespace or "",
+            "{{service_name}}": service_name or "",
+            "{{model_name}}": model_name or "",
+            "{{deployment_name}}": deployment_name or ""
+        }
+        for placeholder, value in replacements.items():
+            query = query.replace(placeholder, value)
+        return query
+
+    def _build_keda_autoscaling_config(self, service, namespace, deployment_name):
+        expand = self._safe_expand_json(service.expand)
+        autoscaling = expand.get('autoscaling', {})
+        if not isinstance(autoscaling, dict):
+            return None
+        if autoscaling.get('type', '') != 'keda-prometheus':
+            return None
+
+        mode = autoscaling.get('mode', 'waiting_requests')
+        if mode not in KEDA_AUTOSCALING_TEMPLATES:
+            mode = 'waiting_requests'
+        template = KEDA_AUTOSCALING_TEMPLATES[mode]
+        raw_triggers = autoscaling.get('triggers', [])
+        polling_interval = self._safe_int(autoscaling.get('pollingInterval', 15), 15)
+        cooldown_period = self._safe_int(autoscaling.get('cooldownPeriod', 180), 180)
+        server_address = autoscaling.get('serverAddress', KEDA_PROMETHEUS_SERVER)
+        if server_address and not str(server_address).startswith('http'):
+            server_address = "http://" + str(server_address).strip()
+
+        triggers = []
+        trigger = raw_triggers[0] if raw_triggers and isinstance(raw_triggers[0], dict) else {}
+        query = self._get_keda_metric_query(service.service_type, mode)
+        if not query:
+            return None
+        query = self._render_keda_query(
+            query=query,
+            namespace=namespace,
+            service_name=service.name,
+            model_name=service.model_name,
+            deployment_name=deployment_name
+        )
+        trigger_server = trigger.get('serverAddress', server_address)
+        if trigger_server and not str(trigger_server).startswith('http'):
+            trigger_server = "http://" + str(trigger_server).strip()
+
+        triggers.append({
+            "type": "prometheus",
+            "metadata": {
+                "serverAddress": trigger_server,
+                "metricName": template['metricName'],
+                "query": query,
+                "threshold": str(trigger.get('threshold', template['threshold'])),
+                "activationThreshold": str(trigger.get('activationThreshold', template['activationThreshold']))
+            }
+        })
+
+        return {
+            "pollingInterval": polling_interval,
+            "cooldownPeriod": cooldown_period,
+            "triggers": triggers
+        }
 
     def _service_storage_namespace(self, project=None):
         if project and project.service_namespace:
@@ -758,6 +1012,7 @@ output %s
 
         if not item.expand:
             item.expand= '{}'
+        self._normalize_autoscaling_form_data(item)
         if item.sidecar:
             item.sidecar = item.sidecar.strip().strip(',')
         if item.name:
@@ -802,6 +1057,7 @@ output %s
                     k8s_client.delete_service(namespace=namespace, name=service_external_name)
                     k8s_client.delete_istio_ingress(namespace=namespace, name=name)
                     k8s_client.delete_hpa(namespace=namespace, name=name)
+                    k8s_client.delete_keda_scaled_object(namespace=namespace, name=name)
                     k8s_client.delete_configmap(namespace=namespace, name=name)
                     k8s_client.delete_crd(group='security.istio.io',version='v1beta1',plural='requestauthentications',namespace=namespace,name=name)
                     k8s_client.delete_crd(group='security.istio.io',version='v1beta1',plural='authorizationpolicies',namespace=namespace,name=name)
@@ -1248,18 +1504,37 @@ output %s
                 flash(__('端口已耗尽，后续请使用泛域名访问服务'), 'warning')
 
         if stag == 'prod':
-            hpas = re.split(',|;', service.hpa)
-            regex = re.compile(r"\(.*\)")
-            if float(regex.sub('', service.resource_gpu)) < 1:
-                for hpa in copy.deepcopy(hpas):
-                    if 'gpu' in hpa:
-                        hpas.remove(hpa)
+            keda_autoscaling = self._build_keda_autoscaling_config(
+                service=service,
+                namespace=namespace,
+                deployment_name=name
+            )
+            replicas_scalable = int(service.max_replicas) > int(service.min_replicas)
 
-            # 伸缩容
-            if int(service.max_replicas) > int(service.min_replicas) and service.hpa:
+            if keda_autoscaling and replicas_scalable:
                 try:
-                    # 创建+绑定deployment
-                    # print('create hpa')
+                    k8s_client.delete_hpa(namespace=namespace, name=name)
+                    k8s_client.create_keda_scaled_object(
+                        namespace=namespace,
+                        name=name,
+                        min_replicas=int(service.min_replicas),
+                        max_replicas=int(service.max_replicas),
+                        polling_interval=keda_autoscaling['pollingInterval'],
+                        cooldown_period=keda_autoscaling['cooldownPeriod'],
+                        triggers=keda_autoscaling['triggers']
+                    )
+                except Exception as e:
+                    flash('keda:' + str(e), 'warning')
+            elif replicas_scalable and service.hpa:
+                hpas = re.split(',|;', service.hpa)
+                regex = re.compile(r"\(.*\)")
+                if float(regex.sub('', service.resource_gpu)) < 1:
+                    for hpa in copy.deepcopy(hpas):
+                        if 'gpu' in hpa:
+                            hpas.remove(hpa)
+
+                try:
+                    k8s_client.delete_keda_scaled_object(namespace=namespace, name=name)
                     k8s_client.create_hpa(
                         namespace=namespace,
                         name=name,
@@ -1271,6 +1546,7 @@ output %s
                     flash('hpa:' + str(e), 'warning')
             else:
                 k8s_client.delete_hpa(namespace=namespace, name=name)
+                k8s_client.delete_keda_scaled_object(namespace=namespace, name=name)
 
         # # 使用激活器
         # if int(service.min_replicas)==0:
@@ -1377,9 +1653,118 @@ class InferenceService_ModelView_Api(InferenceService_ModelView_base, MyappModel
     datamodel = SQLAInterface(InferenceService)
     route_base = '/inferenceservice_modelview/api'
 
+    def _resolve_autoscaling_type_for_ui(self, payload):
+        autoscaling_type = (payload or {}).get('autoscaling_type', '')
+        if autoscaling_type in ['none', 'hpa', 'keda-prometheus']:
+            return autoscaling_type
+
+        expand_value = (payload or {}).get('expand', {})
+        if isinstance(expand_value, str):
+            try:
+                expand_value = json.loads(expand_value or '{}')
+            except Exception:
+                expand_value = {}
+        if isinstance(expand_value, dict):
+            autoscaling = expand_value.get('autoscaling', {})
+            if isinstance(autoscaling, dict) and autoscaling.get('type') == 'keda-prometheus':
+                return 'keda-prometheus'
+
+        if (payload or {}).get('hpa', ''):
+            return 'hpa'
+        return 'none'
+
+    def _set_autoscaling_columns_related(self, exist_add_args, response_add_columns):
+        autoscaling_type = self._resolve_autoscaling_type_for_ui(exist_add_args)
+        keda_field_names = [
+            'autoscaling_metric_mode',
+            'autoscaling_threshold'
+        ]
+
+        if autoscaling_type == 'keda-prometheus':
+            response_add_columns.pop('hpa', None)
+        elif autoscaling_type == 'hpa':
+            for field_name in keda_field_names:
+                response_add_columns.pop(field_name, None)
+            if 'hpa' in response_add_columns and not exist_add_args.get('hpa', ''):
+                response_add_columns['hpa']['default'] = 'cpu:50%,mem:50%,gpu:50%'
+        else:
+            response_add_columns.pop('hpa', None)
+            for field_name in keda_field_names:
+                response_add_columns.pop(field_name, None)
+
+    def _apply_autoscaling_columns_visibility(self, columns, payload=None):
+        if not columns:
+            return columns
+        response_columns = {column['name']: column for column in columns if 'name' in column}
+        if payload is None:
+            payload = {column['name']: column.get('default', '') for column in columns if 'name' in column}
+        self._set_autoscaling_columns_related(payload, response_columns)
+        return list(response_columns.values())
+
+    def _filter_fieldsets_by_columns(self, fieldsets, columns):
+        if not fieldsets:
+            return fieldsets
+        column_names = {column['name'] for column in columns if 'name' in column}
+        for fieldset in fieldsets:
+            fieldset['fields'] = [field for field in fieldset.get('fields', []) if field in column_names]
+        return fieldsets
+
+    def _autoscaling_payload_from_request(self, response, kwargs=None):
+        payload = {}
+        if response.get('data', None):
+            payload.update(response.get('data', {}))
+
+        if kwargs:
+            payload.update(kwargs)
+
+        exist_add_args = request.args.get('exist_add_args', '')
+        if exist_add_args:
+            try:
+                payload.update(json.loads(exist_add_args))
+            except Exception:
+                pass
+
+        form_data = request.args.get('form_data', '')
+        if form_data:
+            try:
+                payload.update(json.loads(form_data))
+            except Exception:
+                pass
+
+        for key in request.args:
+            if key in ['exist_add_args', 'form_data']:
+                continue
+            payload[key.replace('form_data', '').replace('[', '').replace(']', '')] = request.args[key]
+
+        return payload
+
+    def add_more_info(self, response, **kwargs):
+        payload = self._autoscaling_payload_from_request(response, kwargs)
+        if API_ADD_COLUMNS_RES_KEY in response:
+            response[API_ADD_COLUMNS_RES_KEY] = self._apply_autoscaling_columns_visibility(
+                response[API_ADD_COLUMNS_RES_KEY],
+                payload
+            )
+            if API_ADD_FIELDSETS_RIS_KEY in response:
+                response[API_ADD_FIELDSETS_RIS_KEY] = self._filter_fieldsets_by_columns(
+                    response[API_ADD_FIELDSETS_RIS_KEY],
+                    response[API_ADD_COLUMNS_RES_KEY]
+                )
+        if API_EDIT_COLUMNS_RES_KEY in response:
+            response[API_EDIT_COLUMNS_RES_KEY] = self._apply_autoscaling_columns_visibility(
+                response[API_EDIT_COLUMNS_RES_KEY],
+                payload
+            )
+            if API_EDIT_FIELDSETS_RIS_KEY in response:
+                response[API_EDIT_FIELDSETS_RIS_KEY] = self._filter_fieldsets_by_columns(
+                    response[API_EDIT_FIELDSETS_RIS_KEY],
+                    response[API_EDIT_COLUMNS_RES_KEY]
+                )
+
     # 目前 编辑时的列，是使用第一次打开时info接口拿到的edit_column而不是 点击编辑时拿到的info信息
     # @pysnooper.snoop()
     def set_columns_related(self, exist_add_args, response_add_columns):
+        self._set_autoscaling_columns_related(exist_add_args, response_add_columns)
         exist_service_type = exist_add_args.get('service_type', '')
         project_value = exist_add_args.get('project') or exist_add_args.get('project_id') or {}
         if isinstance(project_value, dict):

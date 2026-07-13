@@ -1954,6 +1954,72 @@ class K8s():
         except Exception as e:
             print(e)
 
+    def delete_keda_scaled_object(self, namespace, name):
+        try:
+            self.delete_crd(
+                group='keda.sh',
+                version='v1alpha1',
+                plural='scaledobjects',
+                namespace=namespace,
+                name=name
+            )
+        except ApiException as api_e:
+            if api_e.status != 404:
+                print(api_e)
+        except Exception as e:
+            print(e)
+
+    def create_keda_scaled_object(
+            self,
+            namespace,
+            name,
+            min_replicas,
+            max_replicas,
+            polling_interval=15,
+            cooldown_period=180,
+            triggers=None
+    ):
+        self.delete_keda_scaled_object(namespace=namespace, name=name)
+        triggers = triggers or []
+        keda_json = {
+            "apiVersion": "keda.sh/v1alpha1",
+            "kind": "ScaledObject",
+            "metadata": {
+                "name": name,
+                "namespace": namespace
+            },
+            "spec": {
+                "scaleTargetRef": {
+                    "apiVersion": "apps/v1",
+                    "kind": "Deployment",
+                    "name": name
+                },
+                "pollingInterval": int(polling_interval),
+                "cooldownPeriod": int(cooldown_period),
+                "minReplicaCount": int(min_replicas),
+                "maxReplicaCount": int(max_replicas),
+                "triggers": []
+            }
+        }
+        for trigger in triggers:
+            metadata = trigger.get('metadata', {}) if isinstance(trigger, dict) else {}
+            if not metadata:
+                continue
+            keda_json['spec']['triggers'].append({
+                "type": trigger.get('type', 'prometheus'),
+                "metadata": {key: str(value) for key, value in metadata.items() if value is not None and value != ''}
+            })
+        if not keda_json['spec']['triggers']:
+            raise ValueError('keda triggers is empty')
+        print(json.dumps(keda_json, indent=4, ensure_ascii=False))
+        self.create_crd(
+            group='keda.sh',
+            version='v1alpha1',
+            plural='scaledobjects',
+            namespace=namespace,
+            body=keda_json
+        )
+
     # @pysnooper.snoop()
     def create_hpa(self,namespace,name,min_replicas,max_replicas,hpa):
         self.delete_hpa(namespace,name)
