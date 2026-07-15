@@ -21,6 +21,7 @@ from myapp.models.model_dataset import Dataset
 from myapp.views.view_inferenceserving import InferenceService_ModelView_base
 from myapp.models.model_docker import Docker
 from myapp.models.model_notebook import Notebook
+from kubernetes.client.rest import ApiException
 conf = app.config
 
 
@@ -57,44 +58,131 @@ def check_docker_commit(task,docker_id):  # 在页面中测试时会自定接收
 
 
 @celery_app.task(name="task.check_notebook_commit", bind=True)  # , soft_time_limit=15
-def check_notebook_commit(task,notebook_id,target_image):  # 在页面中测试时会自定接收者和id
+def check_notebook_commit(task,notebook_id,target_image,save_run_id=None,commit_pod_name=None):  # 在页面中测试时会自定接收者和id
     logging.info('============= begin run check_notebook_commit task')
     with session_scope(nullpool=True) as dbsession:
+        notebook = None
+        k8s_client = None
+        pod_name = ''
+        namespace = ''
+
+        def update_result(status):
+            dbsession.rollback()
+            current = (
+                dbsession.query(Notebook)
+                .populate_existing()
+                .with_for_update()
+                .filter_by(id=int(notebook_id))
+                .first()
+            )
+            if not current:
+                dbsession.rollback()
+                return False
+            now = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            expand = json.loads(current.expand) if current.expand else {}
+            if save_run_id and expand.get('save_image_run_id') != save_run_id:
+                logging.info(
+                    'skip stale notebook commit result: notebook=%s run=%s',
+                    notebook_id,
+                    save_run_id
+                )
+                dbsession.rollback()
+                return False
+            expand['save_image_status'] = status
+            if status == 'success':
+                expand['save_image_success_last_time'] = now
+                expand['save_success_last_time'] = now
+                current.images = target_image
+            else:
+                expand['save_image_fail_last_time'] = now
+                expand['save_fail_last_time'] = now
+            current.expand = json.dumps(expand, ensure_ascii=False)
+            dbsession.commit()
+            try:
+                push_message(
+                    [current.created_by.username],
+                    'notebook {} save {}'.format(current.name, status)
+                )
+            except Exception as message_error:
+                logging.error(message_error)
+            return True
+
         try:
             notebook = dbsession.query(Notebook).filter_by(id=int(notebook_id)).first()
-            pod_name = "notebook-commit-%s-%s" % (notebook.created_by.username, str(notebook.id))
+            if not notebook:
+                logging.error('notebook %s not found while checking commit', notebook_id)
+                return
+            pod_name = commit_pod_name or "notebook-commit-%s-%s" % (
+                notebook.created_by.username,
+                str(notebook.id)
+            )
             namespace = notebook.namespace
             k8s_client = K8s(notebook.cluster.get('KUBECONFIG', ''))
-            begin_time=datetime.datetime.now()
-            now_time=datetime.datetime.now()
-            while((now_time-begin_time).total_seconds()<1800):   # 也就是最多commit push 30分钟
-                time.sleep(60)
-                commit_pods = k8s_client.get_pods(namespace=namespace,pod_name=pod_name)
-                if commit_pods:
-                    commit_pod=commit_pods[0]
-                    if commit_pod['status']=='Succeeded':
-                        notebook.images=target_image
-                        expand = json.loads(notebook.expand) if notebook.expand else {}
-                        expand['save_success_last_time'] = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                        notebook.expand = json.dumps(expand)
-                        dbsession.commit()
-                        push_message([notebook.created_by.username],'notebook %s save success'%notebook.name)
-                        break
-                    # 其他异常状态直接报警
-                    if commit_pod['status']!='Running':
-                        expand = json.loads(notebook.expand) if notebook.expand else {}
-                        expand['save_fail_last_time'] = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-                        notebook.expand = json.dumps(expand)
-                        dbsession.commit()
-                        push_message([notebook.created_by.username], 'notebook %s save fail' % notebook.name)
-                        break
-                else:
-                    break
+            timeout = int(conf.get('NOTEBOOK_SAVE_TIMEOUT_SEC', 1800))
+            deadline = time.time() + timeout
+            missing_count = 0
+            while time.time() < deadline:
+                time.sleep(min(60, max(1, deadline - time.time())))
+                dbsession.rollback()
+                notebook = (
+                    dbsession.query(Notebook)
+                    .populate_existing()
+                    .filter_by(id=int(notebook_id))
+                    .first()
+                )
+                if not notebook:
+                    return
+                current_expand = json.loads(notebook.expand) if notebook.expand else {}
+                if save_run_id and current_expand.get('save_image_run_id') != save_run_id:
+                    k8s_client.delete_pods(namespace=namespace, pod_name=pod_name)
+                    return
+                try:
+                    commit_pod = k8s_client.v1.read_namespaced_pod(
+                        name=pod_name,
+                        namespace=namespace,
+                        _request_timeout=5
+                    )
+                    missing_count = 0
+                except ApiException as api_error:
+                    if api_error.status == 404:
+                        missing_count += 1
+                        if missing_count < 3:
+                            continue
+                        update_result('fail')
+                        return
+                    logging.error(api_error)
+                    missing_count = 0
+                    continue
+                except Exception as poll_error:
+                    logging.error(poll_error)
+                    missing_count = 0
+                    continue
 
-                now_time = datetime.datetime.now()
+                phase = commit_pod.status.phase if commit_pod.status else ''
+                if phase == 'Succeeded':
+                    update_result('success')
+                    return
+                if phase not in ('Pending', 'Running'):
+                    update_result('fail')
+                    k8s_client.delete_pods(namespace=namespace, pod_name=pod_name)
+                    return
+
+            update_result('fail')
+            k8s_client.delete_pods(namespace=namespace, pod_name=pod_name)
 
         except Exception as e:
             logging.error(e)
+            owns_run = False
+            if notebook:
+                try:
+                    owns_run = update_result('fail')
+                except Exception as update_error:
+                    logging.error(update_error)
+            if (owns_run or save_run_id) and k8s_client and pod_name and namespace:
+                try:
+                    k8s_client.delete_pods(namespace=namespace, pod_name=pod_name)
+                except Exception as cleanup_error:
+                    logging.error(cleanup_error)
 
 @celery_app.task(name="task.upgrade_service", bind=True)  # , soft_time_limit=15
 def upgrade_service(task,service_id,name,namespace):
