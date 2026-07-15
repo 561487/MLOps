@@ -178,5 +178,10 @@ class Notebook(Model,AuditMixinNullable,MyappModelBase):
     # 镜像保存
     @property
     def save(self):
-        return Markup(f'<span style="color:red;">环境保存(企业版)</span>')
+        if not conf.get('NOTEBOOK_SAVE_ENABLED', True):
+            return ''
+        return Markup(
+            f'<a href="/notebook_modelview/api/save_env/{self.id}">{__("保存环境（轻量）")}</a>'
+            f'<br><a href="/notebook_modelview/api/save_image/{self.id}">{__("保存为镜像")}</a>'
+        )
 

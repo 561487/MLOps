@@ -415,6 +415,9 @@ CACHE_CONFIG = {
     'CACHE_REDIS_PORT': int(REDIS_PORT), # 配置端口号
     'CACHE_REDIS_URL':'redis://:%s@%s:%s/1'%(REDIS_PASSWORD,REDIS_HOST,str(REDIS_PORT)) if REDIS_PASSWORD else 'redis://%s:%s/1'%(REDIS_HOST,str(REDIS_PORT))   # 0，1为数据库编号（redis有0-16个数据库）
 }
+# Notebook 镜像保存任务轮询上限
+NOTEBOOK_SAVE_TIMEOUT_SEC = 1800
+
 # 异步任务和定时任务配置
 class CeleryConfig(object):
     # 任务队列
@@ -498,8 +501,8 @@ class CeleryConfig(object):
         # 异步任务，检查notebook在线构建pod
         'task.check_notebook_commit': {
             'rate_limit': '1/s',
-            'soft_time_limit': 600,
-            "expires": 600,
+            'soft_time_limit': NOTEBOOK_SAVE_TIMEOUT_SEC + 120,
+            "expires": NOTEBOOK_SAVE_TIMEOUT_SEC,
             'max_retries': 0,
             "reject_on_worker_lost": False
         },
@@ -806,6 +809,20 @@ NOTEBOOK_IMAGES=[
     ['10.121.177.20:8082/mlops/notebook:tensorboard-vscode-gpu', 'vscode-tensorboard（gpu）'],
 ]
 
+# Notebook 环境保存
+NOTEBOOK_SAVE_ENABLED = True
+NOTEBOOK_SAVE_IMAGE_PREFIX = '10.121.177.20:8082/notebook/'
+NOTEBOOK_SAVE_REPOSITORY = {
+    'name': 'notebook-harbor',
+    'server': '10.121.177.20:8082/notebook',
+    'user': os.getenv('NOTEBOOK_HARBOR_USER', os.getenv('HARBOR_USER', 'admin')),
+    'password': os.getenv('NOTEBOOK_HARBOR_PASSWORD', os.getenv('HARBOR_PASSWORD', 'Harbor@12345')),
+    'hubsecret': os.getenv('NOTEBOOK_HARBOR_HUBSECRET', 'hubsecret'),
+}
+NOTEBOOK_SAVE_COOLDOWN_SEC = 120
+NOTEBOOK_SAVE_AUTO_RESET = False
+NOTEBOOK_SAVE_ENV_DIR = 'notebooks/{name}/'
+
 # 定时检查大小的目录列表。需要再celery中启动检查任务
 CHECK_WORKSPACE_SIZE = [
     "/data/k8s/kubeflow/pipeline/workspace",
@@ -888,7 +905,7 @@ INFERNENCE_IMAGES={
 
 CONTAINER_CLI='docker'   # 或者 docker nerdctl
 
-DOCKER_IMAGES='docker:23.0.4'
+DOCKER_IMAGES='10.121.177.20:8082/notebook/docker:23.0.4'
 NERDCTL_IMAGES='ccr.ccs.tencentyun.com/cube-studio/nerdctl:1.7.2'
 DOCKER_SOCKET = '/var/run/docker.sock(hostpath):/var/run/docker.sock'
 CONTAINERD_SOCKET = '/etc/containerd/(hostpath):/etc/containerd/,/run/containerd/containerd.sock(hostpath):/run/containerd/containerd.sock'
