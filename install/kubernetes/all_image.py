@@ -112,7 +112,7 @@ user_image = [
     # 任务模板的镜像
     "ubuntu:20.04",
     'python:3.9',
-    'docker:23.0.4',
+    '10.121.177.20:8082/notebook/docker:23.0.4',
 
     # 用户可能使用的基础镜像
     'ccr.ccs.tencentyun.com/cube-studio/ubuntu-gpu:cuda11.8.0-cudnn8-python3.9',

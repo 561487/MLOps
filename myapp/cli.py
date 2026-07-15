@@ -226,6 +226,50 @@ def init():
                 print(e)
                 db.session.rollback()
 
+        notebook_repository_config = conf.get('NOTEBOOK_SAVE_REPOSITORY', {}) or {}
+        notebook_repository_server = notebook_repository_config.get('server', '').strip().rstrip('/')
+        if notebook_repository_server:
+            try:
+                notebook_repository_name = notebook_repository_config.get('name', 'notebook-harbor')
+                notebook_repository = db.session.query(Repository).filter_by(
+                    name=notebook_repository_name
+                ).first()
+                registry = notebook_repository_server.split('/')[0]
+                same_registry_repositories = [
+                    item for item in db.session.query(Repository).all()
+                    if item.server.strip().split('/')[0] == registry
+                ]
+                credential_repository = same_registry_repositories[0] if same_registry_repositories else None
+                repository_user = (
+                    notebook_repository_config.get('user')
+                    or (credential_repository.user if credential_repository else '')
+                )
+                repository_password = (
+                    notebook_repository_config.get('password')
+                    or (credential_repository.password if credential_repository else '')
+                )
+                repository_hubsecret = (
+                    notebook_repository_config.get('hubsecret')
+                    or (credential_repository.hubsecret if credential_repository else 'hubsecret')
+                )
+                if notebook_repository is None and repository_user and repository_password:
+                    notebook_repository = Repository()
+                    notebook_repository.name = notebook_repository_name
+                    notebook_repository.created_by_fk = 1
+                    notebook_repository.changed_by_fk = 1
+                    db.session.add(notebook_repository)
+                if notebook_repository is not None:
+                    notebook_repository.server = notebook_repository_server
+                    if repository_user and repository_password:
+                        notebook_repository.user = repository_user
+                        notebook_repository.password = repository_password
+                    notebook_repository.hubsecret = repository_hubsecret
+                    db.session.commit()
+                    print('init repository %s' % notebook_repository_name)
+            except Exception as e:
+                print(e)
+                db.session.rollback()
+
         print('begin init job_templates')
         init_file = os.path.join(init_dir,'init-job-template.json')
         if os.path.exists(init_file):

@@ -1,6 +1,8 @@
 import os
 import re
+import shlex
 import traceback
+from types import SimpleNamespace
 
 from flask_appbuilder.baseviews import expose_api
 
@@ -41,6 +43,29 @@ from myapp.views.view_team import Project_Join_Filter, filter_join_org_project
 from myapp.models.model_team import Project
 
 conf = app.config
+
+
+def _safe_image_component(value, fallback='notebook', max_length=80):
+    value = re.sub(r'[^a-z0-9._-]+', '-', (value or '').lower()).strip('._-')
+    return (value or fallback)[:max_length].rstrip('._-') or fallback
+
+
+def _notebook_save_image_prefix():
+    return conf.get(
+        'NOTEBOOK_SAVE_IMAGE_PREFIX',
+        '10.121.177.20:8082/notebook/'
+    ).strip().rstrip('/') + '/'
+
+
+def _valid_notebook_target_image(target_image):
+    prefix = _notebook_save_image_prefix()
+    if not target_image or not target_image.startswith(prefix):
+        return False
+    remainder = target_image[len(prefix):]
+    return bool(re.fullmatch(
+        r'[a-z0-9._-]+(?:/[a-z0-9._-]+)+:[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}',
+        remainder
+    )) and '..' not in remainder
 
 
 class Notebook_Filter(MyappFilter):
@@ -782,6 +807,457 @@ class Notebook_ModelView_Base():
         notebook.expand = json.dumps(expand)
         db.session.commit()
 
+    def _get_owned_notebook(self, notebook_id, for_update=False):
+        query = db.session.query(Notebook).filter_by(id=notebook_id)
+        if for_update:
+            query = query.with_for_update()
+        notebook = query.first()
+        if not notebook:
+            abort(404)
+        if not g.user.is_admin() and notebook.created_by_fk != g.user.id:
+            abort(403)
+        return notebook
+
+    @staticmethod
+    def _save_expand(notebook, **values):
+        notebook = (
+            db.session.query(Notebook)
+            .populate_existing()
+            .with_for_update()
+            .filter_by(id=notebook.id)
+            .first()
+        )
+        expand = json.loads(notebook.expand) if notebook.expand else {}
+        expand.update(values)
+        notebook.expand = json.dumps(expand, ensure_ascii=False)
+        db.session.commit()
+        return expand
+
+    @staticmethod
+    def _save_in_cooldown(expand, field, cooldown=None):
+        value = expand.get(field)
+        if not value:
+            return False
+        try:
+            last_time = datetime.datetime.strptime(value, '%Y-%m-%d %H:%M:%S')
+        except (TypeError, ValueError):
+            return False
+        if cooldown is None:
+            cooldown = int(conf.get('NOTEBOOK_SAVE_COOLDOWN_SEC', 120))
+        return (datetime.datetime.now() - last_time).total_seconds() < cooldown
+
+    @staticmethod
+    def _running_notebook_pod(k8s_client, notebook):
+        try:
+            pod = k8s_client.v1.read_namespaced_pod(
+                name=notebook.name,
+                namespace=notebook.namespace,
+                _request_timeout=5
+            )
+        except Exception:
+            return None
+        if not pod.status or pod.status.phase != 'Running':
+            return None
+        return pod
+
+    @staticmethod
+    def _save_env_relative_dir(notebook):
+        relative_dir = conf.get(
+            'NOTEBOOK_SAVE_ENV_DIR',
+            'notebooks/{name}/'
+        ).format(name=_safe_image_component(notebook.name))
+        relative_dir = relative_dir.strip().strip('/')
+        if (
+            not relative_dir
+            or '..' in relative_dir.split('/')
+            or not re.fullmatch(r'[a-zA-Z0-9._/-]+', relative_dir)
+        ):
+            raise ValueError(__('NOTEBOOK_SAVE_ENV_DIR 配置不合法'))
+        return relative_dir
+
+    @event_logger.log_this
+    @expose_api(description="保存 Notebook 轻量环境", url='/save_env/<notebook_id>', methods=['GET', 'POST'])
+    def save_env(self, notebook_id):
+        redirect_url = conf.get('MODEL_URLS', {}).get('notebook', '')
+        if not conf.get('NOTEBOOK_SAVE_ENABLED', True):
+            flash(__('Notebook 环境保存功能未启用'), 'warning')
+            return redirect(redirect_url)
+
+        notebook = self._get_owned_notebook(notebook_id, for_update=True)
+        expand = json.loads(notebook.expand) if notebook.expand else {}
+        if self._save_in_cooldown(expand, 'save_env_last_request_time'):
+            flash(__('环境保存请求过于频繁，请稍后重试'), 'warning')
+            return redirect(redirect_url)
+
+        k8s_client = K8s(notebook.project.cluster.get('KUBECONFIG', ''))
+        if not self._running_notebook_pod(k8s_client, notebook):
+            flash(__('Notebook 未运行，请先启动或 reset 后再保存环境'), 'warning')
+            return redirect(redirect_url)
+
+        now = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        self._save_expand(
+            notebook,
+            save_env_status='saving',
+            save_env_last_request_time=now
+        )
+
+        username = notebook.created_by.username
+        try:
+            if (
+                not re.fullmatch(r'[a-zA-Z0-9._-]+', username or '')
+                or username in ('.', '..')
+            ):
+                raise ValueError(__('用户名无法用于环境保存路径'))
+            relative_dir = self._save_env_relative_dir(notebook)
+            save_dir = '/mnt/{}/{}'.format(username, relative_dir)
+            init_path = '/mnt/{}/init.sh'.format(username)
+            start_marker = '# >>> notebook-env-save:{} >>>'.format(notebook.id)
+            end_marker = '# <<< notebook-env-save:{} <<<'.format(notebook.id)
+            script = r'''
+set -eu
+save_dir={save_dir}
+init_path={init_path}
+start_marker={start_marker}
+end_marker={end_marker}
+mkdir -p "$save_dir"
+kind=pip
+env_path="$save_dir/requirements.txt"
+conda_tmp="$save_dir/.environment.yml.tmp"
+pip_tmp="$save_dir/.requirements.txt.tmp"
+if command -v conda >/dev/null 2>&1 && conda env export --no-builds > "$conda_tmp" 2>/dev/null; then
+    env_path="$save_dir/environment.yml"
+    mv "$conda_tmp" "$env_path"
+    rm -f "$pip_tmp"
+    kind=conda
+else
+    rm -f "$conda_tmp"
+    if command -v python >/dev/null 2>&1; then
+        python -m pip freeze > "$pip_tmp"
+    else
+        python3 -m pip freeze > "$pip_tmp"
+    fi
+    mv "$pip_tmp" "$env_path"
+fi
+touch "$init_path"
+lock_dir=""
+if command -v flock >/dev/null 2>&1; then
+    exec 9>"${{init_path}}.notebook-env-save.lock"
+    flock -w 30 9
+else
+    lock_dir="${{init_path}}.notebook-env-save.lockdir"
+    retries=30
+    while ! mkdir "$lock_dir" 2>/dev/null; do
+        retries=$((retries - 1))
+        [ "$retries" -gt 0 ] || exit 1
+        sleep 1
+    done
+fi
+init_tmp=$(mktemp "${{init_path}}.notebook-env-save.XXXXXX")
+cleanup() {{
+    [ -z "$init_tmp" ] || rm -f "$init_tmp"
+    [ -z "$lock_dir" ] || rmdir "$lock_dir" 2>/dev/null || true
+}}
+trap cleanup EXIT
+awk -v start="$start_marker" -v end="$end_marker" '
+    $0 == start && !skipping {{ skipping=1; buffered=$0 ORS; next }}
+    skipping {{
+        buffered=buffered $0 ORS
+        if ($0 == end) {{ skipping=0; buffered="" }}
+        next
+    }}
+    {{ print }}
+    END {{ if (skipping) printf "%s", buffered }}
+' "$init_path" > "$init_tmp"
+printf '%s\n' "$start_marker" >> "$init_tmp"
+printf '%s\n' '# managed by platform; do not edit this block manually' >> "$init_tmp"
+if [ "$kind" = conda ]; then
+    printf 'conda env update -f %s || true\n' "$env_path" >> "$init_tmp"
+else
+    printf 'pip install -r %s || true\n' "$env_path" >> "$init_tmp"
+fi
+printf '%s\n' "$end_marker" >> "$init_tmp"
+chmod --reference="$init_path" "$init_tmp" 2>/dev/null || true
+mv "$init_tmp" "$init_path"
+init_tmp=""
+printf '__NOTEBOOK_ENV_SAVE_OK__:%s:%s\n' "$kind" "$env_path"
+'''.format(
+                save_dir=shlex.quote(save_dir),
+                init_path=shlex.quote(init_path),
+                start_marker=shlex.quote(start_marker),
+                end_marker=shlex.quote(end_marker)
+            )
+            output = k8s_client.exec_pod(
+                name=notebook.name,
+                namespace=notebook.namespace,
+                container=notebook.name,
+                command=['sh', '-c', script],
+                timeout=120
+            )
+            match = re.search(r'__NOTEBOOK_ENV_SAVE_OK__:(pip|conda):([^\r\n]+)', output or '')
+            if not match:
+                raise RuntimeError(__('Pod 内环境导出失败'))
+
+            success_time = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            self._save_expand(
+                notebook,
+                save_env_status='success',
+                save_env_path=match.group(2),
+                save_env_success_last_time=success_time
+            )
+            flash(__('Notebook 环境已保存'), 'success')
+        except Exception as ex:
+            fail_time = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            self._save_expand(
+                notebook,
+                save_env_status='fail',
+                save_env_fail_last_time=fail_time
+            )
+            flash(__('Notebook 环境保存失败：') + str(ex), 'warning')
+        return redirect(redirect_url)
+
+    @event_logger.log_this
+    @expose_api(description="保存 Notebook 为镜像", url='/save_image/<notebook_id>', methods=['GET', 'POST'])
+    def save_image(self, notebook_id):
+        redirect_url = conf.get('MODEL_URLS', {}).get('notebook', '')
+        if not conf.get('NOTEBOOK_SAVE_ENABLED', True):
+            flash(__('Notebook 环境保存功能未启用'), 'warning')
+            return redirect(redirect_url)
+
+        notebook = self._get_owned_notebook(notebook_id, for_update=True)
+        expand = json.loads(notebook.expand) if notebook.expand else {}
+        if (
+            expand.get('save_image_status') == 'saving'
+            and self._save_in_cooldown(
+                expand,
+                'save_image_last_request_time',
+                int(conf.get('NOTEBOOK_SAVE_TIMEOUT_SEC', 1800))
+            )
+        ):
+            flash(__('镜像正在保存中，请勿重复提交'), 'warning')
+            return redirect(redirect_url)
+        if self._save_in_cooldown(expand, 'save_image_last_request_time'):
+            flash(__('镜像保存请求过于频繁，请稍后重试'), 'warning')
+            return redirect(redirect_url)
+
+        k8s_client = K8s(notebook.project.cluster.get('KUBECONFIG', ''))
+        pod = self._running_notebook_pod(k8s_client, notebook)
+        node_name = pod.spec.node_name if pod and pod.spec else ''
+        container_id = ''
+        if pod and pod.status and pod.status.container_statuses:
+            containers = [
+                container for container in pod.status.container_statuses
+                if container.name == notebook.name and container.container_id
+            ]
+            if containers:
+                container_id = re.sub(
+                    r'^(docker|containerd)://',
+                    '',
+                    containers[0].container_id
+                )
+        if container_id and not re.fullmatch(r'[a-fA-F0-9]{12,128}', container_id):
+            container_id = ''
+        if not node_name or not container_id:
+            flash(__('没有发现正在运行的 Notebook，请先启动或 reset 后再保存镜像'), 'warning')
+            return redirect(redirect_url)
+
+        username = _safe_image_component(notebook.created_by.username, fallback='user')
+        notebook_name = _safe_image_component(notebook.name)
+        target_image = request.values.get('target_image', '').strip()
+        if not target_image:
+            target_image = '{}{}/{}:{}'.format(
+                _notebook_save_image_prefix(),
+                username,
+                notebook_name,
+                datetime.datetime.now().strftime('%Y%m%d%H%M%S')
+            )
+        if not _valid_notebook_target_image(target_image):
+            flash(__('目标镜像必须位于 Notebook 专用 Harbor 项目且名称合法'), 'warning')
+            return redirect(redirect_url)
+
+        all_repositories = db.session.query(Repository).all()
+        repositories = [
+            repo for repo in all_repositories
+            if target_image == repo.server.rstrip('/')
+            or target_image.startswith(repo.server.rstrip('/') + '/')
+        ]
+        repository_config = conf.get('NOTEBOOK_SAVE_REPOSITORY', {}) or {}
+        configured_server = repository_config.get('server', '').strip().rstrip('/')
+        if (
+            not repositories
+            and configured_server
+            and target_image.startswith(configured_server + '/')
+            and repository_config.get('user')
+            and repository_config.get('password')
+        ):
+            repositories = [SimpleNamespace(
+                server=configured_server,
+                user=repository_config['user'],
+                password=repository_config['password'],
+                hubsecret=repository_config.get('hubsecret', ''),
+                created_by_fk=g.user.id
+            )]
+        if not repositories and configured_server and target_image.startswith(configured_server + '/'):
+            registry = configured_server.split('/')[0]
+            repositories = [
+                repo for repo in all_repositories
+                if repo.server.strip().split('/')[0] == registry
+            ]
+        if not repositories:
+            flash(__('保存镜像前，请配置 Notebook Harbor 推送凭证或添加对应镜像仓库'), 'warning')
+            return redirect(conf.get('MODEL_URLS', {}).get('repository', ''))
+        repo = max(
+            repositories,
+            key=lambda item: (
+                int(item.created_by_fk == g.user.id),
+                len(item.server)
+            )
+        )
+
+        legacy_commit_pod_name = 'notebook-commit-{}-{}'.format(
+            notebook.created_by.username,
+            notebook.id
+        )
+        try:
+            commit_pod = k8s_client.v1.read_namespaced_pod(
+                name=legacy_commit_pod_name,
+                namespace=notebook.namespace,
+                _request_timeout=5
+            )
+            if commit_pod.status and commit_pod.status.phase in ('Pending', 'Running'):
+                flash(__('镜像正在保存中，请勿重复提交'), 'warning')
+                return redirect(redirect_url)
+        except Exception:
+            pass
+
+        cluster = notebook.project.cluster
+        cli_name = cluster.get('CONTAINER_CLI', conf.get('CONTAINER_CLI', 'docker'))
+        if cli_name not in ('docker', 'nerdctl'):
+            flash(__('集群 CONTAINER_CLI 仅支持 docker 或 nerdctl'), 'warning')
+            return redirect(redirect_url)
+        cli = 'nerdctl --namespace k8s.io' if cli_name == 'nerdctl' else 'docker'
+        registry = repo.server.split('/')[0]
+        login_command = '{} login --username {} --password {} {}'.format(
+            cli_name,
+            shlex.quote(repo.user),
+            shlex.quote(repo.password),
+            shlex.quote(registry)
+        )
+        command = [
+            'sh',
+            '-c',
+            '{} && {} commit {} {} && {} push {}'.format(
+                login_command,
+                cli,
+                shlex.quote(container_id),
+                shlex.quote(target_image),
+                cli,
+                shlex.quote(target_image)
+            )
+        ]
+        image_pull_secrets = conf.get('HUBSECRET', [])
+        user_repositories = db.session.query(Repository).filter(
+            Repository.created_by_fk == g.user.id
+        ).all()
+        image_pull_secrets = list(set(
+            [secret for secret in image_pull_secrets if secret]
+            + [repo_item.hubsecret for repo_item in user_repositories if repo_item.hubsecret]
+            + ([repo.hubsecret] if repo.hubsecret else [])
+        ))
+
+        save_run_id = uuid.uuid4().hex
+        commit_pod_name = 'notebook-commit-{}-{}-{}'.format(
+            username[:20].rstrip('._-') or 'user',
+            notebook.id,
+            save_run_id[:8]
+        )[:63].rstrip('-')
+        request_time = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        self._save_expand(
+            notebook,
+            save_image_status='saving',
+            save_target_image=target_image,
+            save_image_last_request_time=request_time,
+            save_image_run_id=save_run_id,
+            save_image_pod_name=commit_pod_name
+        )
+        try:
+            k8s_client.create_debug_pod(
+                namespace=notebook.namespace,
+                name=commit_pod_name,
+                command=command,
+                labels={
+                    'app': 'notebook-commit',
+                    'user': notebook.created_by.username,
+                    'pod-type': 'notebook-commit',
+                    'notebook-id': str(notebook.id),
+                    'save-run-id': save_run_id
+                },
+                annotations={'project': notebook.project.name},
+                args=None,
+                volume_mount=cluster.get(
+                    'DOCKER_SOCKET' if cli_name == 'docker' else 'CONTAINERD_SOCKET',
+                    conf.get('DOCKER_SOCKET' if cli_name == 'docker' else 'CONTAINERD_SOCKET', '')
+                ),
+                working_dir='/mnt/{}'.format(notebook.created_by.username),
+                node_selector=None,
+                resource_memory='0~10G',
+                resource_cpu='0~10',
+                resource_gpu='0',
+                image_pull_policy='IfNotPresent',
+                image_pull_secrets=image_pull_secrets,
+                image=conf.get(
+                    'DOCKER_IMAGES' if cli_name == 'docker' else 'NERDCTL_IMAGES',
+                    '{}:latest'.format(cli_name)
+                ),
+                hostAliases=conf.get('HOSTALIASES', ''),
+                env={'USERNAME': notebook.created_by.username},
+                privileged=True,
+                accounts=None,
+                username=notebook.created_by.username,
+                node_name=node_name
+            )
+            from myapp.tasks.async_task import check_notebook_commit
+            check_notebook_commit.apply_async(kwargs={
+                'notebook_id': notebook.id,
+                'target_image': target_image,
+                'save_run_id': save_run_id,
+                'commit_pod_name': commit_pod_name
+            })
+        except Exception as ex:
+            current = (
+                db.session.query(Notebook)
+                .populate_existing()
+                .with_for_update()
+                .filter_by(id=notebook.id)
+                .first()
+            )
+            current_expand = json.loads(current.expand) if current and current.expand else {}
+            if current and current_expand.get('save_image_run_id') == save_run_id:
+                try:
+                    k8s_client.delete_pods(
+                        namespace=notebook.namespace,
+                        pod_name=commit_pod_name
+                    )
+                except Exception:
+                    pass
+                fail_time = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                current_expand.update({
+                    'save_image_status': 'fail',
+                    'save_image_fail_last_time': fail_time
+                })
+                current.expand = json.dumps(current_expand, ensure_ascii=False)
+                db.session.commit()
+            else:
+                db.session.rollback()
+            flash(__('Notebook 镜像保存启动失败：') + str(ex), 'warning')
+            return redirect(redirect_url)
+
+        flash(__('新镜像正在保存推送中，请留意消息通知'), 'success')
+        return redirect('/k8s/web/log/{}/{}/{}'.format(
+            notebook.project.cluster.get('NAME', ''),
+            notebook.namespace,
+            commit_pod_name
+        ))
+
     @event_logger.log_this
     @expose_api(description="重置在线ide",url='/reset/<notebook_id>', methods=['GET', 'POST'])
     def reset(self, notebook_id):
@@ -822,6 +1298,13 @@ class Notebook_ModelView_Base():
                 k8s_client.delete_pods(namespace=namespace,pod_name=item.name)
                 commit_pod_name = "notebook-commit-%s-%s" % (item.created_by.username, str(item.id))
                 k8s_client.delete_pods(namespace=namespace, pod_name=commit_pod_name)
+                k8s_client.delete_pods(
+                    namespace=namespace,
+                    labels={
+                        'pod-type': 'notebook-commit',
+                        'notebook-id': str(item.id)
+                    }
+                )
                 k8s_client.delete_service(namespace=namespace,name=item.name)
                 k8s_client.delete_service(namespace=namespace, name=(item.name + "-external").lower()[:60].strip('-'))
                 crd_info = conf.get("CRD_INFO", {}).get('virtualservice', {})
@@ -829,10 +1312,7 @@ class Notebook_ModelView_Base():
                     k8s_client.delete_crd(group=crd_info['group'], version=crd_info['version'],plural=crd_info['plural'], namespace=item.namespace, name="notebook-jupyter-%s" % item.name.replace('_', '-'))
                     # k8s_client.delete_crd(group=crd_info['group'], version=crd_info['version'],plural=crd_info['plural'], namespace=item.namespace,name="ssh-notebook-jupyter-%s" % item.name.replace('_', '-'))
 
-                expand = json.loads(item.expand) if item.expand else {}
-                expand['status']='offline'
-                item.expand = json.dumps(expand)
-                db.session.commit()
+                self._save_expand(item, status='offline')
             except Exception as e:
                 flash(str(e), "warning")
 
