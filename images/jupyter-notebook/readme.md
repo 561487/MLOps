@@ -6,6 +6,25 @@
 
 关于环境：重启后会自动执行/mnt/$USERNAME/init.sh脚本，所以可以将环境写入此脚本，重启后自动安装环境，否则就需要打包到镜像或者离线anaconda文件
 
+## 在平台保存 Notebook 环境
+
+Notebook 列表提供两种保存方式：
+
+- **保存环境（轻量）**：导出当前 conda 环境或 `pip freeze`，写入
+  `/mnt/$USERNAME/notebooks/<notebook>/`，并幂等维护用户 `init.sh` 中的平台标记块。
+  Notebook reset / 重建后会自动恢复这些依赖。
+- **保存为镜像**：将运行中容器 commit 并推送到
+  `NOTEBOOK_SAVE_IMAGE_PREFIX` 指定的 Harbor `notebook` 私有项目。保存成功后更新
+  Notebook 镜像；用户主动 reset 后生效。
+
+使用镜像保存前，管理员需要创建 Harbor 私有项目 `notebook`，在平台「镜像仓库」
+中配置该项目的推送账号，并确保集群 `HUBSECRET` 或用户 hubsecret 具有拉取权限。
+相关开关、目标前缀、超时、冷却时间和轻量保存目录由 `NOTEBOOK_SAVE_*` 配置项控制。
+两套部署配置均提供 `NOTEBOOK_SAVE_REPOSITORY`；可通过
+`NOTEBOOK_HARBOR_USER`、`NOTEBOOK_HARBOR_PASSWORD` 和
+`NOTEBOOK_HARBOR_HUBSECRET` 注入凭证。执行 `myapp init` 时会创建或更新
+`notebook-harbor` 仓库记录；未单独注入账号时，会优先复用同一 Harbor 已有仓库凭证。
+
 # 构建notebook镜像
 
 需要构建新镜像并在生产上替换，才能让用户使用新的notebook镜像。
