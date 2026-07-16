@@ -36,7 +36,7 @@ class Repository_ModelView_Base():
     # base_filters = [["id", Creator_Filter, lambda: []]]
     order_columns = ['id']
     search_columns = ['name', 'server', 'hubsecret', 'user']
-    list_columns = ['name', 'server', 'hubsecret_url', 'creator', 'modified']
+    list_columns = ['name', 'server_display', 'hubsecret_url', 'creator', 'modified']
     cols_width = {
         "name": {"type": "ellip2", "width": 150},
         "hubsecret": {"type": "ellip2", "width": 350},
@@ -47,6 +47,7 @@ class Repository_ModelView_Base():
     edit_columns = add_columns
 
     spec_label_columns={
+        "server_display": _('仓库'),
         "server": _('仓库'),
         "user": _("用户名"),
         "hubsecret": 'k8s hubsecret',

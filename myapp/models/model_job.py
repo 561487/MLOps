@@ -63,6 +63,12 @@ class Repository(Model,AuditMixinNullable,MyappModelBase):
     hubsecret = Column(String(100),comment='k8s secret名')
 
     @property
+    def server_display(self):
+        if self.server == 'ccr.ccs.tencentyun.com/cube-studio/':
+            return '10.121.177.20:8082/model'
+        return self.server
+
+    @property
     def hubsecret_url(self):
         if g.user.is_admin():
             url = conf.get('K8S_DASHBOARD_CLUSTER', '/k8s/dashboard/cluster/') + f'#/secret/pipeline/{self.hubsecret}?namespace=pipeline'
