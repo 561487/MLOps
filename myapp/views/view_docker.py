@@ -137,7 +137,7 @@ class Docker_ModelView_Base():
         # )
         self.add_form_extra_fields['target_image'] = StringField(
             _('目标镜像'),
-            default=conf.get('PUSH_REPOSITORY_ORG','ccr.ccs.tencentyun.com/cube-studio/')+g.user.username+":"+datetime.datetime.now().strftime('%Y.%m.%d'+".1"),
+            default=conf.get('PUSH_REPOSITORY_ORG','10.121.177.20:8082/mlops/')+g.user.username+":"+datetime.datetime.now().strftime('%Y.%m.%d'+".1"),
             description= _("目标镜像名，将直接推送到目标仓库，需在镜像仓库中配置了相应仓库的账号密码"),
             widget=BS3TextFieldWidget(),
             validators=[DataRequired(),Regexp('^[a-zA-Z0-9\-._:@\/]*$')]
