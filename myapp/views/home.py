@@ -27,9 +27,14 @@ class Myapp(BaseMyappView):
 
     @expose_api(description="顶部右侧导航按钮",url='/navbar_right')
     def navbar_right(self):
-        data = conf.get('NAVBAR_RIGHT', None)
-        if data is None:
-            data = []
+        data = copy.deepcopy(conf.get('NAVBAR_RIGHT') or [])
+        data.append(
+            {
+                "text": "",
+                "icon": '<svg class="icon" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" width="20" height="20"><path d="M213.333333 85.333333h426.666667l170.666667 170.666667v682.666667H213.333333V85.333333z m384 64H277.333333v725.333334h469.333334V298.666667H597.333333V149.333333z m64 45.248V234.666667h40.085334L661.333333 194.581333zM362.666667 426.666667h298.666666v64H362.666667v-64z m0 149.333333h298.666666v64H362.666667v-64z m0 149.333333h213.333333v64H362.666667v-64z"></path></svg>',
+                "link": "https://alidocs.dingtalk.com/i/nodes/dQPGYqjpJYg0eqD1HBYz1ZK2Wakx1Z5N?utm_scene=person_space"
+            }
+        )
         return jsonify(data)
 
     @expose_api(description="顶部菜单侧边子菜单",url='/menu')
