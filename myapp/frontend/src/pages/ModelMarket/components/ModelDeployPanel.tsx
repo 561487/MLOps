@@ -96,7 +96,7 @@ const ModelDeployPanel: React.FC<Props> = ({ model, onServiceStateChange }) => {
 
       // Use version metadata directly (not model defaults)
       const modelPath = selectedVersion?.model_path || (isFinetune ? '' : '/yolov8/yolov8n.pt');
-      const deployImage = values.image || selectedVersion?.image || model.inference_image || 'ccr.ccs.tencentyun.com/cube-studio/yolov8:20250801';
+      const deployImage = values.image || selectedVersion?.image || model.inference_image || '10.121.177.20:8082/mlops/yolov8:20250801';
       const deployCommand = selectedVersion?.command || 'python server.py';
       const deployWorkdir = selectedVersion?.working_dir || '/yolov8';
 
