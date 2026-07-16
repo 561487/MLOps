@@ -781,12 +781,12 @@ SERVICE_PIPELINE_JAEGER='tracing.service'
 HUBSECRET = ['hubsecret']
 
 # 私有仓库的组织名，如果完全内网环境，修改为自己的内网
-REPOSITORY_ORG='ccr.ccs.tencentyun.com/cube-studio/'
+REPOSITORY_ORG='10.121.177.20:8082/mlops/'
 # 私有仓库的组织名，用户在线构建的镜像自动推送这个组织下面
-PUSH_REPOSITORY_ORG='ccr.ccs.tencentyun.com/cube-studio/'
+PUSH_REPOSITORY_ORG='10.121.177.20:8082/mlops/'
 
 # 用户常用默认镜像
-USER_IMAGE = 'ccr.ccs.tencentyun.com/cube-studio/ubuntu-gpu:cuda11.8.0-cudnn8-python3.9'
+USER_IMAGE = '10.121.177.20:8082/mlops/ubuntu-gpu:cuda11.8.0-cudnn8-python3.9'
 # notebook每个pod使用的用户账号
 JUPYTER_ACCOUNTS=''
 HUBSECRET_NAMESPACE=[PIPELINE_NAMESPACE,AUTOML_NAMESPACE,NOTEBOOK_NAMESPACE,SERVICE_NAMESPACE,AIHUB_NAMESPACE]
