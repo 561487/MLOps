@@ -382,7 +382,7 @@ class ModelMarketApiView(BaseView):
             return fail("模型不存在", code=404, http_status=404)
 
         # Base model: use pre-configured inference parameters
-        base_image = model.inference_image or "ccr.ccs.tencentyun.com/cube-studio/yolov8:20250801"
+        base_image = model.inference_image or "10.121.177.20:8082/mlops/yolov8:20250801"
         base_model_path = "/yolov8/yolov8n.pt"
         base_command = model.command or "python server.py"
         base_workdir = "/yolov8"
@@ -1039,14 +1039,14 @@ class ModelMarketApiView(BaseView):
                     )
                 # Always use the inference image, not training image
                 if not image:
-                    image = model.inference_image or "ccr.ccs.tencentyun.com/cube-studio/yolov8:20250801"
+                    image = model.inference_image or "10.121.177.20:8082/mlops/yolov8:20250801"
                 print(f"[model_market deploy] finetune: model_path={model_path} image={image} command={command} workdir={working_dir}")
             else:
                 # Base model: use known good defaults
                 if not model_path or not model_path.lower().endswith('.pt'):
                     model_path = "/yolov8/yolov8n.pt"
                 if not image:
-                    image = model.inference_image or "ccr.ccs.tencentyun.com/cube-studio/yolov8:20250801"
+                    image = model.inference_image or "10.121.177.20:8082/mlops/yolov8:20250801"
                 print(f"[model_market deploy] base: model_path={model_path} image={image}")
 
             kwargs = build_inference_kwargs(model, params)
