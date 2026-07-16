@@ -19,7 +19,7 @@
           "require": 1,
           "choice": [],
           "range": "",
-          "default": "ccr.ccs.tencentyun.com/cube-studio/ubuntu-gpu:cuda11.8.0-cudnn8-python3.9",
+          "default": "10.121.177.20:8082/mlops/ubuntu-gpu:cuda11.8.0-cudnn8-python3.9",
           "placeholder": "",
           "describe": "要调试的镜像，<a target='_blank' href='https://github.com/data-infra/cube-studio/tree/main/images'>基础镜像参考<a>",
           "editable": 1
@@ -591,25 +591,6 @@
         }
       }
     }
-  },
-  "one-hot": {
-    "project_name": "特征处理",
-    "image_name": "python:3.9",
-    "gitpath": "/job-template/job/data-process",
-    "image_describe": "枚举类one hot展开",
-    "job_template_name": "one-hot",
-    "job_template_version": "Alpha",
-    "job_template_describe": "枚举类one hot展开(企业版)",
-    "job_template_command": "python lunacher.py --process_type one_hot",
-    "job_template_volume": "",
-    "job_template_account": "",
-    "job_template_env": "",
-    "job_template_expand": {
-      "index": 2,
-      "rec_job_template": "自定义镜像",
-      "help_url": "/job-template/job/data-process"
-    },
-    "job_template_args": {}
   },
   "calculate-metric": {
     "project_name": "特征处理",
@@ -2594,7 +2575,7 @@
   },
   "datax": {
     "project_name": "数据导入导出",
-    "image_name": "ccr.ccs.tencentyun.com/cube-studio/datax:20240501",
+    "image_name": "10.121.177.20:8082/mlops/datax:20240501",
     "gitpath": "/job-template/job/datax",
     "image_describe": "datax异构数据源同步",
     "job_template_name": "datax",
@@ -2912,7 +2893,7 @@
     "gitpath": "/job-template/job/hadoop",
     "image_describe": "hadoop大数据组件客户端",
     "job_template_name": "hadoop",
-    "job_template_describe": "hadoop大数据组件，hdfs,hbase,sqoop,spark(企业版)",
+    "job_template_describe": "hadoop大数据组件，hdfs,hbase,sqoop,spark(开发中)",
     "job_template_command": "bash start.sh",
     "job_template_volume": "",
     "job_template_account": "",
@@ -2942,7 +2923,7 @@
   },
   "volcanojob": {
     "project_name": "数据处理工具",
-    "image_name": "ccr.ccs.tencentyun.com/cube-studio/volcano:20250801",
+    "image_name": "10.121.177.20:8082/mlops/volcano:20250801",
     "gitpath": "/job-template/job/volcano",
     "image_describe": "有序分布式任务",
     "job_template_name": "volcanojob",
@@ -2965,7 +2946,7 @@
           "require": 1,
           "choice": [],
           "range": "",
-          "default": "ccr.ccs.tencentyun.com/cube-studio/ubuntu-gpu:cuda11.8.0-cudnn8-python3.9",
+          "default": "10.121.177.20:8082/mlops/ubuntu-gpu:cuda11.8.0-cudnn8-python3.9",
           "placeholder": "",
           "describe": "worker镜像，直接运行你代码的环境镜像。<a target='_blank' href='https://github.com/data-infra/cube-studio/tree/main/images'>基础镜像</a>",
           "editable": 1
@@ -3012,7 +2993,7 @@
   },
   "ray": {
     "project_name": "数据处理工具",
-    "image_name": "ccr.ccs.tencentyun.com/cube-studio/ray:gpu-20250301",
+    "image_name": "10.121.177.20:8082/mlops/ray:gpu-20250301",
     "gitpath": "/job-template/job/ray",
     "image_describe": "ray分布式任务",
     "job_template_name": "ray",
@@ -3034,7 +3015,7 @@
           "require": 0,
           "choice": [],
           "range": "",
-          "default": "ccr.ccs.tencentyun.com/cube-studio/ray:gpu-20240101",
+          "default": "10.121.177.20:8082/mlops/ray:gpu-20240101",
           "placeholder": "",
           "describe": "启动镜像，基础镜像需为该镜像，可自行添加封装自己的环境",
           "editable": 1
@@ -3093,7 +3074,7 @@
   },
   "ray-sklearn": {
     "project_name": "机器学习框架",
-    "image_name": "ccr.ccs.tencentyun.com/cube-studio/ray-sklearn:20250301",
+    "image_name": "10.121.177.20:8082/mlops/ray-sklearn:20250301",
     "gitpath": "/job-template/job/ray-sklearn",
     "image_describe": "sklearn基于ray的分布式",
     "job_template_name": "ray-sklearn",
@@ -3261,7 +3242,7 @@
     "gitpath": "/job-template/job/adaboost",
     "image_describe": "adaboost算法",
     "job_template_name": "adaboost",
-    "job_template_describe": "adaboost算法(企业版)",
+    "job_template_describe": "adaboost算法(开发中)",
     "job_template_command": "python3 launcher.py",
     "job_template_volume": "",
     "job_template_account": "",
@@ -3279,7 +3260,7 @@
     "gitpath": "/job-template/job/xgb",
     "image_describe": "xgb算法单机",
     "job_template_name": "xgb",
-    "job_template_describe": "xgb算法单机(企业版)",
+    "job_template_describe": "xgb算法单机(开发中)",
     "job_template_command": "python3 launcher.py",
     "job_template_volume": "",
     "job_template_account": "",
@@ -3291,31 +3272,13 @@
     },
     "job_template_args": {}
   },
-  "bayesian": {
-    "project_name": "机器学习算法",
-    "image_name": "python:3.9",
-    "gitpath": "/job-template/job/bayesian",
-    "image_describe": "bayesian算法",
-    "job_template_name": "bayesian",
-    "job_template_describe": "bayesian算法(企业版)",
-    "job_template_command": "python3 launcher.py",
-    "job_template_volume": "",
-    "job_template_account": "",
-    "job_template_env": "",
-    "job_template_expand": {
-      "index": 2,
-      "rec_job_template": "自定义镜像",
-      "help_url": "/job-template/job/bayesian"
-    },
-    "job_template_args": {}
-  },
   "decision-tree": {
     "project_name": "机器学习算法",
     "image_name": "python:3.9",
     "gitpath": "/job-template/job/decision-tree",
     "image_describe": "decision-tree算法",
     "job_template_name": "decision-tree",
-    "job_template_describe": "decision-tree算法(企业版)",
+    "job_template_describe": "decision-tree算法(开发中)",
     "job_template_command": "python3 launcher.py",
     "job_template_volume": "",
     "job_template_account": "",
@@ -3987,42 +3950,6 @@
       }
     }
   },
-  "kmean": {
-    "project_name": "机器学习算法",
-    "image_name": "python:3.9",
-    "gitpath": "/job-template/job/kmean",
-    "image_describe": "kmean算法",
-    "job_template_name": "kmean",
-    "job_template_describe": "kmean算法(企业版)",
-    "job_template_command": "python3 launcher.py",
-    "job_template_volume": "",
-    "job_template_account": "",
-    "job_template_env": "",
-    "job_template_expand": {
-      "index": 2,
-      "rec_job_template": "自定义镜像",
-      "help_url": "/job-template/job/kmean"
-    },
-    "job_template_args": {}
-  },
-  "knn": {
-    "project_name": "机器学习算法",
-    "image_name": "python:3.9",
-    "gitpath": "/job-template/job/knn",
-    "image_describe": "knn算法",
-    "job_template_name": "knn",
-    "job_template_describe": "knn算法(企业版)",
-    "job_template_command": "python3 launcher.py",
-    "job_template_volume": "",
-    "job_template_account": "",
-    "job_template_env": "",
-    "job_template_expand": {
-      "index": 2,
-      "rec_job_template": "自定义镜像",
-      "help_url": "/job-template/job/knn"
-    },
-    "job_template_args": {}
-  },
   "lightgbm": {
     "project_name": "机器学习算法",
     "image_name": "10.121.177.20:8082/mlops/lightgbm:20260618",
@@ -4187,99 +4114,9 @@
       }
     }
   },
-  "lr": {
-    "project_name": "机器学习算法",
-    "image_name": "python:3.9",
-    "gitpath": "/job-template/job/lr",
-    "image_describe": "lr算法",
-    "job_template_name": "lr",
-    "job_template_describe": "lr算法(企业版)",
-    "job_template_command": "python3 launcher.py",
-    "job_template_volume": "",
-    "job_template_account": "",
-    "job_template_env": "",
-    "job_template_expand": {
-      "index": 2,
-      "rec_job_template": "自定义镜像",
-      "help_url": "/job-template/job/lr"
-    },
-    "job_template_args": {}
-  },
-  "random-forest": {
-    "project_name": "机器学习算法",
-    "image_name": "python:3.9",
-    "gitpath": "/job-template/job/random-forest",
-    "image_describe": "random-forest算法",
-    "job_template_name": "random-forest",
-    "job_template_describe": "random-forest算法(企业版)",
-    "job_template_command": "python3 launcher.py",
-    "job_template_volume": "",
-    "job_template_account": "",
-    "job_template_env": "",
-    "job_template_expand": {
-      "index": 2,
-      "rec_job_template": "自定义镜像",
-      "help_url": "/job-template/job/random-forest"
-    },
-    "job_template_args": {}
-  },
-  "random-forest-regression": {
-    "project_name": "机器学习算法",
-    "image_name": "python:3.9",
-    "gitpath": "/job-template/job/rf-regression",
-    "image_describe": "random-forest-regression算法",
-    "job_template_name": "random-forest-regression",
-    "job_template_describe": "random-forest-regression算法(企业版)",
-    "job_template_command": "python3 launcher.py",
-    "job_template_volume": "",
-    "job_template_account": "",
-    "job_template_env": "",
-    "job_template_expand": {
-      "index": 2,
-      "rec_job_template": "自定义镜像",
-      "help_url": "/job-template/job/rf-regression"
-    },
-    "job_template_args": {}
-  },
-  "arima": {
-    "project_name": "机器学习算法",
-    "image_name": "python:3.9",
-    "gitpath": "/job-template/job/arima",
-    "image_describe": "arima 时间序列算法",
-    "job_template_name": "arima",
-    "job_template_describe": "arima时间序列算法(企业版)",
-    "job_template_command": "python3 launcher.py",
-    "job_template_volume": "",
-    "job_template_account": "",
-    "job_template_env": "",
-    "job_template_expand": {
-      "index": 2,
-      "rec_job_template": "自定义镜像",
-      "help_url": "/job-template/job/arima"
-    },
-    "job_template_args": {}
-  },
-  "ar": {
-    "project_name": "机器学习算法",
-    "image_name": "python:3.9",
-    "gitpath": "/job-template/job/ar",
-    "image_describe": "ar 时间序列算法",
-    "job_template_name": "ar",
-    "job_template_describe": "ar 时间序列算法(企业版)",
-    "job_template_command": "python3 launcher.py",
-    "job_template_volume": "",
-    "job_template_account": "",
-    "job_template_env": "",
-    "job_template_expand": {
-      "index": 2,
-      "rec_job_template": "自定义镜像",
-      "help_url": "/job-template/job/ar"
-    },
-    "job_template_args": {}
-  },
   "tfjob": {
     "project_name": "深度学习",
-    "image_name": "ccr.ccs.tencentyun.com/cube-studio/tf:20230801",
+    "image_name": "10.121.177.20:8082/mlops/tf:20230801",
     "gitpath": "/job-template/job/tf",
     "image_describe": "tf 分布式训练",
     "job_template_name": "tfjob",
@@ -4349,7 +4186,7 @@
   },
   "pytorchjob": {
     "project_name": "深度学习",
-    "image_name": "ccr.ccs.tencentyun.com/cube-studio/pytorch:20250801",
+    "image_name": "10.121.177.20:8082/mlops/pytorch:20250801",
     "gitpath": "/job-template/job/pytorch",
     "image_describe": "pytorch分布式训练",
     "job_template_name": "pytorchjob",
@@ -4372,7 +4209,7 @@
           "require": 1,
           "choice": [],
           "range": "",
-          "default": "ccr.ccs.tencentyun.com/cube-studio/ubuntu-gpu:cuda11.8.0-cudnn8-python3.9",
+          "default": "10.121.177.20:8082/mlops/ubuntu-gpu:cuda11.8.0-cudnn8-python3.9",
           "placeholder": "",
           "describe": "worker镜像，直接运行你代码的环境镜像 <a target='_blank' href='https://github.com/data-infra/cube-studio/tree/main/images'>基础镜像</a>",
           "editable": 1
@@ -4423,7 +4260,7 @@
     "gitpath": "/job-template/job/paddle",
     "image_describe": "paddle分布式训练",
     "job_template_name": "paddlejob",
-    "job_template_describe": "paddle 分布式训练(企业版)",
+    "job_template_describe": "paddle 分布式训练(开发中)",
     "job_template_command": "python3 launcher.py",
     "job_template_volume": "",
     "job_template_account": "kubeflow-pipeline",
@@ -4435,48 +4272,13 @@
     },
     "job_template_args": {}
   },
-  "mindspore": {
-    "project_name": "深度学习",
-    "image_name": "python:3.9",
-    "gitpath": "/job-template/job/mindspore",
-    "image_describe": "mindspore 分布式训练",
-    "job_template_name": "mindspore",
-    "job_template_describe": "mindspore 分布式训练(企业版)",
-    "job_template_command": "python3 launcher.py",
-    "job_template_volume": "",
-    "job_template_account": "kubeflow-pipeline",
-    "job_template_env": "NO_RESOURCE_CHECK=true\nTASK_RESOURCE_CPU=2\nTASK_RESOURCE_MEMORY=4G\nTASK_RESOURCE_GPU=0",
-    "job_template_expand": {
-      "index": 5,
-      "help_url": "/job-template/job/mindspore"
-    },
-    "job_template_args": {}
-  },
-  "megatron": {
-    "project_name": "分布式加速",
-    "image_name": "python:3.9",
-    "gitpath": "/job-template/job/megatron",
-    "image_describe": "megatron 分布式训练",
-    "job_template_name": "megatron",
-    "job_template_describe": "megatron 分布式训练",
-    "job_template_command": "python3 launcher.py",
-    "job_template_volume": "",
-    "job_template_account": "kubeflow-pipeline",
-    "job_template_env": "",
-    "job_template_expand": {
-      "index": 3,
-      "rec_job_template": "自定义镜像",
-      "help_url": "/job-template/job/megatron"
-    },
-    "job_template_args": {}
-  },
   "deepspeed": {
     "project_name": "分布式加速",
     "image_name": "python:3.9",
     "gitpath": "/job-template/job/deepspeed",
     "image_describe": "deepspeed 分布式训练",
     "job_template_name": "deepspeed",
-    "job_template_describe": "deepspeed 分布式训练(企业版)",
+    "job_template_describe": "deepspeed 分布式训练(开发中)",
     "job_template_command": "python3 launcher.py",
     "job_template_volume": "",
     "job_template_account": "kubeflow-pipeline",
@@ -4485,24 +4287,6 @@
       "index": 3,
       "rec_job_template": "自定义镜像",
       "help_url": "/job-template/job/deepspeed"
-    },
-    "job_template_args": {}
-  },
-  "colossalai": {
-    "project_name": "分布式加速",
-    "image_name": "python:3.9",
-    "gitpath": "/job-template/job/colossalai",
-    "image_describe": "colossalai 分布式训练",
-    "job_template_name": "colossalai",
-    "job_template_describe": "colossalai 分布式训练(企业版)",
-    "job_template_command": "python3 launcher.py",
-    "job_template_volume": "",
-    "job_template_account": "kubeflow-pipeline",
-    "job_template_env": "",
-    "job_template_expand": {
-      "index": 3,
-      "rec_job_template": "自定义镜像",
-      "help_url": "/job-template/job/colossalai"
     },
     "job_template_args": {}
   },
@@ -5043,7 +4827,7 @@
   },
   "model-register": {
     "project_name": "模型服务化",
-    "image_name": "ccr.ccs.tencentyun.com/cube-studio/model_register:20230501",
+    "image_name": "10.121.177.20:8082/mlops/model_register:20230501",
     "gitpath": "/job-template/job/model_register",
     "image_describe": "注册模型",
     "job_template_name": "model-register",
@@ -5318,7 +5102,7 @@
   },
   "deploy-service": {
     "project_name": "模型服务化",
-    "image_name": "ccr.ccs.tencentyun.com/cube-studio/deploy-service:20240601",
+    "image_name": "10.121.177.20:8082/mlops/deploy-service:20240601",
     "gitpath": "/job-template/job/deploy-service",
     "image_describe": "模型部署推理服务",
     "job_template_name": "deploy-service",
@@ -5591,7 +5375,7 @@
   },
   "media-download": {
     "project_name": "视频处理",
-    "image_name": "ccr.ccs.tencentyun.com/cube-studio/video-audio:20250301",
+    "image_name": "10.121.177.20:8082/mlops/video-audio:20250301",
     "gitpath": "/job-template/job/video-audio",
     "image_describe": "分布式媒体文件处理",
     "job_template_name": "media-download",
@@ -5650,7 +5434,7 @@
   },
   "video-img": {
     "project_name": "视频处理",
-    "image_name": "ccr.ccs.tencentyun.com/cube-studio/video-audio:20250301",
+    "image_name": "10.121.177.20:8082/mlops/video-audio:20250301",
     "gitpath": "/job-template/job/video-audio",
     "image_describe": "分布式媒体文件处理",
     "job_template_name": "video-img",
@@ -5695,7 +5479,7 @@
   },
   "video-audio": {
     "project_name": "视频处理",
-    "image_name": "ccr.ccs.tencentyun.com/cube-studio/video-audio:20250301",
+    "image_name": "10.121.177.20:8082/mlops/video-audio:20250301",
     "gitpath": "/job-template/job/video-audio",
     "image_describe": "分布式媒体文件处理",
     "job_template_name": "video-audio",
@@ -5740,7 +5524,7 @@
   },
   "yolov8": {
     "project_name": "机器视觉",
-    "image_name": "ccr.ccs.tencentyun.com/cube-studio/yolov8:20250801",
+    "image_name": "10.121.177.20:8082/mlops/yolov8:20250801",
     "gitpath": "/job-template/job/yolov8",
     "image_describe": "yolo目标识别",
     "job_template_name": "yolov8",
@@ -5845,191 +5629,6 @@
         }
       }
     }
-  },
-  "chatglm4": {
-    "project_name": "大模型",
-    "image_name": "python:3.9",
-    "gitpath": "/job-template/job/llama_factory",
-    "image_describe": "chatglm4",
-    "job_template_name": "chatglm4",
-    "job_template_describe": "chatglm4 lora微调(企业版)",
-    "job_template_version": "Release",
-    "job_template_workdir": "/root/llama_factory",
-    "job_template_command": "python start.py",
-    "job_template_volume": "",
-    "job_template_account": "",
-    "job_template_env": "HF_ENDPOINT=https://hf-mirror.com",
-    "job_template_expand": {
-      "index": 3,
-      "rec_job_template": "自定义镜像",
-      "help_url": "/job-template/job/llama_factory"
-    },
-    "job_template_args": {}
-  },
-  "deepseek": {
-    "project_name": "大模型",
-    "image_name": "python:3.9",
-    "gitpath": "/job-template/job/llama_factory",
-    "image_describe": "deepseek",
-    "job_template_name": "deepseek",
-    "job_template_describe": "deepseek 微调(企业版)",
-    "job_template_version": "Release",
-    "job_template_workdir": "/root/llama_factory",
-    "job_template_command": "python start.py",
-    "job_template_volume": "",
-    "job_template_account": "",
-    "job_template_env": "HF_ENDPOINT=https://hf-mirror.com",
-    "job_template_expand": {
-      "index": 4,
-      "rec_job_template": "自定义镜像",
-      "help_url": "/job-template/job/llama_factory"
-    },
-    "job_template_args": {}
-  },
-  "llama3": {
-    "project_name": "大模型",
-    "image_name": "python:3.9",
-    "gitpath": "https://github.com/data-infra/cube-studio/tree/main/job-template/job/llama3",
-    "image_describe": "llama3",
-    "job_template_name": "llama3",
-    "job_template_describe": "llama3 lora微调(企业版)",
-    "job_template_version": "Release",
-    "job_template_workdir": "",
-    "job_template_command": "xxxx ",
-    "job_template_volume": "",
-    "job_template_account": "",
-    "job_template_env": "",
-    "job_template_expand": {
-      "index": 5
-    },
-    "job_template_args": {}
-  },
-  "baichuan2": {
-    "project_name": "大模型",
-    "image_name": "python:3.9",
-    "gitpath": "/job-template/job/baichuan2",
-    "image_describe": "baichuan2",
-    "job_template_name": "baichuan2",
-    "job_template_describe": "baichuan2 微调(企业版)",
-    "job_template_version": "Release",
-    "job_template_workdir": "/root/baichuan2/fine-tune/",
-    "job_template_command": "deepspeed --hostfile='' fine-tune.py --report_to 'none'  --save_strategy epoch --lr_scheduler_type constant ",
-    "job_template_volume": "",
-    "job_template_account": "",
-    "job_template_env": "",
-    "job_template_expand": {
-      "index": 5,
-      "rec_job_template": "自定义镜像",
-      "help_url": "/job-template/job/baichuan2"
-    },
-    "job_template_args": {}
-  },
-  "qwen3": {
-    "project_name": "大模型",
-    "image_name": "python:3.9",
-    "gitpath": "/job-template/job/llama_factory",
-    "image_describe": "qwen3",
-    "job_template_name": "qwen3",
-    "job_template_describe": "qwen3 lora微调(企业版)",
-    "job_template_version": "Release",
-    "job_template_workdir": "/root/llama_factory",
-    "job_template_command": "python start.py",
-    "job_template_volume": "",
-    "job_template_account": "",
-    "job_template_env": "HF_ENDPOINT=https://hf-mirror.com",
-    "job_template_expand": {
-      "index": 6,
-      "rec_job_template": "自定义镜像",
-      "help_url": "/job-template/job/llama_factory"
-    },
-    "job_template_args": {}
-  },
-  "llama-factory-sft": {
-    "project_name": "大模型",
-    "image_name": "python:3.9",
-    "gitpath": "/job-template/job/llama-factory",
-    "image_describe": "llama-factory",
-    "job_template_name": "llama-factory-sft",
-    "job_template_old_names": [
-      "llama-factory"
-    ],
-    "job_template_describe": "llama-factory大模型sft微调(企业版)",
-    "job_template_version": "Release",
-    "job_template_workdir": "/app",
-    "job_template_command": "python start.py",
-    "job_template_volume": "",
-    "job_template_account": "",
-    "job_template_env": "HF_ENDPOINT=https://hf-mirror.com",
-    "job_template_expand": {
-      "index": 7,
-      "rec_job_template": "自定义镜像",
-      "help_url": "/job-template/job/llama-factory",
-      "enterprise": true
-    },
-    "job_template_args": {}
-  },
-  "llama-factory-rm": {
-    "project_name": "大模型",
-    "image_name": "python:3.9",
-    "gitpath": "/job-template/job/llama-factory",
-    "image_describe": "llama-factory",
-    "job_template_name": "llama-factory-rm",
-    "job_template_describe": "llama-factory大模型奖励模型训练(企业版)",
-    "job_template_version": "Release",
-    "job_template_workdir": "/app",
-    "job_template_command": "python start-rm.py",
-    "job_template_volume": "",
-    "job_template_account": "",
-    "job_template_env": "HF_ENDPOINT=https://hf-mirror.com",
-    "job_template_expand": {
-      "index": 8,
-      "rec_job_template": "自定义镜像",
-      "help_url": "/job-template/job/llama-factory",
-      "enterprise": true
-    },
-    "job_template_args": {}
-  },
-  "llama-factory-ppo": {
-    "project_name": "大模型",
-    "image_name": "python:3.9",
-    "gitpath": "/job-template/job/llama-factory",
-    "image_describe": "llama-factory",
-    "job_template_name": "llama-factory-ppo",
-    "job_template_describe": "llama-factory大模型强化学习(企业版)",
-    "job_template_version": "Release",
-    "job_template_workdir": "/app",
-    "job_template_command": "python start-ppo.py",
-    "job_template_volume": "",
-    "job_template_account": "",
-    "job_template_env": "HF_ENDPOINT=https://hf-mirror.com",
-    "job_template_expand": {
-      "index": 9,
-      "rec_job_template": "自定义镜像",
-      "help_url": "/job-template/job/llama-factory",
-      "enterprise": true
-    },
-    "job_template_args": {}
-  },
-  "paddleocr-vl": {
-    "project_name": "文本处理",
-    "image_name": "python3.9",
-    "gitpath": "/job-template/job/paddleocr-vl",
-    "image_describe": "文件图片内容提取",
-    "job_template_name": "paddleocr-vl",
-    "job_template_describe": "文件图片内容提取(企业版)",
-    "job_template_version": "Release",
-    "job_template_workdir": "/app",
-    "job_template_command": "python start.py",
-    "job_template_volume": "",
-    "job_template_account": "",
-    "job_template_env": "",
-    "job_template_expand": {
-      "index": 0,
-      "rec_job_template": "自定义镜像",
-      "help_url": "/job-template/job/paddleocr-vl",
-      "enterprise": true
-    },
-    "job_template_args": {}
   },
   "nlp-clean-data": {
     "project_name": "文本处理",
@@ -6400,26 +5999,6 @@
         }
       }
     }
-  },
-  "question-generation": {
-    "project_name": "文本处理",
-    "image_name": "python:3.9",
-    "gitpath": "",
-    "image_describe": "文本算法类的数据处理",
-    "job_template_name": "question-generation",
-    "job_template_describe": "问题生成(企业版)",
-    "job_template_version": "Release",
-    "job_template_workdir": "",
-    "job_template_command": "python launcher.py",
-    "job_template_volume": "",
-    "job_template_account": "",
-    "job_template_env": "",
-    "job_template_expand": {
-      "index": 5,
-      "rec_job_template": "自定义镜像",
-      "help_url": ""
-    },
-    "job_template_args": {}
   },
   "question-answer-generation-extension": {
     "project_name": "文本处理",
