@@ -8623,5 +8623,394 @@
             }
         }
     }
-}
+  },
+  "msswift": {
+    "project_name": "分布式加速",
+    "image_name": "10.121.177.20:8082/mlops/msswift:20260715-v4",
+    "gitpath": "/job-template/job/msswift",
+    "image_describe": "ms-swift 分布式训练镜像（预置 CUDA + torch + deepspeed + swift）",
+    "job_template_name": "msswift",
+    "job_template_describe": "ms-swift SFT 分布式训练：支持原生DDP、DeepSpeed ZeRO-2/ZeRO-3、Megatron及LoRA/QLoRA/全参微调",
+    "job_template_command": "python3 launcher.py",
+    "job_template_volume": "/data/k8s/kubeflow/pipeline/workspace/(hostpath):/mnt/",
+    "job_template_account": "kubeflow-pipeline",
+    "job_template_env": "NO_RESOURCE_CHECK=true\nTASK_RESOURCE_CPU=16\nTASK_RESOURCE_MEMORY=64G\nMODELSCOPE_CACHE=/mnt/{{creator}}/.cache/modelscope\nNCCL_DEBUG=INFO\nNCCL_SOCKET_IFNAME=eth0",
+    "job_template_expand": {
+      "index": 5,
+      "rec_job_template": "分布式加速",
+      "help_url": "/job-template/job/msswift"
+    },
+    "job_template_args": {
+      "公共配置": {
+        "--mode": {
+          "type": "enum",
+          "item_type": "str",
+          "label": "任务模式",
+          "require": 1,
+          "choice": [
+            "sft"
+          ],
+          "default": "sft",
+          "describe": "sft=监督微调（支持单卡、单机多卡和多机多卡分布式训练）",
+          "editable": 1
+        },
+        "--model": {
+          "type": "str",
+          "item_type": "str",
+          "label": "模型",
+          "require": 1,
+          "default": "Qwen/Qwen3-8B",
+          "placeholder": "Qwen/Qwen3-8B",
+          "describe": "ModelScope 模型名或 PVC 路径。ms-swift 默认从 ModelScope 下载，国内直连速度快",
+          "editable": 1
+        },
+        "--dataset": {
+          "type": "str",
+          "item_type": "str",
+          "label": "数据集",
+          "require": 1,
+          "placeholder": "swift/Qwen3-SFT-Mixin 或 /mnt/admin/data/train.jsonl",
+          "default": "swift/Qwen3-SFT-Mixin",
+          "describe": "训练数据集路径，支持 ModelScope 数据集名或本地 JSONL/PVC 路径",
+          "editable": 1
+        },
+        "--save_path": {
+          "type": "str",
+          "item_type": "str",
+          "label": "输出路径",
+          "require": 1,
+          "default": "/mnt/{{creator}}/msswift/",
+          "describe": "训练产物保存的 PVC 目录，{{creator}} 运行时替换为当前用户名",
+          "editable": 1
+        },
+        "--val_dataset": {
+          "type": "str",
+          "item_type": "str",
+          "label": "验证数据集",
+          "require": 0,
+          "default": "",
+          "placeholder": "ModelScope 数据集名或 /mnt/.../val.jsonl",
+          "describe": "可选的独立验证集；留空时沿用 ms-swift 默认的数据集切分行为",
+          "editable": 1
+        },
+        "--split_dataset_ratio": {
+          "type": "float",
+          "item_type": "float",
+          "label": "验证集切分比例",
+          "require": 0,
+          "default": "-1",
+          "range": "-1,0.99",
+          "step": 0.001,
+          "describe": "-1=沿用框架默认；0=不从训练集切分；已填写验证数据集时建议填0",
+          "editable": 1
+        }
+      },
+      "分布式配置": {
+        "--num_worker": {
+          "type": "int",
+          "item_type": "int",
+          "label": "节点数",
+          "require": 1,
+          " default": "1",
+          "range": "1,64",
+          "describe": "PyTorchJob Pod 数量。1=单机多卡，>1=多机多卡分布式训练",
+          "editable": 1
+        },
+        "--nproc_per_node": {
+          "type": "int",
+          "item_type": "int",
+          "label": "每节点 GPU 进程数",
+          "require": 0,
+          "default": "0",
+          "range": "0,64",
+          "describe": "每个 Pod 启动的 GPU 训练进程数；0=自动使用当前 Pod 申请的 GPU 数量",
+          "editable": 1
+        },
+        "--master_port": {
+          "type": "int",
+          "item_type": "int",
+          "label": "通信端口",
+          "require": 0,
+          "default": "23456",
+          "describe": "分布式通信主端口，一般无需修改",
+          "editable": 1
+        },
+        "--distributed": {
+          "type": "enum",
+          "item_type": "str",
+          "label": "分布式策略",
+          "require": 0,
+          "choice": [
+            "none",
+            "zero2",
+            "zero3",
+            "megatron"
+          ],
+          "default": "zero2",
+          "describe": "none=原生 PyTorch DDP（支持单卡/多卡）；zero2=DeepSpeed ZeRO-2；zero3=DeepSpeed ZeRO-3；megatron=Megatron 模型并行",
+          "editable": 1
+        },
+        "--tensor_model_parallel_size": {
+          "type": "int",
+          "item_type": "int",
+          "label": "TP 并行度",
+          "require": 0,
+          "default": "1",
+          "range": "1,8",
+          "describe": "张量并行大小，仅 distributed=megatron 时生效",
+          "editable": 1
+        },
+        "--pipeline_model_parallel_size": {
+          "type": "int",
+          "item_type": "int",
+          "label": "PP 并行度",
+          "require": 0,
+          "default": "1",
+          "range": "1,8",
+          "describe": "流水线并行大小，仅 distributed=megatron 时生效",
+          "editable": 1
+        }
+      },
+      "训练配置": {
+        "--train_type": {
+          "type": "enum",
+          "item_type": "str",
+          "label": "训练方式",
+          "require": 1,
+          "choice": [
+            "lora",
+            "full",
+            "qlora"
+          ],
+          "default": "lora",
+          "describe": "LoRA=低秩适配(省显存，单卡 22GB 可跑 7B)；full=全参微调(效果最好)；QLoRA=量化 LoRA(最省显存)",
+          "editable": 1
+        },
+        "--num_epochs": {
+          "type": "float",
+          "item_type": "float",
+          "label": "训练轮数",
+          "require": 0,
+          "default": "3.0",
+          "range": "0.1,100",
+          "editable": 1
+        },
+        "--batch_size": {
+          "type": "int",
+          "item_type": "int",
+          "label": "Batch Size(每卡)",
+          "require": 0,
+          "default": "1",
+          "range": "1,128",
+          "editable": 1
+        },
+        "--learning_rate": {
+          "type": "float",
+          "item_type": "float",
+          "label": "学习率",
+          "require": 0,
+          "default": "0.0001",
+          "range": "0.00000001,0.01",
+          "step": 1e-08,
+          "describe": "LoRA 推荐 1e-4，全参推荐 1e-5",
+          "editable": 1
+        },
+        "--max_length": {
+          "type": "int",
+          "item_type": "int",
+          "label": "最大长度",
+          "require": 0,
+          "default": "2048",
+          "range": "128,131072",
+          "describe": "输入/训练序列的最大 token 长度，超过后按 ms-swift 数据模板截断",
+          "editable": 1
+        },
+        "--lora_rank": {
+          "type": "int",
+          "item_type": "int",
+          "label": "LoRA Rank",
+          "require": 0,
+          "default": "8",
+          "range": "1,256",
+          "describe": "仅 LoRA/QLoRA 生效，越大越强但越慢，推荐 8-64",
+          "editable": 1
+        },
+        "--gradient_accumulation_steps": {
+          "type": "int",
+          "item_type": "int",
+          "label": "梯度累积步数",
+          "require": 0,
+          "default": "0",
+          "range": "0,1024",
+          "describe": "0=沿用 ms-swift 自动策略；非零时有效 DDP Batch=每卡 Batch × 数据并行进程数 × 梯度累积。Megatron 使用全局 Batch",
+          "editable": 1
+        },
+        "--max_steps": {
+          "type": "int",
+          "item_type": "int",
+          "label": "最大训练步数",
+          "require": 0,
+          "default": "0",
+          "range": "0,100000000",
+          "describe": "0=按训练轮数执行；非零时 HF/DeepSpeed 优先按最大步数停止。Megatron 使用 train_iters",
+          "editable": 1
+        },
+        "--seed": {
+          "type": "int",
+          "item_type": "int",
+          "label": "随机种子",
+          "require": 0,
+          "default": "-1",
+          "range": "-1,2147483647",
+          "describe": "-1=沿用框架默认；复现实验时建议固定为 42",
+          "editable": 1
+        },
+        "--warmup_ratio": {
+          "type": "float",
+          "item_type": "float",
+          "label": "预热比例",
+          "require": 0,
+          "default": "-1",
+          "range": "-1,1",
+          "step": 0.001,
+          "describe": "-1=沿用框架默认；HF/DeepSpeed 常用 0.03～0.1，Megatron 暂不透传",
+          "editable": 1
+        },
+        "--weight_decay": {
+          "type": "float",
+          "item_type": "float",
+          "label": "权重衰减",
+          "require": 0,
+          "default": "-1",
+          "range": "-1,1",
+          "step": 0.001,
+          "describe": "-1=沿用框架默认；显式填写后传给训练后端",
+          "editable": 1
+        },
+        "--lora_alpha": {
+          "type": "float",
+          "item_type": "float",
+          "label": "LoRA Alpha",
+          "require": 0,
+          "default": "0",
+          "range": "0,1024",
+          "step": 1,
+          "describe": "仅 LoRA/QLoRA 生效；0=沿用 ms-swift 默认值",
+          "editable": 1
+        },
+        "--lora_dropout": {
+          "type": "float",
+          "item_type": "float",
+          "label": "LoRA Dropout",
+          "require": 0,
+          "default": "-1",
+          "range": "-1,0.99",
+          "step": 0.01,
+          "describe": "仅 LoRA/QLoRA 生效；-1=沿用 ms-swift 默认值",
+          "editable": 1
+        }
+      },
+      "Megatron 专属 (distributed=megatron)": {
+        "--train_iters": {
+          "type": "int",
+          "item_type": "int",
+          "label": "训练迭代数",
+          "require": 0,
+          "default": "100",
+          "range": "1,1000000",
+          "describe": "Megatron 使用迭代数控制训练时长；普通 SFT/DeepSpeed 模式忽略此参数",
+          "editable": 1
+        },
+        "--global_batch_size": {
+          "type": "int",
+          "item_type": "int",
+          "label": "全局 Batch Size",
+          "require": 0,
+          "default": "0",
+          "range": "0,1048576",
+          "describe": "0=自动计算；非零值必须可被 micro batch × 数据并行度整除",
+          "editable": 1
+        },
+        "--recompute_granularity": {
+          "type": "enum",
+          "item_type": "str",
+          "label": "激活重计算",
+          "require": 0,
+          "choice": [
+            "selective",
+            "full",
+            "none"
+          ],
+          "default": "selective",
+          "describe": "selective=选择性重计算；full=全量重计算；none=关闭，显存占用更高",
+          "editable": 1
+        }
+      },
+      "保存、评估与恢复": {
+        "--logging_steps": {
+          "type": "int",
+          "item_type": "int",
+          "label": "日志间隔",
+          "require": 0,
+          "default": "0",
+          "range": "0,1000000",
+          "describe": "0=沿用框架默认；非零表示每隔多少 step 输出训练指标",
+          "editable": 1
+        },
+        "--eval_steps": {
+          "type": "int",
+          "item_type": "int",
+          "label": "评估间隔",
+          "require": 0,
+          "default": "0",
+          "range": "0,1000000",
+          "describe": "0=沿用框架默认；使用验证集时可设置周期评估",
+          "editable": 1
+        },
+        "--save_steps": {
+          "type": "int",
+          "item_type": "int",
+          "label": "保存间隔",
+          "require": 0,
+          "default": "0",
+          "range": "0,1000000",
+          "describe": "0=沿用框架默认；HF 映射 save_steps，Megatron 映射 save_interval",
+          "editable": 1
+        },
+        "--save_total_limit": {
+          "type": "int",
+          "item_type": "int",
+          "label": "最多保留检查点",
+          "require": 0,
+          "default": "0",
+          "range": "0,10000",
+          "describe": "0=沿用框架默认；当前仅 HF/DeepSpeed 后端支持",
+          "editable": 1
+        },
+        "--resume_from_checkpoint": {
+          "type": "str",
+          "item_type": "str",
+          "label": "断点续训目录",
+          "require": 0,
+          "default": "",
+          "placeholder": "/mnt/.../checkpoint-100",
+          "describe": "留空=新任务；HF 使用 checkpoint 目录，Megatron 映射为 load 目录",
+          "editable": 1
+        },
+        "--save_only_model": {
+          "type": "enum",
+          "item_type": "str",
+          "label": "仅保存模型权重",
+          "require": 0,
+          "choice": [
+            "true",
+            "false"
+          ],
+          "default": "true",
+          "describe": "true=兼容原节点、节省空间；false=同时保存优化器和随机状态，完整断点续训必须选择false",
+          "editable": 1
+        }
+      }
+    }
+  }
 }
