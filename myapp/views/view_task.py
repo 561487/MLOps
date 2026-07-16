@@ -612,6 +612,74 @@ class Task_ModelView_Base():
         task_env += f'GPU_RESOURCE_NAME={resource_name}' + "\n"
         task_env += f"GPU_SHARED_RESOURCE_NAME={conf.get('GPU_SHARED_RESOURCE_NAME', 'nvidia.com/gpu.shared')}" + "\n"
 
+        # ---- SwanLab 训练监控环境变量（仅训练类模板） ----
+        _job_template_name = (task.job_template.name or '') if task.job_template else ''
+        _training_templates = conf.get('TRAINING_JOB_TEMPLATES', [])
+        # swanlab_enabled 优先级：显式 false → 禁用；显式 true → 启用；未配置 → 走 TRAINING_JOB_TEMPLATES
+        _swanlab_task_args = json.loads(task.args) if task.args else {}
+        _swanlab_enabled = _swanlab_task_args.get('swanlab_enabled')
+        if _swanlab_enabled is False:
+            _inject_swanlab = False
+        elif _swanlab_enabled is True:
+            _inject_swanlab = True
+        else:
+            _inject_swanlab = _job_template_name in _training_templates
+        if _inject_swanlab:
+            _pipeline_name = task.pipeline.name if task.pipeline else ''
+            _task_name = task.name or ''
+            _task_label = task.label or ''
+
+            # MLOps 侧变量
+            _register_url = conf.get('MLOPS_MONITOR_REGISTER_URL',
+                                     'http://10.121.177.155:18080/training_monitor/api/register')
+            task_env += "MLOPS_TRAINING_MONITOR_ENABLE=true\n"
+            task_env += "MLOPS_TRAINING_MONITOR_TYPE=swanlab\n"
+            task_env += f"MLOPS_MONITOR_REGISTER_URL={_register_url}\n"
+            task_env += f"MLOPS_PIPELINE_RUN_ID={run_id}\n"
+            task_env += f"MLOPS_WORKFLOW_NAME={_pipeline_name}\n"
+            task_env += f"MLOPS_TASK_ID={str(task.id)}\n"
+            task_env += f"MLOPS_TASK_NAME={_task_label}\n"
+            task_env += f"MLOPS_NODE_NAME={_task_name}\n"
+            task_env += f"MLOPS_JOB_TEMPLATE_NAME={_job_template_name}\n"
+
+            # SwanLab 侧变量
+            _swanlab_api_host = conf.get('SWANLAB_API_HOST', 'http://10.121.177.227:8000')
+            _swanlab_web_host = conf.get('SWANLAB_WEB_HOST', 'http://10.121.177.227:8000')
+            _swanlab_logdir = conf.get('SWANLAB_LOGDIR', '') or ''
+            _swanlab_proj_name = (_swanlab_task_args.get('swanlab_project') or
+                                conf.get('SWANLAB_PROJ_NAME', 'mlops-training'))
+            _swanlab_workspace = (_swanlab_task_args.get('swanlab_workspace') or
+                                  conf.get('SWANLAB_WORKSPACE', 'haimian_baobao'))
+
+            _user_mode = (_swanlab_task_args.get('swanlab_mode') or '').strip().lower()
+            if _user_mode:
+                _swanlab_mode = 'cloud' if _user_mode == 'online' else _user_mode
+            elif _job_template_name in ('hyperparam-search', 'hyperparam-search-nni'):
+                _swanlab_mode = 'cloud'
+            else:
+                _swanlab_mode = conf.get('SWANLAB_MODE', 'local') or 'local'
+
+            task_env += f"SWANLAB_MODE={_swanlab_mode}\n"
+            task_env += f"SWANLAB_API_HOST={_swanlab_api_host}\n"
+            task_env += f"SWANLAB_WEB_HOST={_swanlab_web_host}\n"
+            task_env += f"SWANLAB_EXP_NAME={_pipeline_name}-{_task_name}-{run_id[:8]}\n"
+            task_env += f"SWANLAB_GROUP={run_id}\n"
+            task_env += "SWANLAB_TAGS=mlops,training\n"
+            task_env += "SWANLAB_PROBE_HARDWARE=true\n"
+            task_env += "SWANLAB_PROBE_MONITOR=true\n"
+            task_env += "SWANLAB_PROBE_MONITOR_INTERVAL=10\n"
+
+            if _swanlab_mode == "cloud":
+                # Cloud / Self-hosted Online 模式
+                task_env += f"SWANLAB_PROJ_NAME={_swanlab_proj_name}\n"
+                task_env += f"SWANLAB_WORKSPACE={_swanlab_workspace}\n"
+                # SWANLAB_API_KEY 需从 K8s Secret 注入（debug pod 路径不支持 valueFrom）
+            else:
+                # Local / Watch 模式（保持现有逻辑不变）
+                task_env += "SWANLAB_PROJ_NAME=mlops-training\n"
+                if _swanlab_logdir:
+                    task_env += f"SWANLAB_LOGDIR={_swanlab_logdir}\n"
+
         template_kwargs={}
         def template_str(src_str):
             rtemplate = Environment(loader=BaseLoader, undefined=DebugUndefined).from_string(src_str)
@@ -648,6 +716,55 @@ class Task_ModelView_Base():
         if args:
             for arg in args:
                 new_args.append(template_str(arg))
+
+        # ---- SwanLab 大模型微调框架参数自动追加 ----
+        _task_args = json.loads(task.args) if task.args else {}
+        _framework_type = (_task_args.get('swanlab_framework_type') or '').strip().lower()
+        _ML_OPERATORS = {'lightgbm', 'gbdt', 'xgb', 'hyperparam-search', 'hyperparam-search-nni',
+                         'lr', 'knn', 'decision-tree', 'random-forest', 'random-forest-regression',
+                         'kmean', 'bayesian', 'adaboost', 'arima', 'ar'}
+        # 当前只正式支持 LLaMA-Factory；其他类型预留但输出 warning
+        _SUPPORTED_FRAMEWORK_TYPES = {'llamafactory'}
+        _RESERVED_FRAMEWORK_TYPES = {'modelscope_swift', 'transformers', 'trl'}
+        _FRAMEWORK_ARGS_MAP = {
+            'llamafactory': ['--report_to', 'swanlab'],
+        }
+        if _framework_type and _framework_type not in ('none', 'generic', ''):
+            if _framework_type in _RESERVED_FRAMEWORK_TYPES:
+                print(f"[swanlab] WARNING: swanlab_framework_type={_framework_type} is reserved but not yet validated, "
+                      f"no args will be auto-appended and wrapper will not wrap")
+            elif _framework_type not in _SUPPORTED_FRAMEWORK_TYPES:
+                print(f"[swanlab] WARNING: unknown swanlab_framework_type={_framework_type}, "
+                      f"supported: {sorted(_SUPPORTED_FRAMEWORK_TYPES)}")
+        if (_framework_type in _SUPPORTED_FRAMEWORK_TYPES
+                and _job_template_name not in _ML_OPERATORS
+                and _inject_swanlab):
+            _extra_args = _FRAMEWORK_ARGS_MAP.get(_framework_type, [])
+            if _extra_args:
+                _cmd_str = ' '.join(command) if command else ''
+                _arg_str = ' '.join(new_args) if new_args else ''
+                _combined = f"{_cmd_str} {_arg_str}"
+                _skipped = []
+                for _ea in _extra_args:
+                    if _ea.lstrip('-') in _combined:
+                        print(f"[swanlab] WARNING: {_ea} already in command, skipping")
+                        _skipped.append(_ea)
+                _extra_args = [a for a in _extra_args if a not in _skipped]
+                if _extra_args:
+                    print(f"[swanlab] auto-appending framework args: {_extra_args}")
+                    new_args.extend(_extra_args)
+
+            # Wrapper 包装：将原始命令包装进 swanlab_framework_wrapper，负责 monitor 注册和状态同步
+            if (_framework_type in _SUPPORTED_FRAMEWORK_TYPES
+                    and _job_template_name not in _ML_OPERATORS
+                    and _inject_swanlab):
+                _merged_cmd = list(command) if command else []
+                if new_args:
+                    _merged_cmd.extend(new_args)
+                if _merged_cmd:
+                    command = ['python3', '/app/common/swanlab_framework_wrapper.py', '--']
+                    new_args = _merged_cmd
+                    print(f"[swanlab] wrapped command with swanlab_framework_wrapper")
 
         if command:
             command = json.loads(template_str(json.dumps(command)))

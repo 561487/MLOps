@@ -368,6 +368,108 @@ def dag_to_pipeline(pipeline, dbsession, workflow_label=None, **kwargs):
         if hubsecret_list:
             container_envs.append(("HUBSECRET", ','.join(hubsecret_list)))
 
+        # ---- SwanLab 训练监控环境变量（仅训练类模板） ----
+        _job_template_name = (task.job_template.name or '') if task.job_template else ''
+        _training_templates = conf.get('TRAINING_JOB_TEMPLATES', [])
+        # swanlab_enabled 优先级：显式 false → 禁用；显式 true → 启用；未配置 → 走 TRAINING_JOB_TEMPLATES
+        _swanlab_task_args = json.loads(task.args) if task.args else {}
+        _swanlab_enabled = _swanlab_task_args.get('swanlab_enabled')
+        if _swanlab_enabled is False:
+            _inject_swanlab = False
+        elif _swanlab_enabled is True:
+            _inject_swanlab = True
+        else:
+            _inject_swanlab = _job_template_name in _training_templates
+        if _inject_swanlab:
+            _run_id = global_envs.get('KFJ_RUN_ID', workflow_label.get('run-id', ''))
+            _pipeline_name = pipeline.name or ''
+            _task_name = task.name or ''
+            _task_label = task.label or ''
+
+            # MLOps 侧变量
+            container_envs.append(("MLOPS_TRAINING_MONITOR_ENABLE", "true"))
+            container_envs.append(("MLOPS_TRAINING_MONITOR_TYPE", "swanlab"))
+            # 使用 K8s Pod 可访问的地址，不能用 Docker Compose 内部 DNS 名 myapp
+            _register_url = conf.get('MLOPS_MONITOR_REGISTER_URL',
+                                     'http://10.121.177.155:18080/training_monitor/api/register')
+            container_envs.append(("MLOPS_MONITOR_REGISTER_URL", _register_url))
+            container_envs.append(("MLOPS_PIPELINE_RUN_ID", _run_id))
+            container_envs.append(("MLOPS_WORKFLOW_NAME", _pipeline_name))
+            container_envs.append(("MLOPS_TASK_ID", str(task.id)))
+            container_envs.append(("MLOPS_TASK_NAME", _task_label))
+            container_envs.append(("MLOPS_NODE_NAME", _task_name))
+            container_envs.append(("MLOPS_JOB_TEMPLATE_NAME", _job_template_name))
+
+            # SwanLab 侧变量
+            _swanlab_api_host = conf.get('SWANLAB_API_HOST', 'http://10.121.177.227:8000')
+            _swanlab_web_host = conf.get('SWANLAB_WEB_HOST', 'http://10.121.177.227:8000')
+            _swanlab_logdir = conf.get('SWANLAB_LOGDIR', '') or ''
+            _swanlab_proj_name = (_swanlab_task_args.get('swanlab_project') or
+                                conf.get('SWANLAB_PROJ_NAME', 'mlops-training'))
+            _swanlab_workspace = (_swanlab_task_args.get('swanlab_workspace') or
+                                  conf.get('SWANLAB_WORKSPACE', 'haimian_baobao'))
+
+            # swanlab_mode 优先级（修复：不能用 or-chain，因为 conf SWANLAB_MODE=local 是 truthy）:
+            #   1. Task arg 显式指定
+            #   2. hyperparam-search / hyperparam-search-nni → cloud
+            #   3. config.py SWANLAB_MODE（全局默认，当前为 local）
+            #   4. 兜底 local
+            _user_mode = (_swanlab_task_args.get('swanlab_mode') or '').strip().lower()
+            if _user_mode:
+                # Normalize "online" to "cloud" (official SDK name vs MLOps convention)
+                _swanlab_mode = 'cloud' if _user_mode == 'online' else _user_mode
+            elif _job_template_name in ('hyperparam-search', 'hyperparam-search-nni'):
+                _swanlab_mode = 'cloud'
+            else:
+                _swanlab_mode = conf.get('SWANLAB_MODE', 'local') or 'local'
+
+            container_envs.append(("SWANLAB_MODE", _swanlab_mode))
+            container_envs.append(("SWANLAB_API_HOST", _swanlab_api_host))
+            container_envs.append(("SWANLAB_WEB_HOST", _swanlab_web_host))
+            container_envs.append(("SWANLAB_EXP_NAME", f"{_pipeline_name}-{_task_name}-{_run_id[:8]}"))
+            container_envs.append(("SWANLAB_GROUP", _run_id))
+            container_envs.append(("SWANLAB_TAGS", "mlops,training"))
+            container_envs.append(("SWANLAB_PROBE_HARDWARE", "true"))
+            container_envs.append(("SWANLAB_PROBE_MONITOR", "true"))
+            container_envs.append(("SWANLAB_PROBE_MONITOR_INTERVAL", "10"))
+
+            if _swanlab_mode == "cloud":
+                # ---- Cloud / Self-hosted Online 模式 ----
+                container_envs.append(("SWANLAB_PROJ_NAME", _swanlab_proj_name))
+                container_envs.append(("SWANLAB_WORKSPACE", _swanlab_workspace))
+                # API Key 通过 Kubernetes Secret 注入
+                container_envs.append({
+                    "name": "SWANLAB_API_KEY",
+                    "valueFrom": {
+                        "secretKeyRef": {
+                            "name": "swanlab-secret",
+                            "key": "SWANLAB_API_KEY"
+                        }
+                    }
+                })
+                # Cloud 模式不挂载 swanlab PVC，不设 SWANLAB_LOGDIR
+                print(f"[swanlab inject] task={_task_name}, template={_job_template_name}, "
+                      f"mode=cloud, project={_swanlab_proj_name}, workspace={_swanlab_workspace}, "
+                      f"secret=yes, logdir=no, pvc=no, register_url={_register_url}")
+            else:
+                # ---- Local / Watch 模式（保持现有逻辑不变） ----
+                container_envs.append(("SWANLAB_PROJ_NAME", "mlops-training"))
+                if _swanlab_logdir:
+                    container_envs.append(("SWANLAB_LOGDIR", _swanlab_logdir))
+
+                # 注入 SwanLab 监控共享卷（仅 local 模式）
+                k8s_volume_mounts.append({
+                    "name": "swanlab-storage",
+                    "mountPath": "/mnt/storage/swanlab",
+                })
+                k8s_volumes.append({
+                    "name": "swanlab-storage",
+                    "persistentVolumeClaim": {"claimName": "swanlab"},
+                })
+                print(f"[swanlab inject] task={_task_name}, template={_job_template_name}, "
+                      f"mode=local, project=mlops-training, secret=no, logdir=yes, pvc=yes, "
+                      f"register_url={_register_url}")
+
 
         # 创建工作目录
         working_dir = None
@@ -425,6 +527,58 @@ def dag_to_pipeline(pipeline, dbsession, workflow_label=None, **kwargs):
         if task.template_type == TaskTemplateType.PYTHON:
             command = ['python', '-c', json.loads(task.args).get('code', '')]
             arguments = None
+
+        # ---- SwanLab 大模型微调框架参数自动追加 ----
+        _task_args = json.loads(task.args) if task.args else {}
+        _framework_type = (_task_args.get('swanlab_framework_type') or '').strip().lower()
+        _ML_OPERATORS = {'lightgbm', 'gbdt', 'xgb', 'hyperparam-search', 'hyperparam-search-nni',
+                         'lr', 'knn', 'decision-tree', 'random-forest', 'random-forest-regression',
+                         'kmean', 'bayesian', 'adaboost', 'arima', 'ar'}
+        # 当前只正式支持 LLaMA-Factory；其他类型预留但输出 warning
+        _SUPPORTED_FRAMEWORK_TYPES = {'llamafactory'}
+        _RESERVED_FRAMEWORK_TYPES = {'modelscope_swift', 'transformers', 'trl'}
+        _FRAMEWORK_ARGS_MAP = {
+            'llamafactory': ['--report_to', 'swanlab'],
+        }
+        if _framework_type and _framework_type not in ('none', 'generic', ''):
+            if _framework_type in _RESERVED_FRAMEWORK_TYPES:
+                print(f"[swanlab] WARNING: swanlab_framework_type={_framework_type} is reserved but not yet validated, "
+                      f"no args will be auto-appended and wrapper will not wrap")
+            elif _framework_type not in _SUPPORTED_FRAMEWORK_TYPES:
+                print(f"[swanlab] WARNING: unknown swanlab_framework_type={_framework_type}, "
+                      f"supported: {sorted(_SUPPORTED_FRAMEWORK_TYPES)}")
+        if (_framework_type in _SUPPORTED_FRAMEWORK_TYPES
+                and _job_template_name not in _ML_OPERATORS
+                and _inject_swanlab):
+            _extra_args = _FRAMEWORK_ARGS_MAP.get(_framework_type, [])
+            if _extra_args:
+                if arguments is None:
+                    arguments = []
+                _cmd_str = ' '.join(command) if command else ''
+                _arg_str = ' '.join(arguments) if arguments else ''
+                _combined = f"{_cmd_str} {_arg_str}"
+                _skipped = []
+                for _ea in _extra_args:
+                    if _ea.lstrip('-') in _combined:
+                        print(f"[swanlab] WARNING: {_ea} already in command, skipping")
+                        _skipped.append(_ea)
+                _extra_args = [a for a in _extra_args if a not in _skipped]
+                if _extra_args:
+                    print(f"[swanlab] auto-appending framework args: {_extra_args}")
+                    arguments.extend(_extra_args)
+
+            # Wrapper 包装：将原始命令包装进 swanlab_framework_wrapper，负责 monitor 注册和状态同步
+            if (_framework_type in _SUPPORTED_FRAMEWORK_TYPES
+                    and _job_template_name not in _ML_OPERATORS
+                    and _inject_swanlab):
+                # 合并 command + arguments 作为 wrapper 的子命令
+                _merged_cmd = list(command) if command else []
+                if arguments:
+                    _merged_cmd.extend(arguments)
+                if _merged_cmd:
+                    command = ['python3', '/app/common/swanlab_framework_wrapper.py', '--']
+                    arguments = _merged_cmd
+                    print(f"[swanlab] wrapped command with swanlab_framework_wrapper")
 
         # 添加用户自定义挂载（逻辑节点已在前面处理）
 
@@ -561,10 +715,8 @@ def dag_to_pipeline(pipeline, dbsession, workflow_label=None, **kwargs):
                 "command": command,
                 "args": arguments,
                 "env": [
-                    {
-                        "name": item[0],
-                        "value": item[1]
-                    } for item in container_envs
+                    item if isinstance(item, dict) else {"name": item[0], "value": item[1]}
+                    for item in container_envs
                 ],
                 "image": images,
                 "resources": {
