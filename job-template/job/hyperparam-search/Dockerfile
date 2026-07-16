@@ -15,14 +15,18 @@ RUN /usr/local/bin/python -m pip install --upgrade pip && \
     joblib==1.3.2 \
     threadpoolctl==3.5.0 \
     xgboost \
-    lightgbm
+    lightgbm \
+    "swanlab[dashboard]" \
+    requests
 
-COPY . /app/
+# 复制算子代码和公共模块（构建上下文为 job-template/ 根目录）
+COPY job/hyperparam-search/ /app/
+COPY common/ /app/common/
 
 WORKDIR /app
 ENV PYTHONPATH=/app
 
 RUN ls -lah /app && test -f /app/launcher.py && \
-    python3 -c "import numpy, pandas, scipy, sklearn, joblib, xgboost, lightgbm; print('deps ok')"
+    python3 -c "import numpy, pandas, scipy, sklearn, joblib, xgboost, lightgbm, swanlab, requests; print('deps ok')"
 
 CMD ["python3", "launcher.py"]

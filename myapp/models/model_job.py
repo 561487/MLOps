@@ -934,3 +934,22 @@ class Workflow(Model,Crd,MyappModelBase):
             return Markup(f'<a href="/workflow_modelview/api/stop/{self.id}">{__("停止")}</a>')
         else:
             return __("停止")
+
+    @property
+    def monitor(self):
+        """
+        监控列：生成跳转到 /training_monitor/api/check 的链接。
+        run_id 取自 Workflow.labels JSON 中的 "run-id" 字段，
+        该字段在 view_pipeline.py 中与 KFJ_RUN_ID 使用相同的 uuid 值。
+        """
+        run_id = ''
+        if self.labels:
+            try:
+                labels = json.loads(self.labels)
+                run_id = labels.get('run-id', '')
+            except (json.JSONDecodeError, TypeError):
+                pass
+        if not run_id:
+            # fallback: 使用 workflow name 或数据库 id
+            run_id = self.name or str(self.id)
+        return Markup(f'<a target="_blank" href="/training_monitor/api/check?run_id={run_id}">{__("监控")}</a>')

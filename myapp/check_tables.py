@@ -23,7 +23,8 @@ def check_tables():
         print(results)
         for table_name in ['ab_permission', 'ab_permission_view', 'ab_permission_view_role', 'ab_register_user',
                            'ab_role', 'ab_user', 'ab_user_role', 'ab_view_menu', 'alembic_version', 'dimension',
-                           'docker', 'images', 'inferenceservice', 'job_template', 'logs', 'metadata_metric', 'model',
+                           'docker', 'images', 'inferenceservice', 'job_template', 'logs', 'metadata_metric',
+                           'mlops_training_monitor', 'model',
                            'nni', 'notebook', 'pipeline', 'project', 'project_user', 'repository', 'run',
                            'service', 'task', 'metadata_table', 'workflow']:
             if table_name not in results:

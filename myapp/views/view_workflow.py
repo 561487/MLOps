@@ -72,8 +72,8 @@ status_color = {
 class Workflow_ModelView_Base():
     label_title = _('运行实例')
     datamodel = SQLAInterface(Workflow)
-    list_columns = ['project', 'pipeline_url', 'cluster', 'create_time', 'change_time', 'elapsed_time', 'final_status', 'status', 'username', 'log', 'stop', 'suspend', 'resume']
-    fixed_columns = ['log', 'stop', 'suspend', 'resume']
+    list_columns = ['project', 'pipeline_url', 'cluster', 'create_time', 'change_time', 'elapsed_time', 'final_status', 'status', 'username', 'log', 'stop', 'monitor', 'suspend', 'resume']
+    fixed_columns = ['log', 'stop', 'monitor', 'suspend', 'resume']
     search_columns = ['status', 'labels', 'name', 'cluster', 'annotations', 'spec', 'status_more', 'username', 'create_time']
     cols_width = {
         "project": {"type": "ellip2", "width": 120},
@@ -86,6 +86,7 @@ class Workflow_ModelView_Base():
         "elapsed_time":{"type": "ellip1", "width": 70},
         "log": {"type": "ellip1", "width": 70},
         "stop": {"type": "ellip1", "width": 70},
+        "monitor": {"type": "ellip1", "width": 70},
     }
     base_permissions = ['can_show', 'can_list', 'can_delete']
     spec_label_columns = {

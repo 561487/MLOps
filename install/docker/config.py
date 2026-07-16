@@ -747,6 +747,55 @@ LOGICAL_JOB = 'logical'
 PYTHON_JOB = 'python'
 USER_CUSTOMIZE_IMAGES=[CUSTOMIZE_JOB,'hyperparam-search-nni']  # 使用用户自定义的镜像而不使用模板的镜像，工作目录和启动命令，需要这些模板有images，command，workdir参数
 
+# ============================================================
+# SwanLab 训练监控配置
+# ============================================================
+
+# 训练类算子模板列表 -- 只对这些模板注入监控环境变量
+# 数据处理/清洗/增强/导入导出/逻辑控制类算子不注入
+TRAINING_JOB_TEMPLATES = [
+    # 机器学习训练
+    'lightgbm', 'gbdt', 'xgb', 'pytorchjob', 'tfjob', 'yolov8',
+    # 超参搜索
+    'hyperparam-search', 'hyperparam-search-nni',
+    # 分布式训练框架
+    'ray', 'ray-sklearn', 'deepspeed', 'megatron', 'colossalai', 'mindspore',
+    'paddlejob', 'volcanojob',
+    # 经典 ML 算法
+    'lr', 'knn', 'decision-tree', 'random-forest', 'random-forest-regression',
+    'kmean', 'bayesian', 'adaboost', 'arima', 'ar',
+    # 大模型微调
+    'llama-factory', 'llama-factory-ppo', 'llama-factory-rm', 'llama-factory-sft',
+    'baichuan2', 'chatglm4', 'deepseek', 'llama3', 'qwen3',
+    # 模型操作（评估/转换/蒸馏/裁剪/量化/注册/离线预测）
+    'model-evaluate', 'model-convert', 'model-distillation', 'model-download',
+    'model-prune', 'model-quantization', 'model-register', 'model-offline-predict',
+]
+
+# SwanLab 平台地址
+# - Cloud / Self-hosted Online 模式：指向私有化 SwanLab 实例
+# - Local / Watch 模式：指向 swanlab watch 离线看板（旧，保留兼容）
+SWANLAB_MODE = 'local'               # 全局默认模式：'local' | 'cloud'；可由 Task arg swanlab_mode 覆盖
+SWANLAB_API_HOST = 'http://10.121.177.227:8000'   # Cloud 模式 API 地址
+SWANLAB_WEB_HOST = 'http://10.121.177.227:8000'   # Cloud 模式 Web 地址
+SWANLAB_PROJ_NAME = 'mlops-training'                # Cloud 模式默认项目名
+SWANLAB_WORKSPACE = 'haimian_baobao'              # Cloud 模式默认工作空间
+
+# SwanLab 共享日志目录（仅 Local / Watch 模式使用）
+# 训练 Pod 写入 swanlog 的路径，需与 SwanLab 服务 watch 的目录一致
+# Cloud 模式不使用此目录
+SWANLAB_LOGDIR = '/mnt/storage/swanlab/swanlog'
+
+# 注意：SWANLAB_API_KEY 不得写入此文件
+# Cloud 模式 API Key 必须通过 Kubernetes Secret swanlab-secret 注入
+
+# 监控回调注册地址（训练 Pod → MLOps 后端）
+# K8s Pod 无法解析 Docker Compose 内部 DNS 名（如 myapp），必须使用 NodePort/LB 地址
+MLOPS_MONITOR_REGISTER_URL = 'http://10.121.177.155:18080/training_monitor/api/register'
+
+# 可选：register 接口 token 校验，为空则跳过
+MLOPS_MONITOR_REGISTER_TOKEN = ''
+
 # admin管理员用户
 ADMIN_USER='admin'
 # pipeline任务的运行空间，目前必填pipeline

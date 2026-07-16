@@ -1,26 +1,16 @@
 #!/usr/bin/env bash
 set -e
 
-IMAGE=${1:-10.121.177.20:8082/mlops/hyperparam-search:20260626-v3}
+IMAGE=${1:-10.121.177.20:8082/mlops/hyperparam-search:20260710-swanlab-gpu-v1}
 
 echo "Building image: ${IMAGE}"
 
-cd "$(dirname "$0")"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+CONTEXT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"   # job-template/
 
-if [ ! -f Dockerfile ]; then
-    echo "ERROR: Dockerfile not found in $(pwd)"
-    exit 1
-fi
-if [ ! -f launcher.py ]; then
-    echo "ERROR: launcher.py not found in $(pwd)"
-    exit 1
-fi
+echo "Build context: ${CONTEXT_DIR}"
 
-echo "Build context: $(pwd)"
-echo "Files in context:"
-ls -lah
-
-docker build --network=host --no-cache -t "${IMAGE}" -f Dockerfile .
+docker build --network=host --no-cache -t "${IMAGE}" -f "${SCRIPT_DIR}/Dockerfile" "${CONTEXT_DIR}"
 
 echo "Build success: ${IMAGE}"
 echo "Pushing ..."
