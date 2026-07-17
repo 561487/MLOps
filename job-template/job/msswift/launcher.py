@@ -322,7 +322,7 @@ def shell_command(argv, env=None):
 
 
 def append_grpo_argv(argv, args):
-    """Append GRPO-only arguments without affecting DPO/KTO/SFT."""
+    """Append GRPO-only arguments without affecting DPO/SFT."""
     argv.extend(["--num_generations", str(args.num_generations),
                  "--num_iterations", str(args.num_iterations),
                  "--log_completions", args.log_completions])
@@ -407,10 +407,6 @@ def append_rlhf_algorithm_argv(argv, args):
         argv.extend(["--loss_type", args.loss_type])
     if args.label_smoothing >= 0:
         argv.extend(["--label_smoothing", str(args.label_smoothing)])
-    if args.desirable_weight >= 0:
-        argv.extend(["--desirable_weight", str(args.desirable_weight)])
-    if args.undesirable_weight >= 0:
-        argv.extend(["--undesirable_weight", str(args.undesirable_weight)])
     return argv
 
 
@@ -547,8 +543,8 @@ def validate_args(args):
     if args.mode not in ('sft', 'rlhf'):
         errors.append("--mode must be sft/rlhf, got '%s'" % args.mode)
 
-    if args.mode == 'rlhf' and args.rlhf_type not in ('dpo', 'grpo', 'ppo', 'kto'):
-        errors.append("--rlhf_type must be dpo/grpo/ppo/kto, got '%s'" % args.rlhf_type)
+    if args.mode == 'rlhf' and args.rlhf_type not in ('dpo', 'grpo', 'ppo'):
+        errors.append("--rlhf_type must be dpo/grpo/ppo, got '%s'" % args.rlhf_type)
     if args.mode == 'rlhf' and args.rlhf_type == 'ppo':
         errors.append("PPO is not available in the enterprise form yet: reward/value model configuration is required")
 
@@ -591,11 +587,6 @@ def validate_args(args):
         errors.append("--beta must >= -1 (-1=framework default)")
     if args.label_smoothing != -1 and not 0 <= args.label_smoothing <= 1:
         errors.append("--label_smoothing must be -1 or in [0, 1]")
-    if args.desirable_weight < -1 or args.undesirable_weight < -1:
-        errors.append("--desirable_weight/--undesirable_weight must >= -1")
-    if args.mode == 'rlhf' and args.rlhf_type != 'kto' and (
-            args.desirable_weight >= 0 or args.undesirable_weight >= 0):
-        errors.append("desirable/undesirable weights are only valid for KTO")
 
     world_size = args.num_worker * nproc
     if args.mode == 'rlhf' and args.rlhf_type == 'grpo':
@@ -744,8 +735,8 @@ def arg_parser():
     parser.add_argument('--weight_decay', type=float, default=-1,
                         help='Weight decay; -1 preserves the framework default')
     parser.add_argument('--lora_rank', type=int, default=8, help='LoRA rank (lora/qlora only)')
-    parser.add_argument('--lora_alpha', type=float, default=0,
-                        help='LoRA alpha; 0 preserves the framework default')
+    parser.add_argument('--lora_alpha', type=int, default=0,
+                        help='LoRA alpha (integer); 0 preserves the framework default')
     parser.add_argument('--lora_dropout', type=float, default=-1,
                         help='LoRA dropout; -1 preserves the framework default')
 
@@ -766,15 +757,13 @@ def arg_parser():
                         help='Megatron activation recompute strategy')
 
     # RLHF 专属. PPO remains parseable for old workflows but is rejected with a clear error.
-    parser.add_argument('--rlhf_type', type=str, default='dpo', choices=['dpo', 'grpo', 'ppo', 'kto'])
+    parser.add_argument('--rlhf_type', type=str, default='dpo', choices=['dpo', 'grpo', 'ppo'])
     parser.add_argument('--ref_model', type=str, default='')
     parser.add_argument('--ref_adapters', type=str, default='')
     parser.add_argument('--beta', type=float, default=-1,
                         help='RLHF beta; -1 preserves the framework/algorithm default')
     parser.add_argument('--loss_type', type=str, default='')
     parser.add_argument('--label_smoothing', type=float, default=-1)
-    parser.add_argument('--desirable_weight', type=float, default=-1)
-    parser.add_argument('--undesirable_weight', type=float, default=-1)
     parser.add_argument('--num_generations', type=int, default=2,
                         help='GRPO completions per prompt')
     parser.add_argument('--reward_funcs', type=str, default='format,repetition',
