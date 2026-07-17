@@ -4290,60 +4290,6 @@
     },
     "job_template_args": {}
   },
-  "colossalai": {
-    "project_name": "分布式加速",
-    "image_name": "python:3.9",
-    "gitpath": "/job-template/job/colossalai",
-    "image_describe": "colossalai 分布式训练",
-    "job_template_name": "colossalai",
-    "job_template_describe": "colossalai 分布式训练(企业版)",
-    "job_template_command": "python3 launcher.py",
-    "job_template_volume": "",
-    "job_template_account": "kubeflow-pipeline",
-    "job_template_env": "",
-    "job_template_expand": {
-      "index": 3,
-      "rec_job_template": "自定义镜像",
-      "help_url": "/job-template/job/colossalai"
-    },
-    "job_template_args": {}
-  },
-  "mpi": {
-    "project_name": "分布式加速",
-    "image_name": "python:3.9",
-    "gitpath": "/job-template/job/mpi",
-    "image_describe": "mpi 分布式训练",
-    "job_template_name": "mpi",
-    "job_template_describe": "mpi 分布式训练(企业版)",
-    "job_template_command": "python3 launcher.py",
-    "job_template_volume": "",
-    "job_template_account": "kubeflow-pipeline",
-    "job_template_env": "",
-    "job_template_expand": {
-      "index": 1,
-      "rec_job_template": "自定义镜像",
-      "help_url": "/job-template/job/mpi"
-    },
-    "job_template_args": {}
-  },
-  "model-evaluation": {
-    "project_name": "模型处理",
-    "image_name": "python:3.9",
-    "gitpath": "/job-template/job/model_evaluation",
-    "image_describe": "模型评估",
-    "job_template_name": "model-evaluation",
-    "job_template_describe": "模型评估(企业版)",
-    "job_template_command": "python3 launcher.py",
-    "job_template_volume": "",
-    "job_template_account": "",
-    "job_template_env": "",
-    "job_template_expand": {
-      "index": 1,
-      "rec_job_template": "自定义镜像",
-      "help_url": "/job-template/job/model_evaluation"
-    },
-    "job_template_args": {}
-  },
   "model-convert": {
     "project_name": "模型处理",
     "image_name": "10.121.177.20:8082/mlops/model-convert:20260708-065753",
