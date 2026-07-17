@@ -652,9 +652,10 @@ class Task_ModelView_Base():
                                   conf.get('SWANLAB_WORKSPACE', 'haimian_baobao'))
 
             _user_mode = (_swanlab_task_args.get('swanlab_mode') or '').strip().lower()
+            _cloud_defaults = ('hyperparam-search', 'hyperparam-search-nni', 'lightgbm')
             if _user_mode:
                 _swanlab_mode = 'cloud' if _user_mode == 'online' else _user_mode
-            elif _job_template_name in ('hyperparam-search', 'hyperparam-search-nni'):
+            elif _job_template_name in _cloud_defaults:
                 _swanlab_mode = 'cloud'
             else:
                 _swanlab_mode = conf.get('SWANLAB_MODE', 'local') or 'local'

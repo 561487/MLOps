@@ -11,6 +11,7 @@
 
 import json
 import os
+import re as _re
 import sys
 import subprocess
 import threading
@@ -70,8 +71,9 @@ class TrainingMonitor:
         "hardware/gpu_0_util_percent", "hardware/gpu_0_memory_used_mb",
         "hardware/gpu_0_temperature_c", "hardware/gpu_0_power_w",
     })
-    # prefix-based allowlist for dynamic keys (fold/*, best_params/*, params/*)
-    _BASIC_PREFIXES = ("fold/", "best_params/")
+    # prefix-based allowlist for dynamic keys (fold/*, best_params/*, train/*, config/*,
+    # gpu/*, metrics/*, error/* for LightGBM and other non-hyperparam operators)
+    _BASIC_PREFIXES = ("fold/", "best_params/", "train/", "config/", "gpu/", "metrics/", "error/")
 
     def __init__(self):
         self._swanlab = None
@@ -364,6 +366,10 @@ class TrainingMonitor:
                 # Resolve monitor URL using SDK-native methods
                 resolved_url = self._resolve_run_url(self._run)
                 self._monitor_url = resolved_url or SWANLAB_HOST
+                # Normalize: ensure /chart suffix for experiment URLs
+                _mu = self._monitor_url
+                if _re.search(r'/runs/[^/]+$', _mu):
+                    self._monitor_url = _mu + '/chart'
                 self._info(f"monitor_url: {self._monitor_url}")
 
                 self._register()
@@ -482,7 +488,6 @@ class TrainingMonitor:
         mu = self._monitor_url or f"{SWANLAB_HOST}/"
 
         # Normalize: ensure /chart suffix for SwanLab run URLs
-        import re as _re
         if _re.search(r'/runs/[^/]+$', mu):
             mu += '/chart'
             self._monitor_url = mu

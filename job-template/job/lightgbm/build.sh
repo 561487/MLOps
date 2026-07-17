@@ -1,6 +1,14 @@
-set -ex
+#!/usr/bin/env bash
+set -e
 
-IMAGE=${IMAGE:-10.121.177.20:8082/mlops/lightgbm:20260618}
+IMAGE=${1:-10.121.177.20:8082/mlops/lightgbm:20260716-gpu-swanlab-cloud-v1}
 
-docker build --network=host -t "${IMAGE}" -f Dockerfile .
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+CONTEXT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"   # job-template/
+
+echo "Building ${IMAGE} from context ${CONTEXT_DIR}"
+docker build --network=host -t "${IMAGE}" -f "${SCRIPT_DIR}/Dockerfile" "${CONTEXT_DIR}"
+
+echo "Pushing ${IMAGE}..."
 docker push "${IMAGE}"
+echo "Done: ${IMAGE}"
