@@ -4288,6 +4288,92 @@
       "rec_job_template": "自定义镜像",
       "help_url": "/job-template/job/deepspeed"
     },
+    "job_template_args": {
+      "基础配置": {
+        "--train_mode": {"type": "str", "item_type": "str", "label": "训练模式", "require": 1, "choice": ["finetune", "pretrain", "custom"], "range": "", "default": "finetune", "placeholder": "", "describe": "finetune=微调已有模型，pretrain=预训练，custom=执行自定义命令", "editable": 1},
+        "--image": {"type": "str", "item_type": "str", "label": "Worker镜像", "require": 1, "choice": [], "range": "", "default": "10.121.177.20:8082/mlops/deepspeed:20260716-cuda121-ds0144-hf4442-r3", "placeholder": "", "describe": "训练Pod使用的镜像，需包含DeepSpeed、PyTorch、Transformers和/app/deepspeed_entrypoint.sh", "editable": 1},
+        "--num_worker": {"type": "str", "item_type": "str", "label": "训练节点数", "require": 1, "choice": [], "range": "", "default": "1", "placeholder": "", "describe": "PyTorchJob节点总数，包含1个Master", "editable": 1, "regex": "^[1-9][0-9]*$"},
+        "--num_gpus": {"type": "str", "item_type": "str", "label": "单节点GPU数", "require": 1, "choice": [], "range": "", "default": "1", "placeholder": "", "describe": "每个训练Pod使用的GPU数量", "editable": 1, "regex": "^[1-9][0-9]*$"},
+        "--master_port": {"type": "str", "item_type": "str", "label": "Master端口", "require": 1, "choice": [], "range": "", "default": "29500", "placeholder": "", "describe": "DeepSpeed分布式通信端口，范围1到65535", "editable": 1, "regex": "^[0-9]+$"},
+        "--working_dir": {"type": "str", "item_type": "str", "label": "启动目录", "require": 1, "choice": [], "range": "", "default": "/app", "placeholder": "", "describe": "训练Pod中的工作目录", "editable": 1},
+        "--output_dir": {"type": "str", "item_type": "str", "label": "输出目录", "require": 1, "choice": [], "range": "", "default": "/mnt/{{creator}}/deepspeed-output", "placeholder": "", "describe": "模型和checkpoint输出目录，需为所有训练Pod可见的共享目录", "editable": 1}
+      },
+      "模型和数据": {
+        "--model_name_or_path": {"type": "str", "item_type": "str", "label": "模型路径", "require": 0, "choice": [], "range": "", "default": "", "placeholder": "/mnt/{{creator}}/models/qwen", "describe": "HuggingFace模型名或训练Pod内的本地模型路径", "editable": 1},
+        "--dataset_path": {"type": "str", "item_type": "str", "label": "数据集路径", "require": 0, "choice": [], "range": "", "default": "", "placeholder": "/mnt/{{creator}}/data/train.jsonl", "describe": "训练数据集路径，支持json/jsonl/csv/txt、本地目录或datasets名称", "editable": 1},
+        "--tokenizer_name_or_path": {"type": "str", "item_type": "str", "label": "Tokenizer路径", "require": 0, "choice": [], "range": "", "default": "", "placeholder": "", "describe": "为空时默认使用模型路径", "editable": 1},
+        "--model_config_path": {"type": "str", "item_type": "str", "label": "模型配置路径", "require": 0, "choice": [], "range": "", "default": "", "placeholder": "", "describe": "pretrain模式可用的模型config路径", "editable": 1}
+      },
+      "训练参数": {
+        "--num_train_epochs": {"type": "str", "item_type": "str", "label": "训练轮数", "require": 1, "choice": [], "range": "", "default": "1", "placeholder": "", "describe": "完整遍历数据集的次数，max_steps大于0时以最大步数为准", "editable": 1},
+        "--max_steps": {"type": "str", "item_type": "str", "label": "最大步数", "require": 1, "choice": [], "range": "", "default": "0", "placeholder": "", "describe": "大于0时按step终止训练，0表示按训练轮数执行", "editable": 1, "regex": "^[0-9]+$"},
+        "--learning_rate": {"type": "str", "item_type": "str", "label": "学习率", "require": 1, "choice": [], "range": "", "default": "0.00002", "placeholder": "", "describe": "优化器学习率", "editable": 1},
+        "--weight_decay": {"type": "str", "item_type": "str", "label": "权重衰减", "require": 1, "choice": [], "range": "", "default": "0.0", "placeholder": "", "describe": "weight decay，必须大于等于0", "editable": 1},
+        "--per_device_train_batch_size": {"type": "str", "item_type": "str", "label": "单卡Batch", "require": 1, "choice": [], "range": "", "default": "1", "placeholder": "", "describe": "每张GPU每步处理的样本数", "editable": 1, "regex": "^[1-9][0-9]*$"},
+        "--gradient_accumulation_steps": {"type": "str", "item_type": "str", "label": "梯度累积", "require": 1, "choice": [], "range": "", "default": "1", "placeholder": "", "describe": "累积多少个step后更新参数", "editable": 1, "regex": "^[1-9][0-9]*$"},
+        "--max_seq_length": {"type": "str", "item_type": "str", "label": "最大长度", "require": 1, "choice": [], "range": "", "default": "1024", "placeholder": "", "describe": "Token最大序列长度，超出部分会被截断", "editable": 1, "regex": "^[1-9][0-9]*$"},
+        "--logging_steps": {"type": "str", "item_type": "str", "label": "日志间隔", "require": 1, "choice": [], "range": "", "default": "10", "placeholder": "", "describe": "每多少step打印一次训练日志", "editable": 1, "regex": "^[1-9][0-9]*$"},
+        "--save_steps": {"type": "str", "item_type": "str", "label": "保存间隔", "require": 1, "choice": [], "range": "", "default": "500", "placeholder": "", "describe": "每多少step保存checkpoint，最多保留3个", "editable": 1, "regex": "^[1-9][0-9]*$"}
+      },
+      "LoRA参数": {
+        "--use_lora": {"type": "str", "item_type": "str", "label": "启用LoRA", "require": 1, "choice": ["false", "true"], "range": "", "default": "false", "placeholder": "", "describe": "是否启用PEFT LoRA微调", "editable": 1},
+        "--lora_rank": {"type": "str", "item_type": "str", "label": "LoRA Rank", "require": 1, "choice": [], "range": "", "default": "8", "placeholder": "", "describe": "LoRA rank", "editable": 1, "regex": "^[1-9][0-9]*$"},
+        "--lora_alpha": {"type": "str", "item_type": "str", "label": "LoRA Alpha", "require": 1, "choice": [], "range": "", "default": "16", "placeholder": "", "describe": "LoRA alpha", "editable": 1, "regex": "^[1-9][0-9]*$"},
+        "--lora_dropout": {"type": "str", "item_type": "str", "label": "LoRA Dropout", "require": 1, "choice": [], "range": "", "default": "0.1", "placeholder": "", "describe": "LoRA dropout，范围为0到小于1", "editable": 1},
+        "--lora_target": {"type": "str", "item_type": "str", "label": "LoRA模块", "require": 0, "choice": [], "range": "", "default": "", "placeholder": "q_proj,v_proj", "describe": "多个模块用英文逗号分隔；留空时由PEFT按模型类型选择默认模块", "editable": 1}
+      },
+      "DeepSpeed参数": {
+        "--zero_stage": {"type": "str", "item_type": "str", "label": "ZeRO阶段", "require": 1, "choice": ["0", "1", "2", "3"], "range": "", "default": "2", "placeholder": "", "describe": "0=关闭ZeRO，1/2/3逐步切分优化器状态、梯度和参数", "editable": 1},
+        "--precision": {"type": "str", "item_type": "str", "label": "训练精度", "require": 1, "choice": ["fp16", "bf16", "fp32"], "range": "", "default": "fp16", "placeholder": "", "describe": "DeepSpeed和HuggingFace Trainer使用的训练精度", "editable": 1},
+        "--train_batch_size": {"type": "str", "item_type": "str", "label": "全局Batch", "require": 1, "choice": [], "range": "", "default": "auto", "placeholder": "", "describe": "DeepSpeed train_batch_size，建议保持auto", "editable": 1},
+        "--train_micro_batch_size_per_gpu": {"type": "str", "item_type": "str", "label": "Micro Batch", "require": 1, "choice": [], "range": "", "default": "auto", "placeholder": "", "describe": "DeepSpeed单卡micro batch，建议保持auto", "editable": 1},
+        "--offload_optimizer": {"type": "str", "item_type": "str", "label": "优化器Offload", "require": 1, "choice": ["none", "cpu", "nvme"], "range": "", "default": "none", "placeholder": "", "describe": "optimizer offload设备；使用cpu或nvme时必须启用ZeRO", "editable": 1},
+        "--offload_param": {"type": "str", "item_type": "str", "label": "参数Offload", "require": 1, "choice": ["none", "cpu", "nvme"], "range": "", "default": "none", "placeholder": "", "describe": "parameter offload设备，仅支持ZeRO-3", "editable": 1},
+        "--nvme_path": {"type": "str", "item_type": "str", "label": "NVMe路径", "require": 0, "choice": [], "range": "", "default": "/local_nvme", "placeholder": "", "describe": "NVMe offload路径，必须在所有训练Pod内存在且可写", "editable": 1},
+        "--gradient_clipping": {"type": "str", "item_type": "str", "label": "梯度裁剪", "require": 1, "choice": [], "range": "", "default": "1.0", "placeholder": "", "describe": "DeepSpeed梯度裁剪阈值", "editable": 1},
+        "--ds_config_override": {"type": "str", "item_type": "str", "label": "配置覆盖JSON", "require": 0, "choice": [], "range": "", "default": "", "placeholder": "{\"zero_optimization\":{\"stage\":3}}", "describe": "高级DeepSpeed配置，必须是JSON对象并与自动配置深度合并", "editable": 1}
+      },
+      "自定义模式": {
+        "--command": {"type": "str", "item_type": "str", "label": "自定义命令", "require": 0, "choice": [], "range": "", "default": "", "placeholder": "python train.py --epochs 1", "describe": "custom模式必填；命令会在每个torchrun进程中执行", "editable": 1},
+        "--append_config_to_command": {"type": "str", "item_type": "str", "label": "追加配置参数", "require": 1, "choice": ["true", "false"], "range": "", "default": "true", "placeholder": "", "describe": "是否把DeepSpeed配置路径自动追加到自定义命令", "editable": 1},
+        "--config_arg_name": {"type": "str", "item_type": "str", "label": "配置参数名", "require": 1, "choice": ["deepspeed", "deepspeed_config"], "range": "", "default": "deepspeed", "placeholder": "", "describe": "自定义脚本接收DeepSpeed配置所使用的参数名", "editable": 1}
+      }
+    }
+  },
+  "mpi": {
+    "project_name": "分布式加速",
+    "image_name": "python:3.9",
+    "gitpath": "/job-template/job/mpi",
+    "image_describe": "mpi 分布式训练",
+    "job_template_name": "mpi",
+    "job_template_describe": "mpi 分布式训练(企业版)",
+    "job_template_command": "python3 launcher.py",
+    "job_template_volume": "",
+    "job_template_account": "kubeflow-pipeline",
+    "job_template_env": "",
+    "job_template_expand": {
+      "index": 1,
+      "rec_job_template": "自定义镜像",
+      "help_url": "/job-template/job/mpi"
+    },
+    "job_template_args": {}
+  },
+  "model-evaluation": {
+    "project_name": "模型处理",
+    "image_name": "python:3.9",
+    "gitpath": "/job-template/job/model_evaluation",
+    "image_describe": "模型评估",
+    "job_template_name": "model-evaluation",
+    "job_template_describe": "模型评估(企业版)",
+    "job_template_command": "python3 launcher.py",
+    "job_template_volume": "",
+    "job_template_account": "",
+    "job_template_env": "",
+    "job_template_expand": {
+      "index": 1,
+      "rec_job_template": "自定义镜像",
+      "help_url": "/job-template/job/model_evaluation"
+    },
     "job_template_args": {}
   },
   "model-convert": {
