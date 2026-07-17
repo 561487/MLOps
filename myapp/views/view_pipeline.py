@@ -411,14 +411,15 @@ def dag_to_pipeline(pipeline, dbsession, workflow_label=None, **kwargs):
 
             # swanlab_mode 优先级（修复：不能用 or-chain，因为 conf SWANLAB_MODE=local 是 truthy）:
             #   1. Task arg 显式指定
-            #   2. hyperparam-search / hyperparam-search-nni → cloud
+            #   2. lightgbm / hyperparam-search / hyperparam-search-nni → cloud
             #   3. config.py SWANLAB_MODE（全局默认，当前为 local）
             #   4. 兜底 local
+            _cloud_default_templates = ('hyperparam-search', 'hyperparam-search-nni', 'lightgbm')
             _user_mode = (_swanlab_task_args.get('swanlab_mode') or '').strip().lower()
             if _user_mode:
                 # Normalize "online" to "cloud" (official SDK name vs MLOps convention)
                 _swanlab_mode = 'cloud' if _user_mode == 'online' else _user_mode
-            elif _job_template_name in ('hyperparam-search', 'hyperparam-search-nni'):
+            elif _job_template_name in _cloud_default_templates:
                 _swanlab_mode = 'cloud'
             else:
                 _swanlab_mode = conf.get('SWANLAB_MODE', 'local') or 'local'

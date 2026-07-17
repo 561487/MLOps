@@ -3962,7 +3962,7 @@
   },
   "lightgbm": {
     "project_name": "机器学习算法",
-    "image_name": "10.121.177.20:8082/mlops/lightgbm:20260618",
+    "image_name": "10.121.177.20:8082/mlops/lightgbm:20260717-gpu-opencl-swanlab-v3",
     "gitpath": "/job-template/job/lightgbm",
     "image_describe": "LightGBM机器学习算法镜像",
     "job_template_name": "lightgbm",
