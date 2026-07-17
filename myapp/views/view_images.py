@@ -58,7 +58,7 @@ class Repository_ModelView_Base():
         "server": SelectField(
             _('服务地址'),
             widget=MySelect2Widget(can_input=True),
-            default='harbor.oa.com/cube-studio/',
+            default='10.121.177.20:8082/mlops/',
             choices=[['harbor.oa.com/cube-studio/','harbor.oa.com/cube-studio/'],['ccr.ccs.tencentyun.com/cube-studio/','ccr.ccs.tencentyun.com/cube-studio/'],['registry.docker-cn.com','registry.docker-cn.com']],
             # description= _("镜像仓库地址")
             description= _("镜像仓库地址，示例：")+conf.get('REPOSITORY_ORG',''),
