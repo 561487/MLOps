@@ -4284,11 +4284,11 @@
   },
   "deepspeed": {
     "project_name": "分布式加速",
-    "image_name": "python:3.9",
+    "image_name": "10.121.177.20:8082/mlops/deepspeed:20260716-cuda121-ds0144-hf4442-r3",
     "gitpath": "/job-template/job/deepspeed",
     "image_describe": "deepspeed 分布式训练",
     "job_template_name": "deepspeed",
-    "job_template_describe": "deepspeed 分布式训练(开发中)",
+    "job_template_describe": "deepspeed 分布式训练",
     "job_template_command": "python3 launcher.py",
     "job_template_volume": "",
     "job_template_account": "kubeflow-pipeline",
