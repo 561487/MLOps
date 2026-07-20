@@ -2865,14 +2865,7 @@
           "item_type": "str",
           "label": "导出格式",
           "require": 0,
-          "choice": [
-            "JSON",
-            "JSON_MIN",
-            "COCO",
-            "YOLO",
-            "CSV",
-            "TSV"
-          ],
+          "choice": ["JSON", "JSON_MIN", "COCO", "YOLO", "CSV", "TSV"],
           "range": "",
           "default": "JSON",
           "placeholder": "",
@@ -2884,10 +2877,7 @@
           "item_type": "str",
           "label": "下载媒体文件",
           "require": 0,
-          "choice": [
-            "true",
-            "false"
-          ],
+          "choice": ["true", "false"],
           "range": "",
           "default": "true",
           "placeholder": "",
@@ -3302,7 +3292,7 @@
   },
   "gbdt": {
     "project_name": "机器学习算法",
-    "image_name": "10.121.177.20:8082/mlops/gbdt:20260625",
+    "image_name": "10.121.177.20:8082/mlops/gbdt:20260720-cloud-xgboost-gpu-v2",
     "gitpath": "/job-template/job/gbdt",
     "image_describe": "gbdt算法",
     "job_template_name": "gbdt",
@@ -3509,6 +3499,24 @@
           "describe": "指标文件输出路径，请填写容器内可访问的实际路径",
           "editable": 1
         }
+      },
+      "GPU 配置": {
+        "--device": {
+          "type": "str",
+          "item_type": "str",
+          "label": "设备类型",
+          "require": 0,
+          "choice": [
+            "auto",
+            "cpu",
+            "cuda"
+          ],
+          "range": "",
+          "default": "auto",
+          "placeholder": "auto",
+          "describe": "auto=自动选择，cpu=仅CPU，cuda=GPU(LightGBM OpenCL)",
+          "editable": 1
+        }
       }
     }
   },
@@ -3713,7 +3721,7 @@
   },
   "hyperparam-search-nni": {
     "project_name": "机器学习算法",
-    "image_name": "10.121.177.20:8082/mlops/hyperparam-search-nni:20260626-v3",
+    "image_name": "10.121.177.20:8082/mlops/hyperparam-search-nni:20260717-cloud-gpu-v1",
     "gitpath": "/job-template/job/hyperparam-search-nni",
     "image_describe": "NNI超参搜索算法",
     "job_template_name": "hyperparam-search-nni",
@@ -3955,6 +3963,24 @@
           "default": "",
           "placeholder": "/mnt/storage/zzzdn/hyperparam-search-nni/output/nni_result.json",
           "describe": "NNI 实验详细结果输出路径（可选）",
+          "editable": 1
+        }
+      },
+      "GPU 配置": {
+        "--device": {
+          "type": "str",
+          "item_type": "str",
+          "label": "设备类型",
+          "require": 0,
+          "choice": [
+            "auto",
+            "cpu",
+            "cuda"
+          ],
+          "range": "",
+          "default": "auto",
+          "placeholder": "auto",
+          "describe": "auto=自动选择，cpu=仅CPU，cuda=GPU(gbdt/xgboost/lightgbm)",
           "editable": 1
         }
       }
@@ -4298,7 +4324,505 @@
       "rec_job_template": "自定义镜像",
       "help_url": "/job-template/job/deepspeed"
     },
-    "job_template_args": {}
+    "job_template_args": {
+      "基础配置": {
+        "--train_mode": {
+          "type": "str",
+          "item_type": "str",
+          "label": "训练模式",
+          "require": 1,
+          "choice": [
+            "finetune",
+            "pretrain",
+            "custom"
+          ],
+          "range": "",
+          "default": "finetune",
+          "placeholder": "",
+          "describe": "finetune=微调已有模型，pretrain=预训练，custom=执行自定义命令",
+          "editable": 1
+        },
+        "--image": {
+          "type": "str",
+          "item_type": "str",
+          "label": "Worker镜像",
+          "require": 1,
+          "choice": [],
+          "range": "",
+          "default": "10.121.177.20:8082/mlops/deepspeed:20260716-cuda121-ds0144-hf4442-r3",
+          "placeholder": "",
+          "describe": "训练Pod使用的镜像，需包含DeepSpeed、PyTorch、Transformers和/app/deepspeed_entrypoint.sh",
+          "editable": 1
+        },
+        "--num_worker": {
+          "type": "str",
+          "item_type": "str",
+          "label": "训练节点数",
+          "require": 1,
+          "choice": [],
+          "range": "",
+          "default": "1",
+          "placeholder": "",
+          "describe": "PyTorchJob节点总数，包含1个Master",
+          "editable": 1,
+          "regex": "^[1-9][0-9]*$"
+        },
+        "--num_gpus": {
+          "type": "str",
+          "item_type": "str",
+          "label": "单节点GPU数",
+          "require": 1,
+          "choice": [],
+          "range": "",
+          "default": "1",
+          "placeholder": "",
+          "describe": "每个训练Pod使用的GPU数量",
+          "editable": 1,
+          "regex": "^[1-9][0-9]*$"
+        },
+        "--master_port": {
+          "type": "str",
+          "item_type": "str",
+          "label": "Master端口",
+          "require": 1,
+          "choice": [],
+          "range": "",
+          "default": "29500",
+          "placeholder": "",
+          "describe": "DeepSpeed分布式通信端口，范围1到65535",
+          "editable": 1,
+          "regex": "^[0-9]+$"
+        },
+        "--working_dir": {
+          "type": "str",
+          "item_type": "str",
+          "label": "启动目录",
+          "require": 1,
+          "choice": [],
+          "range": "",
+          "default": "/app",
+          "placeholder": "",
+          "describe": "训练Pod中的工作目录",
+          "editable": 1
+        },
+        "--output_dir": {
+          "type": "str",
+          "item_type": "str",
+          "label": "输出目录",
+          "require": 1,
+          "choice": [],
+          "range": "",
+          "default": "/mnt/{{creator}}/deepspeed-output",
+          "placeholder": "",
+          "describe": "模型和checkpoint输出目录，需为所有训练Pod可见的共享目录",
+          "editable": 1
+        }
+      },
+      "模型和数据": {
+        "--model_name_or_path": {
+          "type": "str",
+          "item_type": "str",
+          "label": "模型路径",
+          "require": 0,
+          "choice": [],
+          "range": "",
+          "default": "",
+          "placeholder": "/mnt/{{creator}}/models/qwen",
+          "describe": "HuggingFace模型名或训练Pod内的本地模型路径",
+          "editable": 1
+        },
+        "--dataset_path": {
+          "type": "str",
+          "item_type": "str",
+          "label": "数据集路径",
+          "require": 0,
+          "choice": [],
+          "range": "",
+          "default": "",
+          "placeholder": "/mnt/{{creator}}/data/train.jsonl",
+          "describe": "训练数据集路径，支持json/jsonl/csv/txt、本地目录或datasets名称",
+          "editable": 1
+        },
+        "--tokenizer_name_or_path": {
+          "type": "str",
+          "item_type": "str",
+          "label": "Tokenizer路径",
+          "require": 0,
+          "choice": [],
+          "range": "",
+          "default": "",
+          "placeholder": "",
+          "describe": "为空时默认使用模型路径",
+          "editable": 1
+        },
+        "--model_config_path": {
+          "type": "str",
+          "item_type": "str",
+          "label": "模型配置路径",
+          "require": 0,
+          "choice": [],
+          "range": "",
+          "default": "",
+          "placeholder": "",
+          "describe": "pretrain模式可用的模型config路径",
+          "editable": 1
+        }
+      },
+      "训练参数": {
+        "--num_train_epochs": {
+          "type": "str",
+          "item_type": "str",
+          "label": "训练轮数",
+          "require": 1,
+          "choice": [],
+          "range": "",
+          "default": "1",
+          "placeholder": "",
+          "describe": "完整遍历数据集的次数，max_steps大于0时以最大步数为准",
+          "editable": 1
+        },
+        "--max_steps": {
+          "type": "str",
+          "item_type": "str",
+          "label": "最大步数",
+          "require": 1,
+          "choice": [],
+          "range": "",
+          "default": "0",
+          "placeholder": "",
+          "describe": "大于0时按step终止训练，0表示按训练轮数执行",
+          "editable": 1,
+          "regex": "^[0-9]+$"
+        },
+        "--learning_rate": {
+          "type": "str",
+          "item_type": "str",
+          "label": "学习率",
+          "require": 1,
+          "choice": [],
+          "range": "",
+          "default": "0.00002",
+          "placeholder": "",
+          "describe": "优化器学习率",
+          "editable": 1
+        },
+        "--weight_decay": {
+          "type": "str",
+          "item_type": "str",
+          "label": "权重衰减",
+          "require": 1,
+          "choice": [],
+          "range": "",
+          "default": "0.0",
+          "placeholder": "",
+          "describe": "weight decay，必须大于等于0",
+          "editable": 1
+        },
+        "--per_device_train_batch_size": {
+          "type": "str",
+          "item_type": "str",
+          "label": "单卡Batch",
+          "require": 1,
+          "choice": [],
+          "range": "",
+          "default": "1",
+          "placeholder": "",
+          "describe": "每张GPU每步处理的样本数",
+          "editable": 1,
+          "regex": "^[1-9][0-9]*$"
+        },
+        "--gradient_accumulation_steps": {
+          "type": "str",
+          "item_type": "str",
+          "label": "梯度累积",
+          "require": 1,
+          "choice": [],
+          "range": "",
+          "default": "1",
+          "placeholder": "",
+          "describe": "累积多少个step后更新参数",
+          "editable": 1,
+          "regex": "^[1-9][0-9]*$"
+        },
+        "--max_seq_length": {
+          "type": "str",
+          "item_type": "str",
+          "label": "最大长度",
+          "require": 1,
+          "choice": [],
+          "range": "",
+          "default": "1024",
+          "placeholder": "",
+          "describe": "Token最大序列长度，超出部分会被截断",
+          "editable": 1,
+          "regex": "^[1-9][0-9]*$"
+        },
+        "--logging_steps": {
+          "type": "str",
+          "item_type": "str",
+          "label": "日志间隔",
+          "require": 1,
+          "choice": [],
+          "range": "",
+          "default": "10",
+          "placeholder": "",
+          "describe": "每多少step打印一次训练日志",
+          "editable": 1,
+          "regex": "^[1-9][0-9]*$"
+        },
+        "--save_steps": {
+          "type": "str",
+          "item_type": "str",
+          "label": "保存间隔",
+          "require": 1,
+          "choice": [],
+          "range": "",
+          "default": "500",
+          "placeholder": "",
+          "describe": "每多少step保存checkpoint，最多保留3个",
+          "editable": 1,
+          "regex": "^[1-9][0-9]*$"
+        }
+      },
+      "LoRA参数": {
+        "--use_lora": {
+          "type": "str",
+          "item_type": "str",
+          "label": "启用LoRA",
+          "require": 1,
+          "choice": [
+            "false",
+            "true"
+          ],
+          "range": "",
+          "default": "false",
+          "placeholder": "",
+          "describe": "是否启用PEFT LoRA微调",
+          "editable": 1
+        },
+        "--lora_rank": {
+          "type": "str",
+          "item_type": "str",
+          "label": "LoRA Rank",
+          "require": 1,
+          "choice": [],
+          "range": "",
+          "default": "8",
+          "placeholder": "",
+          "describe": "LoRA rank",
+          "editable": 1,
+          "regex": "^[1-9][0-9]*$"
+        },
+        "--lora_alpha": {
+          "type": "str",
+          "item_type": "str",
+          "label": "LoRA Alpha",
+          "require": 1,
+          "choice": [],
+          "range": "",
+          "default": "16",
+          "placeholder": "",
+          "describe": "LoRA alpha",
+          "editable": 1,
+          "regex": "^[1-9][0-9]*$"
+        },
+        "--lora_dropout": {
+          "type": "str",
+          "item_type": "str",
+          "label": "LoRA Dropout",
+          "require": 1,
+          "choice": [],
+          "range": "",
+          "default": "0.1",
+          "placeholder": "",
+          "describe": "LoRA dropout，范围为0到小于1",
+          "editable": 1
+        },
+        "--lora_target": {
+          "type": "str",
+          "item_type": "str",
+          "label": "LoRA模块",
+          "require": 0,
+          "choice": [],
+          "range": "",
+          "default": "",
+          "placeholder": "q_proj,v_proj",
+          "describe": "多个模块用英文逗号分隔；留空时由PEFT按模型类型选择默认模块",
+          "editable": 1
+        }
+      },
+      "DeepSpeed参数": {
+        "--zero_stage": {
+          "type": "str",
+          "item_type": "str",
+          "label": "ZeRO阶段",
+          "require": 1,
+          "choice": [
+            "0",
+            "1",
+            "2",
+            "3"
+          ],
+          "range": "",
+          "default": "2",
+          "placeholder": "",
+          "describe": "0=关闭ZeRO，1/2/3逐步切分优化器状态、梯度和参数",
+          "editable": 1
+        },
+        "--precision": {
+          "type": "str",
+          "item_type": "str",
+          "label": "训练精度",
+          "require": 1,
+          "choice": [
+            "fp16",
+            "bf16",
+            "fp32"
+          ],
+          "range": "",
+          "default": "fp16",
+          "placeholder": "",
+          "describe": "DeepSpeed和HuggingFace Trainer使用的训练精度",
+          "editable": 1
+        },
+        "--train_batch_size": {
+          "type": "str",
+          "item_type": "str",
+          "label": "全局Batch",
+          "require": 1,
+          "choice": [],
+          "range": "",
+          "default": "auto",
+          "placeholder": "",
+          "describe": "DeepSpeed train_batch_size，建议保持auto",
+          "editable": 1
+        },
+        "--train_micro_batch_size_per_gpu": {
+          "type": "str",
+          "item_type": "str",
+          "label": "Micro Batch",
+          "require": 1,
+          "choice": [],
+          "range": "",
+          "default": "auto",
+          "placeholder": "",
+          "describe": "DeepSpeed单卡micro batch，建议保持auto",
+          "editable": 1
+        },
+        "--offload_optimizer": {
+          "type": "str",
+          "item_type": "str",
+          "label": "优化器Offload",
+          "require": 1,
+          "choice": [
+            "none",
+            "cpu",
+            "nvme"
+          ],
+          "range": "",
+          "default": "none",
+          "placeholder": "",
+          "describe": "optimizer offload设备；使用cpu或nvme时必须启用ZeRO",
+          "editable": 1
+        },
+        "--offload_param": {
+          "type": "str",
+          "item_type": "str",
+          "label": "参数Offload",
+          "require": 1,
+          "choice": [
+            "none",
+            "cpu",
+            "nvme"
+          ],
+          "range": "",
+          "default": "none",
+          "placeholder": "",
+          "describe": "parameter offload设备，仅支持ZeRO-3",
+          "editable": 1
+        },
+        "--nvme_path": {
+          "type": "str",
+          "item_type": "str",
+          "label": "NVMe路径",
+          "require": 0,
+          "choice": [],
+          "range": "",
+          "default": "/local_nvme",
+          "placeholder": "",
+          "describe": "NVMe offload路径，必须在所有训练Pod内存在且可写",
+          "editable": 1
+        },
+        "--gradient_clipping": {
+          "type": "str",
+          "item_type": "str",
+          "label": "梯度裁剪",
+          "require": 1,
+          "choice": [],
+          "range": "",
+          "default": "1.0",
+          "placeholder": "",
+          "describe": "DeepSpeed梯度裁剪阈值",
+          "editable": 1
+        },
+        "--ds_config_override": {
+          "type": "str",
+          "item_type": "str",
+          "label": "配置覆盖JSON",
+          "require": 0,
+          "choice": [],
+          "range": "",
+          "default": "",
+          "placeholder": "{\"zero_optimization\":{\"stage\":3}}",
+          "describe": "高级DeepSpeed配置，必须是JSON对象并与自动配置深度合并",
+          "editable": 1
+        }
+      },
+      "自定义模式": {
+        "--command": {
+          "type": "str",
+          "item_type": "str",
+          "label": "自定义命令",
+          "require": 0,
+          "choice": [],
+          "range": "",
+          "default": "",
+          "placeholder": "python train.py --epochs 1",
+          "describe": "custom模式必填；命令会在每个torchrun进程中执行",
+          "editable": 1
+        },
+        "--append_config_to_command": {
+          "type": "str",
+          "item_type": "str",
+          "label": "追加配置参数",
+          "require": 1,
+          "choice": [
+            "true",
+            "false"
+          ],
+          "range": "",
+          "default": "true",
+          "placeholder": "",
+          "describe": "是否把DeepSpeed配置路径自动追加到自定义命令",
+          "editable": 1
+        },
+        "--config_arg_name": {
+          "type": "str",
+          "item_type": "str",
+          "label": "配置参数名",
+          "require": 1,
+          "choice": [
+            "deepspeed",
+            "deepspeed_config"
+          ],
+          "range": "",
+          "default": "deepspeed",
+          "placeholder": "",
+          "describe": "自定义脚本接收DeepSpeed配置所使用的参数名",
+          "editable": 1
+        }
+      }
+    }
   },
   "model-convert": {
     "project_name": "模型处理",
@@ -4611,11 +5135,7 @@
           "default": "structural",
           "describe": "剪枝方法: structural(结构化) / llm(LLM剪枝) / layer(层级移除)",
           "item_type": "str",
-          "choice": [
-            "structural",
-            "llm",
-            "layer"
-          ],
+          "choice": ["structural", "llm", "layer"],
           "editable": 1
         },
         "--ratio": {
@@ -4972,7 +5492,7 @@
       }
     }
   },
-  "model-offline-predict": {
+ "model-offline-predict": {
     "project_name": "模型服务化",
     "image_name": "10.121.177.20:8082/mlops/offline-predict-launcher:20260714",
     "gitpath": "/job-template/job/offline-predict",
@@ -5091,10 +5611,7 @@
           "item_type": "str",
           "label": "推理后端",
           "require": 0,
-          "choice": [
-            "transformers",
-            "vllm"
-          ],
+          "choice": ["transformers", "vllm"],
           "range": "",
           "default": "transformers",
           "placeholder": "",
@@ -8152,81 +8669,81 @@
     "job_template_account": "",
     "job_template_env": "",
     "job_template_expand": {
-      "index": 4,
-      "rec_job_template": "自定义镜像",
-      "help_url": "/job-template/job/llm_quantize"
+        "index": 4,
+        "rec_job_template": "自定义镜像",
+        "help_url": "/job-template/job/llm_quantize"
     },
     "job_template_args": {
-      "模型参数": {
-        "--model": {
-          "type": "str",
-          "default": "",
-          "describe": "待量化模型路径或 HuggingFace Model ID（必填）",
-          "item_type": "str",
-          "require": 1,
-          "editable": 1
+        "模型参数": {
+            "--model": {
+                "type": "str",
+                "default": "",
+                "describe": "待量化模型路径或 HuggingFace Model ID（必填）",
+                "item_type": "str",
+                "require": 1,
+                "editable": 1
+            },
+            "--output": {
+                "type": "str",
+                "default": "/mnt/admin/models/quant",
+                "describe": "量化后模型保存路径",
+                "item_type": "str",
+                "editable": 1
+            }
         },
-        "--output": {
-          "type": "str",
-          "default": "/mnt/admin/models/quant",
-          "describe": "量化后模型保存路径",
-          "item_type": "str",
-          "editable": 1
+        "量化配置": {
+            "--method": {
+                "type": "str",
+                "default": "gptq",
+                "describe": "选择量化算法",
+                "choice": {
+                    "gptq": "GPTQ（精度好，需校准数据）",
+                    "awq": "AWQ（速度快精度高）",
+                    "bnb": "bitsandbytes（无需校准，快速试用）"
+                },
+                "editable": 1
+            },
+            "--bits": {
+                "type": "int",
+                "default": 4,
+                "range": "2,8",
+                "step": 1,
+                "describe": "量化位数，推荐 4bit",
+                "editable": 1
+            },
+            "--group_size": {
+                "type": "int",
+                "default": 128,
+                "range": "32,256",
+                "step": 32,
+                "describe": "GPTQ 分组大小，128 是标准值",
+                "editable": 1
+            },
+            "--dataset": {
+                "type": "str",
+                "default": "/mnt/storage/models-storage/datasets/wikitext2",
+                "describe": "校准数据集路径（完整路径或短名称 wikitext2）",
+                "item_type": "str",
+                "editable": 1
+            },
+            "--nsamples": {
+                "type": "int",
+                "default": 128,
+                "range": "16,1024",
+                "step": 16,
+                "describe": "GPTQ 校准使用的样本数量",
+                "editable": 1
+            }
         }
-      },
-      "量化配置": {
-        "--method": {
-          "type": "str",
-          "default": "gptq",
-          "describe": "选择量化算法",
-          "choice": {
-            "gptq": "GPTQ（精度好，需校准数据）",
-            "awq": "AWQ（速度快精度高）",
-            "bnb": "bitsandbytes（无需校准，快速试用）"
-          },
-          "editable": 1
-        },
-        "--bits": {
-          "type": "int",
-          "default": 4,
-          "range": "2,8",
-          "step": 1,
-          "describe": "量化位数，推荐 4bit",
-          "editable": 1
-        },
-        "--group_size": {
-          "type": "int",
-          "default": 128,
-          "range": "32,256",
-          "step": 32,
-          "describe": "GPTQ 分组大小，128 是标准值",
-          "editable": 1
-        },
-        "--dataset": {
-          "type": "str",
-          "default": "/mnt/storage/models-storage/datasets/wikitext2",
-          "describe": "校准数据集路径（完整路径或短名称 wikitext2）",
-          "item_type": "str",
-          "editable": 1
-        },
-        "--nsamples": {
-          "type": "int",
-          "default": 128,
-          "range": "16,1024",
-          "step": 16,
-          "describe": "GPTQ 校准使用的样本数量",
-          "editable": 1
-        }
-      }
     }
   },
-  "msswift": {
+ "msswift": {
     "project_name": "分布式加速",
     "image_name": "10.121.177.20:8082/mlops/msswift:20260715-v5",
     "gitpath": "/job-template/job/msswift",
     "image_describe": "ms-swift 分布式训练镜像（预置 CUDA + torch + deepspeed + swift）",
     "job_template_name": "msswift",
-    "job_template_describe": "ms-swift SFT 分布式训练：支持原生DDP、DeepSpeed ZeRO-2/ZeRO-3、Megatron及LoRA/QLoRA/全参微调",
+    "job_template_describe": "ms-swift 分布式训练：兼容 SFT/DeepSpeed/Megatron，支持 DPO/GRPO/KTO、评估和断点续训",
     "job_template_command": "python3 launcher.py",
     "job_template_volume": "/data/k8s/kubeflow/pipeline/workspace/(hostpath):/mnt/",
     "job_template_account": "kubeflow-pipeline",
@@ -8244,10 +8761,11 @@
           "label": "任务模式",
           "require": 1,
           "choice": [
-            "sft"
+            "sft",
+            "rlhf"
           ],
           "default": "sft",
-          "describe": "sft=监督微调（支持单卡、单机多卡和多机多卡分布式训练）",
+          "describe": "sft=监督微调(分布式训练)；rlhf=RLHF对齐训练",
           "editable": 1
         },
         "--model": {
@@ -8290,13 +8808,11 @@
           "editable": 1
         },
         "--split_dataset_ratio": {
-          "type": "float",
-          "item_type": "float",
+          "type": "str",
+          "item_type": "str",
           "label": "验证集切分比例",
           "require": 0,
           "default": "-1",
-          "range": "-1,0.99",
-          "step": 0.001,
           "describe": "-1=沿用框架默认；0=不从训练集切分；已填写验证数据集时建议填0",
           "editable": 1
         }
@@ -8322,15 +8838,6 @@
           "describe": "每个 Pod 启动的 GPU 训练进程数；0=自动使用当前 Pod 申请的 GPU 数量",
           "editable": 1
         },
-        "--master_port": {
-          "type": "int",
-          "item_type": "int",
-          "label": "通信端口",
-          "require": 0,
-          "default": "23456",
-          "describe": "分布式通信主端口，一般无需修改",
-          "editable": 1
-        },
         "--distributed": {
           "type": "enum",
           "item_type": "str",
@@ -8345,7 +8852,9 @@
           "default": "zero2",
           "describe": "none=原生 PyTorch DDP（支持单卡/多卡）；zero2=DeepSpeed ZeRO-2；zero3=DeepSpeed ZeRO-3；megatron=Megatron 模型并行",
           "editable": 1
-        },
+        }
+      },
+      "Megatron 专属 (distributed=megatron)": {
         "--tensor_model_parallel_size": {
           "type": "int",
           "item_type": "int",
@@ -8365,6 +8874,16 @@
           "range": "1,8",
           "describe": "流水线并行大小，仅 distributed=megatron 时生效",
           "editable": 1
+        },
+        "--train_iters": {
+          "type": "int",
+          "item_type": "int",
+          "label": "训练迭代数",
+          "require": 0,
+          "default": "100",
+          "range": "1,1000000",
+          "describe": "Megatron 使用迭代数控制训练时长；SFT/DeepSpeed 模式忽略此参数",
+          "editable": 1
         }
       },
       "训练配置": {
@@ -8383,12 +8902,11 @@
           "editable": 1
         },
         "--num_epochs": {
-          "type": "float",
-          "item_type": "float",
+          "type": "str",
+          "item_type": "str",
           "label": "训练轮数",
           "require": 0,
           "default": "3.0",
-          "range": "0.1,100",
           "editable": 1
         },
         "--batch_size": {
@@ -8401,13 +8919,11 @@
           "editable": 1
         },
         "--learning_rate": {
-          "type": "float",
-          "item_type": "float",
+          "type": "str",
+          "item_type": "str",
           "label": "学习率",
           "require": 0,
           "default": "0.0001",
-          "range": "0.00000001,0.01",
-          "step": 1e-08,
           "describe": "LoRA 推荐 1e-4，全参推荐 1e-5",
           "editable": 1
         },
@@ -8430,159 +8946,94 @@
           "range": "1,256",
           "describe": "仅 LoRA/QLoRA 生效，越大越强但越慢，推荐 8-64",
           "editable": 1
-        },
-        "--gradient_accumulation_steps": {
-          "type": "int",
-          "item_type": "int",
-          "label": "梯度累积步数",
-          "require": 0,
-          "default": "0",
-          "range": "0,1024",
-          "describe": "0=沿用 ms-swift 自动策略；非零时有效 DDP Batch=每卡 Batch × 数据并行进程数 × 梯度累积。Megatron 使用全局 Batch",
+        }
+      },
+      "RLHF 通用配置 (mode=rlhf)": {
+        "--rlhf_type": {
+          "type": "enum",
+          "item_type": "str",
+          "label": "RLHF 算法",
+          "require": 1,
+          "choice": [
+            "dpo",
+            "grpo"
+          ],
+          "default": "dpo",
+          "describe": "DPO=直接偏好优化；GRPO=组相对策略优化；KTO=二元反馈对齐；PPO 因缺少 Reward/Value Model 配置暂不开放",
           "editable": 1
         },
-        "--max_steps": {
-          "type": "int",
-          "item_type": "int",
-          "label": "最大训练步数",
+        "--ref_model": {
+          "type": "str",
+          "item_type": "str",
+          "label": "参考模型",
           "require": 0,
-          "default": "0",
-          "range": "0,100000000",
-          "describe": "0=按训练轮数执行；非零时 HF/DeepSpeed 优先按最大步数停止。Megatron 使用 train_iters",
+          "default": "",
+          "placeholder": "留空则由算法使用当前模型作为参考",
+          "describe": "HF/DeepSpeed：参考模型路径或ModelScope名称；Megatron：映射为 ref_load，需填写Megatron检查点目录；留空使用后端默认",
           "editable": 1
         },
-        "--seed": {
-          "type": "int",
-          "item_type": "int",
-          "label": "随机种子",
+        "--ref_adapters": {
+          "type": "str",
+          "item_type": "str",
+          "label": "参考模型 Adapter",
+          "require": 0,
+          "default": "",
+          "placeholder": "/mnt/.../checkpoint-xxx",
+          "describe": "HF/DeepSpeed映射ref_adapters；Megatron映射ref_adapter_load，用于SFT LoRA后继续偏好对齐",
+          "editable": 1
+        },
+        "--beta": {
+          "type": "str",
+          "item_type": "str",
+          "label": "KL/Beta 系数",
           "require": 0,
           "default": "-1",
-          "range": "-1,2147483647",
-          "describe": "-1=沿用框架默认；复现实验时建议固定为 42",
-          "editable": 1
-        },
-        "--warmup_ratio": {
-          "type": "float",
-          "item_type": "float",
-          "label": "预热比例",
-          "require": 0,
-          "default": "-1",
-          "range": "-1,1",
-          "step": 0.001,
-          "describe": "-1=沿用框架默认；HF/DeepSpeed 常用 0.03～0.1，Megatron 暂不透传",
-          "editable": 1
-        },
-        "--weight_decay": {
-          "type": "float",
-          "item_type": "float",
-          "label": "权重衰减",
-          "require": 0,
-          "default": "-1",
-          "range": "-1,1",
-          "step": 0.001,
-          "describe": "-1=沿用框架默认；显式填写后传给训练后端",
-          "editable": 1
-        },
-        "--lora_alpha": {
-          "type": "float",
-          "item_type": "float",
-          "label": "LoRA Alpha",
-          "require": 0,
-          "default": "0",
-          "range": "0,1024",
-          "step": 1,
-          "describe": "仅 LoRA/QLoRA 生效；0=沿用 ms-swift 默认值",
-          "editable": 1
-        },
-        "--lora_dropout": {
-          "type": "float",
-          "item_type": "float",
-          "label": "LoRA Dropout",
-          "require": 0,
-          "default": "-1",
-          "range": "-1,0.99",
-          "step": 0.01,
-          "describe": "仅 LoRA/QLoRA 生效；-1=沿用 ms-swift 默认值",
+          "describe": "-1=使用算法默认值；DPO/KTO 通常0.1、GRPO通常0.04；GRPO填0可关闭参考模型KL",
           "editable": 1
         }
       },
-      "Megatron 专属 (distributed=megatron)": {
-        "--train_iters": {
+      "GRPO 算法专属 (rlhf_type=grpo)": {
+        "--num_generations": {
           "type": "int",
           "item_type": "int",
-          "label": "训练迭代数",
+          "label": "每个问题生成数量",
           "require": 0,
-          "default": "100",
-          "range": "1,1000000",
-          "describe": "Megatron 使用迭代数控制训练时长；普通 SFT/DeepSpeed 模式忽略此参数",
+          "default": "2",
+          "range": "2,64",
+          "describe": "必须整除生成批次。2卡且每卡batch=1时只能填写2",
           "editable": 1
         },
-        "--global_batch_size": {
-          "type": "int",
-          "item_type": "int",
-          "label": "全局 Batch Size",
-          "require": 0,
-          "default": "0",
-          "range": "0,1048576",
-          "describe": "0=自动计算；非零值必须可被 micro batch × 数据并行度整除",
-          "editable": 1
-        },
-        "--recompute_granularity": {
-          "type": "enum",
+        "--reward_funcs": {
+          "type": "str",
           "item_type": "str",
-          "label": "激活重计算",
+          "label": "奖励函数",
           "require": 0,
-          "choice": [
-            "selective",
-            "full",
-            "none"
-          ],
-          "default": "selective",
-          "describe": "selective=选择性重计算；full=全量重计算；none=关闭，显存占用更高",
+          "default": "format,repetition",
+          "placeholder": "数学数据填写 accuracy,format",
+          "describe": "逗号分隔，可选 accuracy、format、cosine、repetition、soft_overlong；数学数据推荐 accuracy,format",
+          "editable": 1
+        },
+        "--num_iterations": {
+          "type": "int",
+          "item_type": "int",
+          "label": "每批更新次数",
+          "require": 0,
+          "default": "1",
+          "range": "1,16",
+          "describe": "每个生成批次执行的策略更新次数，冒烟测试建议1",
+          "editable": 1
+        },
+        "--temperature": {
+          "type": "str",
+          "item_type": "str",
+          "label": "采样温度",
+          "require": 0,
+          "default": "-1",
+          "describe": "-1=沿用框架默认（3.12通常0.9）；0=关闭随机采样；较高值增加组内输出差异",
           "editable": 1
         }
       },
       "保存、评估与恢复": {
-        "--logging_steps": {
-          "type": "int",
-          "item_type": "int",
-          "label": "日志间隔",
-          "require": 0,
-          "default": "0",
-          "range": "0,1000000",
-          "describe": "0=沿用框架默认；非零表示每隔多少 step 输出训练指标",
-          "editable": 1
-        },
-        "--eval_steps": {
-          "type": "int",
-          "item_type": "int",
-          "label": "评估间隔",
-          "require": 0,
-          "default": "0",
-          "range": "0,1000000",
-          "describe": "0=沿用框架默认；使用验证集时可设置周期评估",
-          "editable": 1
-        },
-        "--save_steps": {
-          "type": "int",
-          "item_type": "int",
-          "label": "保存间隔",
-          "require": 0,
-          "default": "0",
-          "range": "0,1000000",
-          "describe": "0=沿用框架默认；HF 映射 save_steps，Megatron 映射 save_interval",
-          "editable": 1
-        },
-        "--save_total_limit": {
-          "type": "int",
-          "item_type": "int",
-          "label": "最多保留检查点",
-          "require": 0,
-          "default": "0",
-          "range": "0,10000",
-          "describe": "0=沿用框架默认；当前仅 HF/DeepSpeed 后端支持",
-          "editable": 1
-        },
         "--resume_from_checkpoint": {
           "type": "str",
           "item_type": "str",

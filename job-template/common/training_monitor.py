@@ -15,6 +15,8 @@ import re as _re
 import sys
 import subprocess
 import threading
+
+import numpy as np
 import time
 import traceback
 import warnings
@@ -71,9 +73,9 @@ class TrainingMonitor:
         "hardware/gpu_0_util_percent", "hardware/gpu_0_memory_used_mb",
         "hardware/gpu_0_temperature_c", "hardware/gpu_0_power_w",
     })
-    # prefix-based allowlist for dynamic keys (fold/*, best_params/*, train/*, config/*,
-    # gpu/*, metrics/*, error/* for LightGBM and other non-hyperparam operators)
-    _BASIC_PREFIXES = ("fold/", "best_params/", "train/", "config/", "gpu/", "metrics/", "error/")
+    # prefix-based allowlist for dynamic keys
+    _BASIC_PREFIXES = ("fold/", "best_params/", "train/", "config/", "gpu/", "metrics/", "error/",
+                       "experiment/", "trial/", "dataset/")
 
     def __init__(self):
         self._swanlab = None
@@ -431,7 +433,8 @@ class TrainingMonitor:
         if self._metric_level != "full":
             filtered = {}
             for k, v in metrics.items():
-                if not isinstance(v, (int, float)):
+                if not isinstance(v, (int, float)) and not (
+                    hasattr(v, "dtype") and np.issubdtype(np.asarray(v).dtype, np.number)):
                     continue
                 if v is None or (isinstance(v, float) and (v != v)):  # NaN check
                     continue
