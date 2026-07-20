@@ -4951,7 +4951,7 @@
   },
   "model-distillation": {
     "project_name": "模型处理",
-    "image_name": "10.121.177.20:8082/mlops/model-distillation:20260704-v6",
+    "image_name": "10.121.177.20:8082/mlops/model-distillation:20260717-swanlab-monitor-v1",
     "gitpath": "/job-template/job/model-distillation",
     "image_describe": "大模型蒸馏",
     "job_template_name": "model-distillation",
