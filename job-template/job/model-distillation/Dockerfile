@@ -9,6 +9,9 @@ FROM 10.121.177.20:8082/mlops/model-distillation:20260704-v5
 LABEL maintainer="cube-studio"
 LABEL description="Model Distillation Node - EasyDistill (CUDA 12.1, train-only)"
 
+# ── SwanLab 监控依赖 ──
+RUN pip3 install --no-cache-dir "swanlab>=0.8.4" psutil
+
 # ── EasyDistill 源码（偶尔变）──
 COPY job-template/job/model-distillation/easydistill_src /opt/easydistill/
 RUN pip3 install --no-cache-dir --no-deps /opt/easydistill/
@@ -17,6 +20,7 @@ RUN pip3 install --no-cache-dir --no-deps /opt/easydistill/
 COPY job-template/job/model-distillation/launcher.py /app/
 COPY job-template/job/model-distillation/chat_template/ /app/chat_template/
 COPY job-template/job/model-distillation/accelerate_config.yaml /app/
+COPY job-template/common/ /app/common/
 
 # ── 运行时配置 ──
 RUN EASY_DISTILL_DIR=$(python3 -c "import easydistill; import os; print(os.path.dirname(easydistill.__file__))") && \

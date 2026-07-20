@@ -414,7 +414,7 @@ def dag_to_pipeline(pipeline, dbsession, workflow_label=None, **kwargs):
             #   2. lightgbm / hyperparam-search / hyperparam-search-nni → cloud
             #   3. config.py SWANLAB_MODE（全局默认，当前为 local）
             #   4. 兜底 local
-            _cloud_default_templates = ('hyperparam-search', 'hyperparam-search-nni', 'lightgbm', 'gbdt')
+            _cloud_default_templates = ('hyperparam-search', 'hyperparam-search-nni', 'lightgbm', 'gbdt', 'model-distillation')
             _user_mode = (_swanlab_task_args.get('swanlab_mode') or '').strip().lower()
             if _user_mode:
                 # Normalize "online" to "cloud" (official SDK name vs MLOps convention)
