@@ -277,6 +277,10 @@ def build_config(args, teacher_path, student_path, data_path, work_dir, template
             "max_length": 512,
             "save_steps": 1000,
             "logging_steps": 1,
+            # SwanLab is managed by the outer TrainingMonitor. EasyDistill
+            # launches a fresh accelerate subprocess, so Transformers must not
+            # auto-create a second SwanLab callback without an active run.
+            "report_to": "none",
             "learning_rate": float(args.learning_rate),
             "weight_decay": 0.05,
             "warmup_ratio": 0.1,
@@ -301,6 +305,49 @@ def build_config(args, teacher_path, student_path, data_path, work_dir, template
 
 
 # ---------------------------------------------------------------------------
+# 指标解析
+# ---------------------------------------------------------------------------
+
+def _try_parse_easydistill_metrics(line: str):
+    """从 easydistill stdout 行中解析数值指标
+
+    easydistill 典型输出格式:
+        "{'loss': 2.34, 'learning_rate': 1e-5, 'epoch': 1.5}"
+        "{'train_loss': 1.8, 'eval_loss': 2.1, 'epoch': 2.0}"
+    也支持标准 JSON 格式。
+    """
+    if not line or not line.strip():
+        return None
+    text = line.strip()
+    # 尝试匹配 {...} 模式的字典片段
+    import re as _re
+    # 匹配单引号或双引号的 dict 字符串
+    m = _re.search(r'\{[^{}]+\}', text)
+    if not m:
+        return None
+    expr = m.group()
+    try:
+        # 先尝试标准 JSON（双引号）
+        import json as _json
+        data = _json.loads(expr.replace("'", '"'))
+    except Exception:
+        # 尝试用 ast.literal_eval 解析 Python dict 字面量
+        try:
+            import ast as _ast
+            data = _ast.literal_eval(expr)
+        except Exception:
+            return None
+    if not isinstance(data, dict):
+        return None
+    # 只保留数值类型
+    result = {}
+    for k, v in data.items():
+        if isinstance(v, (int, float)):
+            result[k] = v
+    return result if result else None
+
+
+# ---------------------------------------------------------------------------
 # 主流程
 # ---------------------------------------------------------------------------
 
@@ -322,8 +369,28 @@ def main():
 
     args = arg_parser.parse_args()
 
+    # ----- 0. 初始化训练监控（SwanLab） -----
+    monitor = None
+    try:
+        from common.training_monitor import TrainingMonitor
+        monitor = TrainingMonitor()
+        monitor.start()
+        monitor.log({
+            "config/distill_type": args.distill_type,
+            "config/temperature": float(args.temperature),
+            "config/alpha": float(args.alpha),
+            "config/epochs": int(args.epochs),
+            "config/batch_size": int(args.batch_size),
+            "config/learning_rate": float(args.learning_rate),
+            "config/max_samples": int(args.max_samples or 0),
+        })
+    except Exception as _monitor_err:
+        print(f'TrainingMonitor 初始化失败: {_monitor_err}')
+
     # ----- 1. 跳过检查 -----
     if check_skip(args.output_path):
+        if monitor:
+            monitor.finish("SUCCEEDED")
         return
 
     try:
@@ -386,11 +453,23 @@ def main():
                                    text=True, bufsize=1)
         for line in process.stdout:
             print(line, end='', flush=True)
+            # 解析 easydistill 输出中的指标并上报 SwanLab
+            _parsed = _try_parse_easydistill_metrics(line)
+            if _parsed and monitor:
+                # Public monitor uses a basic allowlist. Namespace raw Trainer
+                # keys so loss/throughput/learning-rate become chart metrics.
+                _metrics = {k if '/' in k else f'train/{k}': v for k, v in _parsed.items()}
+                monitor.log(_metrics)
         exit_code = process.wait()
 
         if exit_code != 0:
             print(f'蒸馏失败，exit code={exit_code}')
+            if monitor:
+                monitor.finish("FAILED")
             sys.exit(exit_code)
+
+        if monitor:
+            monitor.finish("SUCCEEDED")
 
         # ----- 6. ModelScope 兼容 + 哨兵 -----
         config_json = os.path.join(output_dir, 'config.json')
@@ -410,6 +489,8 @@ def main():
         print(f'蒸馏失败: {e}')
         import traceback
         traceback.print_exc()
+        if monitor:
+            monitor.finish("FAILED")
         sys.exit(1)
 
 
