@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""hyperparam-search-nni — NNI-compatible multi-model hyperparameter search."""
+"""hyperparam-search-nni — NNI-compatible multi-model hyperparameter search with GPU + SwanLab."""
 
-import argparse, json, os, sys, itertools, random as _random, time
+import argparse, json, os, sys, itertools, random as _random, subprocess, time, traceback
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -49,13 +49,39 @@ MODEL_TYPES = [
     "gbdt", "random_forest", "extra_trees", "ada_boost",
     "svm", "logistic_regression", "ridge", "xgboost", "lightgbm",
 ]
+GPU_MODELS = {"gbdt", "xgboost", "lightgbm"}  # Models that can use GPU via LightGBM/XGBoost
+DEVICE_CHOICES = {"auto", "cpu", "cuda"}
 
 
-def build_estimator(model_type: str, task_type: str, random_state: int):
+def detect_gpu():
+    try:
+        subprocess.check_output(["nvidia-smi", "--query-gpu=index,name,memory.total",
+                                 "--format=csv,noheader,nounits"], timeout=10)
+        return True
+    except Exception:
+        return False
+
+
+def resolve_device(requested, resource_gpu=0):
+    gpu_ok = detect_gpu()
+    if requested == "cpu": return "cpu"
+    if requested == "cuda":
+        if not gpu_ok or resource_gpu <= 0:
+            raise RuntimeError(f"device=cuda but GPU unavailable (nvidia-smi={gpu_ok}, resource_gpu={resource_gpu})")
+        return "cuda"
+    if gpu_ok and resource_gpu > 0: return "cuda"
+    return "cpu"
+
+
+def build_estimator(model_type: str, task_type: str, random_state: int, device: str = "cpu"):
     mt = model_type.lower()
     if task_type == "classification":
         if mt in REG_ONLY: raise ValueError(f"model_type={model_type} 不支持 classification")
-        if mt == "gbdt": return GradientBoostingClassifier(random_state=random_state)
+        if mt == "gbdt":
+            if device == "cuda":
+                if not _HAS_LGB: raise ImportError("lightgbm 未安装（GPU gbdt 需要 lightgbm）")
+                return LGBMClassifier(random_state=random_state, n_jobs=-1, verbose=-1, device_type="gpu", gpu_device_id=0)
+            return GradientBoostingClassifier(random_state=random_state)
         if mt == "random_forest": return RandomForestClassifier(random_state=random_state, n_jobs=-1)
         if mt == "extra_trees": return ExtraTreesClassifier(random_state=random_state, n_jobs=-1)
         if mt == "ada_boost": return AdaBoostClassifier(random_state=random_state)
@@ -63,13 +89,23 @@ def build_estimator(model_type: str, task_type: str, random_state: int):
         if mt == "logistic_regression": return LogisticRegression(max_iter=1000, n_jobs=-1, random_state=random_state)
         if mt == "xgboost":
             if not _HAS_XGB: raise ImportError("xgboost 未安装")
+            if device == "cuda":
+                import xgboost as xgb; ver = tuple(int(x) for x in xgb.__version__.split(".")[:2])
+                kw = {"tree_method": "hist", "device": "cuda"} if ver >= (2,1) else {"tree_method": "gpu_hist"}
+                return XGBClassifier(random_state=random_state, eval_metric="logloss", n_jobs=-1, **kw)
             return XGBClassifier(random_state=random_state, eval_metric="logloss", n_jobs=-1)
         if mt == "lightgbm":
             if not _HAS_LGB: raise ImportError("lightgbm 未安装")
-            return LGBMClassifier(random_state=random_state, n_jobs=-1, verbose=-1)
+            kw = {"random_state": random_state, "n_jobs": -1, "verbose": -1}
+            if device == "cuda": kw.update({"device_type": "gpu", "gpu_device_id": 0})
+            return LGBMClassifier(**kw)
     else:
         if mt in CLF_ONLY: raise ValueError(f"model_type={model_type} 不支持 regression")
-        if mt == "gbdt": return GradientBoostingRegressor(random_state=random_state)
+        if mt == "gbdt":
+            if device == "cuda":
+                if not _HAS_LGB: raise ImportError("lightgbm 未安装（GPU gbdt 需要 lightgbm）")
+                return LGBMRegressor(random_state=random_state, n_jobs=-1, verbose=-1, device_type="gpu", gpu_device_id=0)
+            return GradientBoostingRegressor(random_state=random_state)
         if mt == "random_forest": return RandomForestRegressor(random_state=random_state, n_jobs=-1)
         if mt == "extra_trees": return ExtraTreesRegressor(random_state=random_state, n_jobs=-1)
         if mt == "ada_boost": return AdaBoostRegressor(random_state=random_state)
@@ -77,10 +113,16 @@ def build_estimator(model_type: str, task_type: str, random_state: int):
         if mt == "ridge": return Ridge(random_state=random_state)
         if mt == "xgboost":
             if not _HAS_XGB: raise ImportError("xgboost 未安装")
+            if device == "cuda":
+                import xgboost as xgb; ver = tuple(int(x) for x in xgb.__version__.split(".")[:2])
+                kw = {"tree_method": "hist", "device": "cuda"} if ver >= (2,1) else {"tree_method": "gpu_hist"}
+                return XGBRegressor(random_state=random_state, n_jobs=-1, **kw)
             return XGBRegressor(random_state=random_state, n_jobs=-1)
         if mt == "lightgbm":
             if not _HAS_LGB: raise ImportError("lightgbm 未安装")
-            return LGBMRegressor(random_state=random_state, n_jobs=-1, verbose=-1)
+            kw = {"random_state": random_state, "n_jobs": -1, "verbose": -1}
+            if device == "cuda": kw.update({"device_type": "gpu", "gpu_device_id": 0})
+            return LGBMRegressor(**kw)
     raise ValueError(f"未知 model_type: {model_type}")
 
 
@@ -202,6 +244,7 @@ def parse_args():
     p.add_argument("--scoring", default="auto")
     p.add_argument("--max_train_samples", type=int, default=10000, help="单 trial 最大训练样本数(防 SVM 大数据卡住)")
     p.add_argument("--trial_timeout_seconds", type=int, default=600, help="单 trial 超时秒数")
+    p.add_argument("--device", default="auto", choices=sorted(DEVICE_CHOICES), help="auto|cpu|cuda")
     p.add_argument("--output_model_path", default="")
     p.add_argument("--output_metrics_path", default="")
     p.add_argument("--output_nni_result_path", default="")
@@ -210,8 +253,35 @@ def parse_args():
 
 def main():
     args = parse_args()
+
+    # SwanLab monitor
+    try:
+        from common.training_monitor import TrainingMonitor
+        monitor = TrainingMonitor()
+        monitor.start()
+    except Exception:
+        monitor = None
+
+    # GPU detection
+    gpu_ok = detect_gpu()
+    rg_str = os.environ.get("KFJ_TASK_RESOURCE_GPU", "0").replace("+", "").strip()
+    try: rg_val = int(float(rg_str))
+    except ValueError: rg_val = 0
+    actual_device = resolve_device(args.device, rg_val)
+    log(f"nvidia-smi: {'OK' if gpu_ok else 'not detected'}, resource_gpu={rg_val}, device={args.device} -> {actual_device}")
+    if gpu_ok and actual_device == "cuda":
+        log(f"GPU mode enabled: backend=LightGBM/XGBoost GPU")
+    elif args.device == "cuda" and actual_device != "cuda":
+        log(f"ERROR: device=cuda but GPU unavailable"); return 1
+
     log("========== NNI Hyperparameter Search Start ==========")
-    log(f"model_type: {args.model_type}  task_type: {args.task_type}  tuner: {args.tuner_name}")
+    log(f"model_type: {args.model_type}  task_type: {args.task_type}  tuner: {args.tuner_name}  device: {actual_device}")
+
+    if monitor:
+        monitor.log({"config/model_type": args.model_type, "config/task_type": args.task_type,
+                     "config/requested_device": args.device, "config/actual_device": actual_device,
+                     "config/tuner": args.tuner_name, "config/max_trials": args.max_trial_number,
+                     "config/cv": args.cv, "gpu/requested": rg_val, "gpu/nvidia_smi_ok": 1 if gpu_ok else 0})
 
     if not args.input_csv: log("ERROR: input_csv 不能为空"); return 1
     if not args.output_model_path: log("ERROR: output_model_path 不能为空"); return 1
@@ -292,7 +362,7 @@ def main():
         mp = {k: int(v) if isinstance(v, float) and v == int(v) else v for k, v in params.items()}
         log(f"[TRIAL {i+1}/{len(configs)}] start params={mp}")
         try:
-            est = build_estimator(args.model_type, args.task_type, args.random_state)
+            est = build_estimator(args.model_type, args.task_type, args.random_state, device=actual_device)
             est.set_params(**{k: v for k, v in mp.items() if k in est.get_params()})
             pipe = Pipeline([("pre", preprocessor), ("model", est)])
             n, n_classes = len(X_train), len(set(y_train)) if args.task_type == "classification" else 0
@@ -312,17 +382,22 @@ def main():
             all_results.append({"trial_id": i+1, "params": json_safe(params), "score": score,
                                 "status": "success", "elapsed_seconds": round(elapsed, 2)})
             if score > best_score: best_score = score; best_params = dict(params)
+            if monitor:
+                _is_best = 1 if score == best_score else 0
+                monitor.log({"trial/index": i+1, "trial/score": score, "trial/duration_seconds": round(elapsed, 2),
+                             "trial/is_best": _is_best, "best/score": best_score, "best/trial_index": i+1 if _is_best else 0})
         except Exception as exc:
             elapsed = time.time() - t0
             log(f"[TRIAL {i+1}/{len(configs)}] FAILED elapsed={elapsed:.1f}s: {exc}")
             all_results.append({"trial_id": i+1, "params": json_safe(params), "status": "failed",
                                 "elapsed_seconds": round(elapsed, 2), "error": str(exc)})
+            if monitor: monitor.log({"trial/index": i+1, "trial/failed": 1, "trial/duration_seconds": round(elapsed, 2)})
 
     if best_params is None: log("ERROR: 所有 trial 失败"); return 1
     log(f"最佳参数: {best_params}, score={best_score:.6f}")
 
     bmp = {k: int(v) if isinstance(v, float) and v == int(v) else v for k, v in best_params.items()}
-    best_est = build_estimator(args.model_type, args.task_type, args.random_state)
+    best_est = build_estimator(args.model_type, args.task_type, args.random_state, device=actual_device)
     best_est.set_params(**{k: v for k, v in bmp.items() if k in best_est.get_params()})
     final_pipe = Pipeline([("pre", preprocessor), ("model", best_est)])
     final_pipe.fit(X_train, y_train)
@@ -378,6 +453,13 @@ def main():
         with open(args.output_nni_result_path, "w", encoding="utf-8") as f:
             json.dump(json_safe(nr), f, ensure_ascii=False, indent=2)
         log(f"NNI 结果已保存: {args.output_nni_result_path}")
+
+    if monitor:
+        if actual_device == "cuda": monitor.log({"gpu/opencl_available": 1, "gpu/train_success": 1})
+        monitor.log({"experiment/best_metric": best_score, "experiment/total_trials": len(configs),
+                     "experiment/completed_trials": len([r for r in all_results if r.get("status")=="success"]),
+                     "experiment/failed_trials": len([r for r in all_results if r.get("status")=="failed"])})
+        monitor.finish("SUCCEEDED")
 
     log("========== NNI Hyperparameter Search Finished ==========")
     print(json.dumps(json_safe(report), ensure_ascii=False, indent=2), flush=True)
