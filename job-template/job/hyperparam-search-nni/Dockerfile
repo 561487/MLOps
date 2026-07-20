@@ -3,8 +3,7 @@ FROM python:3.9
 ENV TZ=Asia/Shanghai
 ENV DEBIAN_FRONTEND=noninteractive
 
-ENV PIP_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple/
-ENV PIP_TRUSTED_HOST=pypi.tuna.tsinghua.edu.cn
+RUN python3 -m pip config set global.index-url https://mirrors.aliyun.com/pypi/simple || true
 
 RUN /usr/local/bin/python -m pip install --upgrade pip && \
     pip install --no-cache-dir \
@@ -15,14 +14,18 @@ RUN /usr/local/bin/python -m pip install --upgrade pip && \
     joblib==1.3.2 \
     threadpoolctl==3.5.0 \
     xgboost \
-    lightgbm
+    lightgbm \
+    "swanlab>=0.8.4" \
+    psutil \
+    requests
 
-COPY . /app/
+# Build context: job-template/
+COPY job/hyperparam-search-nni/launcher.py /app/launcher.py
+COPY common/ /app/common/
 
 WORKDIR /app
 ENV PYTHONPATH=/app
 
-RUN ls -lah /app && test -f /app/launcher.py && \
-    python3 -c "import numpy, pandas, scipy, sklearn, joblib, xgboost, lightgbm; print('deps ok')"
+RUN python3 -c "import numpy, pandas, scipy, sklearn, joblib, xgboost, lightgbm, swanlab, psutil; from common.training_monitor import TrainingMonitor; print('deps OK')"
 
 CMD ["python3", "launcher.py"]

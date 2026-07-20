@@ -158,6 +158,7 @@ class MyappModelBase():
         "job_describe": _("模板描述"),
         "job_args_demo": _("模板参数示例"),
         "stop": _("停止"),
+        "monitor": _("监控"),
         "parallel_trial_count": _("搜索并行数"),
         "parallel_trial_type": _("搜索并行方式"),
         "max_trial_count": _("最多搜索次数"),
