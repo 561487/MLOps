@@ -3302,7 +3302,7 @@
   },
   "gbdt": {
     "project_name": "机器学习算法",
-    "image_name": "10.121.177.20:8082/mlops/gbdt:20260625",
+    "image_name": "10.121.177.20:8082/mlops/gbdt:20260720-cloud-xgboost-gpu-v2",
     "gitpath": "/job-template/job/gbdt",
     "image_describe": "gbdt算法",
     "job_template_name": "gbdt",
@@ -3509,6 +3509,24 @@
           "describe": "指标文件输出路径，请填写容器内可访问的实际路径",
           "editable": 1
         }
+      },
+      "GPU 配置": {
+        "--device": {
+          "type": "str",
+          "item_type": "str",
+          "label": "设备类型",
+          "require": 0,
+          "choice": [
+            "auto",
+            "cpu",
+            "cuda"
+          ],
+          "range": "",
+          "default": "auto",
+          "placeholder": "auto",
+          "describe": "auto=自动选择，cpu=仅CPU，cuda=GPU(LightGBM OpenCL)",
+          "editable": 1
+        }
       }
     }
   },
@@ -3713,7 +3731,7 @@
   },
   "hyperparam-search-nni": {
     "project_name": "机器学习算法",
-    "image_name": "10.121.177.20:8082/mlops/hyperparam-search-nni:20260626-v3",
+    "image_name": "10.121.177.20:8082/mlops/hyperparam-search-nni:20260717-cloud-gpu-v1",
     "gitpath": "/job-template/job/hyperparam-search-nni",
     "image_describe": "NNI超参搜索算法",
     "job_template_name": "hyperparam-search-nni",
@@ -3955,6 +3973,24 @@
           "default": "",
           "placeholder": "/mnt/storage/zzzdn/hyperparam-search-nni/output/nni_result.json",
           "describe": "NNI 实验详细结果输出路径（可选）",
+          "editable": 1
+        }
+      },
+      "GPU 配置": {
+        "--device": {
+          "type": "str",
+          "item_type": "str",
+          "label": "设备类型",
+          "require": 0,
+          "choice": [
+            "auto",
+            "cpu",
+            "cuda"
+          ],
+          "range": "",
+          "default": "auto",
+          "placeholder": "auto",
+          "describe": "auto=自动选择，cpu=仅CPU，cuda=GPU(gbdt/xgboost/lightgbm)",
           "editable": 1
         }
       }
