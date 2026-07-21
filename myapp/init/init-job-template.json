@@ -4292,11 +4292,11 @@
   },
   "paddlejob": {
     "project_name": "深度学习",
-    "image_name": "python:3.9",
+    "image_name": "10.121.177.20:8082/mlops/paddle-job:20260720",
     "gitpath": "/job-template/job/paddle",
     "image_describe": "paddle分布式训练",
     "job_template_name": "paddlejob",
-    "job_template_describe": "paddle 分布式训练(开发中)",
+    "job_template_describe": "paddle 分布式训练",
     "job_template_command": "python3 launcher.py",
     "job_template_volume": "",
     "job_template_account": "kubeflow-pipeline",
@@ -4306,7 +4306,59 @@
       "rec_job_template": "自定义镜像",
       "help_url": "/job-template/job/paddle"
     },
-    "job_template_args": {}
+    "job_template_args": {
+      "分布式训练": {
+        "--image": {
+          "type": "str",
+          "item_type": "str",
+          "label": "镜像",
+          "require": 1,
+          "choice": [],
+          "range": "",
+          "default": "10.121.177.20:8082/mlops/paddlepaddle/paddle:3.3.1",
+          "placeholder": "",
+          "describe": "Master/Worker Pod 使用的训练环境镜像，需要包含 PaddlePaddle、Python 依赖以及训练代码运行所需环境",
+          "editable": 1
+        },
+        "--working_dir": {
+          "type": "str",
+          "item_type": "str",
+          "label": "启动目录",
+          "require": 1,
+          "choice": [],
+          "range": "",
+          "default": "/mnt/{{creator}}/pipeline/example/paddle",
+          "placeholder": "",
+          "describe": "命令的启动目录",
+          "editable": 1
+        },
+        "--command": {
+          "type": "str",
+          "item_type": "str",
+          "label": "启动命令",
+          "require": 1,
+          "choice": [],
+          "range": "",
+          "default": "bash start.sh",
+          "placeholder": "启动命令，例如 python3 xxx.py",
+          "describe": "启动命令，例如 python3 xxx.py。对于镜像中不包含的环境，可以在启动后脚本内自行现场安装",
+          "editable": 1
+        },
+        "--num_worker": {
+          "type": "str",
+          "item_type": "str",
+          "label": "worker数量",
+          "require": 1,
+          "choice": [],
+          "range": "",
+          "default": "3",
+          "placeholder": "分布式训练worker的数目",
+          "describe": "分布式训练总节点数，包含1个master",
+          "editable": 1,
+          "regex": "^[0-9]*$"
+        }
+      }
+    }
   },
   "deepspeed": {
     "project_name": "分布式加速",
