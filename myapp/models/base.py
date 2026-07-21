@@ -311,7 +311,9 @@ class MyappModelBase():
         "pre_train_model": _("预训练模型"),
         "source": _("来源"),
         "hot": _("热度"),
-        "price": _("价格")
+        "price": _("价格"),
+        "suspend": _("暂停"),
+        "resume": _("恢复"),
     }
 
     # print(label_columns)

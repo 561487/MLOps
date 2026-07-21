@@ -92,6 +92,10 @@ class Workflow_ModelView_Base():
     spec_label_columns = {
         "final_status": _('删除前状态')
     }
+    label_columns = {
+        "suspend": _("暂停"),
+        "resume": _("恢复"),
+    }
     show_columns = ['name', 'namespace', 'create_time', 'status', 'task_status', 'annotations_html', 'labels_html', 'spec_html', 'status_more_html', 'info_json_html']
     crd_name = 'workflow'
     order_columns = ['id']
