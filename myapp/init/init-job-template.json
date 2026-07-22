@@ -951,7 +951,6 @@
           "default": "arithmetic",
           "placeholder": "",
           "describe": "arithmetic=两列四则运算; polynomial=多项式展开; custom=自定义表达式; all_pairs=所有列对组合(add/sub/mul)",
-          "describe": "arithmetic=两列四则运算; polynomial=多项式展开; custom=自定义表达式; all_pairs=所有列对组合(add/sub/mul)",
           "editable": 1
         },
         "--combine_columns": {
