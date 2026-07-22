@@ -5238,7 +5238,7 @@
   },
   "llama-factory": {
     "project_name": "模型处理",
-    "image_name": "10.121.177.20:8082/mlops/llama_factory:20250712",
+    "image_name": "10.121.177.20:8082/mlops/llama_factory:20260718-swanlab-monitor",
     "gitpath": "/job-template/job/llama_factory",
     "image_describe": "llama-factory微调",
     "job_template_name": "llama-factory",
@@ -5263,7 +5263,7 @@
           "require": 1,
           "choice": [],
           "range": "",
-          "default": "Qwen/Qwen2.5-7B-Instruct",
+          "default": "/mnt/storage/models-share-volume/models/Qwen3-0.6B",
           "placeholder": "",
           "describe": "预训练模型名称或路径",
           "editable": 1
@@ -5277,8 +5277,8 @@
           "require": 0,
           "choice": [],
           "range": "",
-          "default": "",
-          "placeholder": "identity",
+          "default": "yuki_identity_sft",
+          "placeholder": "yuki_identity_sft",
           "describe": "训练数据集名称，对应dataset_info.json中的数据集名，支持多个用逗号分隔",
           "editable": 1
         },
@@ -5289,8 +5289,8 @@
           "require": 0,
           "choice": [],
           "range": "",
-          "default": "",
-          "placeholder": "/mnt/admin/data/alpaca",
+          "default": "/mnt/storage/models-share-volume/datasets/lora-dataset",
+          "placeholder": "/mnt/storage/models-share-volume/datasets/lora-dataset",
           "describe": "数据集目录路径，包含数据集JSON文件和dataset_info.json。留空则使用默认identity数据集",
           "editable": 1
         },
@@ -5403,8 +5403,8 @@
           "require": 0,
           "choice": [],
           "range": "",
-          "default": "",
-          "placeholder": "/mnt/storage/models-storage/output/lora",
+          "default": "/mnt/storage/models-share-volume/output/lora",
+          "placeholder": "/mnt/storage/models-share-volume/output/lora",
           "describe": "模型保存路径，不填写则自动生成",
           "editable": 1
         }
