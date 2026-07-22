@@ -391,7 +391,7 @@ def dag_to_pipeline(pipeline, dbsession, workflow_label=None, **kwargs):
             container_envs.append(("MLOPS_TRAINING_MONITOR_TYPE", "swanlab"))
             # 使用 K8s Pod 可访问的地址，不能用 Docker Compose 内部 DNS 名 myapp
             _register_url = conf.get('MLOPS_MONITOR_REGISTER_URL',
-                                     'http://10.121.177.155:18080/training_monitor/api/register')
+                                     'http://10.121.177.20:30080/training_monitor/api/register')
             container_envs.append(("MLOPS_MONITOR_REGISTER_URL", _register_url))
             container_envs.append(("MLOPS_PIPELINE_RUN_ID", _run_id))
             container_envs.append(("MLOPS_WORKFLOW_NAME", _pipeline_name))
@@ -414,7 +414,7 @@ def dag_to_pipeline(pipeline, dbsession, workflow_label=None, **kwargs):
             #   2. lightgbm / hyperparam-search / hyperparam-search-nni → cloud
             #   3. config.py SWANLAB_MODE（全局默认，当前为 local）
             #   4. 兜底 local
-            _cloud_default_templates = ('hyperparam-search', 'hyperparam-search-nni', 'lightgbm', 'gbdt', 'model-distillation')
+            _cloud_default_templates = ('hyperparam-search', 'hyperparam-search-nni', 'lightgbm', 'gbdt', 'model-distillation', 'llama-factory')
             _user_mode = (_swanlab_task_args.get('swanlab_mode') or '').strip().lower()
             if _user_mode:
                 # Normalize "online" to "cloud" (official SDK name vs MLOps convention)
