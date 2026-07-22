@@ -631,7 +631,7 @@ class Task_ModelView_Base():
 
             # MLOps 侧变量
             _register_url = conf.get('MLOPS_MONITOR_REGISTER_URL',
-                                     'http://10.121.177.155:18080/training_monitor/api/register')
+                                     'http://10.121.177.10:18080/training_monitor/api/register')
             task_env += "MLOPS_TRAINING_MONITOR_ENABLE=true\n"
             task_env += "MLOPS_TRAINING_MONITOR_TYPE=swanlab\n"
             task_env += f"MLOPS_MONITOR_REGISTER_URL={_register_url}\n"
@@ -652,7 +652,7 @@ class Task_ModelView_Base():
                                   conf.get('SWANLAB_WORKSPACE', 'haimian_baobao'))
 
             _user_mode = (_swanlab_task_args.get('swanlab_mode') or '').strip().lower()
-            _cloud_defaults = ('hyperparam-search', 'hyperparam-search-nni', 'lightgbm', 'gbdt', 'model-distillation')
+            _cloud_defaults = ('hyperparam-search', 'hyperparam-search-nni', 'lightgbm', 'gbdt', 'model-distillation', 'llama-factory')
             if _user_mode:
                 _swanlab_mode = 'cloud' if _user_mode == 'online' else _user_mode
             elif _job_template_name in _cloud_defaults:
