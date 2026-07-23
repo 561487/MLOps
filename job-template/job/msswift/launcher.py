@@ -82,6 +82,35 @@ CRD_INFO = {
     "timeout": 60 * 60 * 24 * 2
 }
 
+MONITOR_PORT = int(os.getenv("MLOPS_MONITOR_MASTER_PORT", "29501"))
+MONITOR_TOKEN = os.getenv("MLOPS_MONITOR_TOKEN", "") or uuid.uuid4().hex
+MONITOR_ENV_KEYS = (
+    "MLOPS_TRAINING_MONITOR_ENABLE",
+    "MLOPS_TRAINING_MONITOR_TYPE",
+    "MLOPS_MONITOR_REGISTER_URL",
+    "MLOPS_PIPELINE_RUN_ID",
+    "MLOPS_PIPELINE_ID",
+    "MLOPS_WORKFLOW_NAME",
+    "MLOPS_TASK_ID",
+    "MLOPS_TASK_NAME",
+    "MLOPS_NODE_NAME",
+    "MLOPS_JOB_TEMPLATE_NAME",
+    "SWANLAB_MODE",
+    "SWANLAB_API_HOST",
+    "SWANLAB_WEB_HOST",
+    "SWANLAB_PROJ_NAME",
+    "SWANLAB_WORKSPACE",
+    "SWANLAB_EXP_NAME",
+    "SWANLAB_GROUP",
+    "SWANLAB_TAGS",
+    "SWANLAB_PROBE_MONITOR_INTERVAL",
+    "SWANLAB_METRIC_LEVEL",
+)
+
+
+def _monitor_enabled():
+    return os.getenv("MLOPS_TRAINING_MONITOR_ENABLE", "").lower() == "true"
+
 
 def default_job_name():
     name = "msswift-" + KFJ_PIPELINE_NAME.replace('_', '-') + "-" + uuid.uuid4().hex[:4]
@@ -145,8 +174,87 @@ def monitoring(crd_k8s, name, namespace):
         time.sleep(60)
 
 
+def create_monitor_service(name):
+    """Expose the master metric aggregator to Worker Pods."""
+    if not _monitor_enabled():
+        return
+    service_name = name + "-monitor"
+    api = client.CoreV1Api()
+    try:
+        api.delete_namespaced_service(
+            name=service_name,
+            namespace=KFJ_NAMESPACE,
+            body=client.V1DeleteOptions())
+    except Exception:
+        pass
+    body = client.V1Service(
+        metadata=client.V1ObjectMeta(
+            name=service_name,
+            namespace=KFJ_NAMESPACE,
+            labels={"component": name, "monitor": "msswift"}),
+        spec=client.V1ServiceSpec(
+            selector={
+                "training.kubeflow.org/job-name": name,
+                "training.kubeflow.org/replica-type": "master",
+            },
+            ports=[client.V1ServicePort(
+                name="monitor",
+                port=MONITOR_PORT,
+                target_port=MONITOR_PORT)]))
+    try:
+        api.create_namespaced_service(namespace=KFJ_NAMESPACE, body=body)
+        print("created monitor service: %s:%d" %
+              (service_name, MONITOR_PORT), flush=True)
+    except Exception as error:
+        # Monitoring is fail-open; training submission must continue.
+        print("WARNING: cannot create monitor service %s: %s" %
+              (service_name, error), flush=True)
+
+
+def delete_monitor_service(name):
+    if not _monitor_enabled():
+        return
+    try:
+        client.CoreV1Api().delete_namespaced_service(
+            name=name + "-monitor",
+            namespace=KFJ_NAMESPACE,
+            body=client.V1DeleteOptions())
+    except Exception:
+        pass
+
+
 def make_pytorchjob(name, num_workers, image, command):
     """组装 PyTorchJob CRD，从 pytorch 模板复刻"""
+    monitor_env = []
+    if _monitor_enabled():
+        for key in MONITOR_ENV_KEYS:
+            value = os.environ.get(key)
+            if value is not None and value != "":
+                monitor_env.append({"name": key, "value": str(value)})
+        monitor_env.extend([
+            {"name": "MLOPS_DISTRIBUTED_HARDWARE_ENABLE", "value": "true"},
+            {"name": "MLOPS_MONITOR_MASTER_ADDR", "value": name + "-monitor"},
+            {"name": "MLOPS_MONITOR_MASTER_PORT", "value": str(MONITOR_PORT)},
+            {"name": "MLOPS_MONITOR_EXPECTED_NODES", "value": str(num_workers)},
+            {"name": "MLOPS_MONITOR_TOKEN", "value": MONITOR_TOKEN},
+            {"name": "K8S_POD_NAME", "valueFrom": {
+                "fieldRef": {"fieldPath": "metadata.name"}}},
+        ])
+        if os.getenv("SWANLAB_MODE", "").lower() in ("cloud", "online"):
+            monitor_env.append({
+                "name": "SWANLAB_API_KEY",
+                "valueFrom": {
+                    "secretKeyRef": {
+                        "name": "swanlab-secret",
+                        "key": "SWANLAB_API_KEY",
+                    }
+                }
+            })
+        command = (
+            "exec python3 /mnt/swift_training_wrapper.py -- bash -lc %s" %
+            shlex.quote(command)
+        )
+
     pod_spec = {
         "replicas": 1,
         "restartPolicy": "Never",
@@ -196,7 +304,8 @@ def make_pytorchjob(name, num_workers, image, command):
                         {"name": "NCCL_SOCKET_IFNAME", "value": os.getenv("NCCL_SOCKET_IFNAME", "eth0")},
                         {"name": "MODELSCOPE_CACHE", "value": "/mnt/%s/.cache/modelscope" % KFJ_CREATOR},
                         {"name": "GPU_NUM", "value": str(int(gpu_num))},
-                    ],
+                    ] + monitor_env,
+                    "ports": [{"name": "swift-monitor", "containerPort": MONITOR_PORT}],
                     "command": ["bash", "-c", command],
                     "volumeMounts": k8s_volume_mounts,
                     "resources": {
@@ -230,6 +339,14 @@ def make_pytorchjob(name, num_workers, image, command):
 
     worker_pod_spec = copy.deepcopy(pod_spec)
     worker_pod_spec['replicas'] = int(num_workers) - 1
+
+    if _monitor_enabled():
+        pod_spec['template']['spec']['containers'][0]['env'].append({
+            "name": "MLOPS_MONITOR_ROLE", "value": "primary"
+        })
+        worker_pod_spec['template']['spec']['containers'][0]['env'].append({
+            "name": "MLOPS_MONITOR_ROLE", "value": "worker"
+        })
 
     pytorch_deploy = {
         "apiVersion": "kubeflow.org/v1",
@@ -277,6 +394,7 @@ def launch_pytorchjob(name, num_workers, image, command):
     print(json.dumps(pytorchjob_json, indent=2, ensure_ascii=False), flush=True)
     k8s_client.create_crd(group=CRD_INFO['group'], version=CRD_INFO['version'],
                           plural=CRD_INFO['plural'], namespace=KFJ_NAMESPACE, body=pytorchjob_json)
+    create_monitor_service(name)
     time.sleep(10)
 
     print('begin monitoring pytorchjob', flush=True)
@@ -307,6 +425,7 @@ def launch_pytorchjob(name, num_workers, image, command):
         group=CRD_INFO['group'], version=CRD_INFO['version'],
         plural=CRD_INFO['plural'], namespace=KFJ_NAMESPACE, name=name)
     print("pytorchjob %s finished, status: %s" % (name, pytorchjob.get('status', 'unknown')))
+    delete_monitor_service(name)
 
     if pytorchjob.get('status') != 'Succeeded':
         exit(1)
@@ -757,13 +876,17 @@ def arg_parser():
                         help='Megatron activation recompute strategy')
 
     # RLHF 专属. PPO remains parseable for old workflows but is rejected with a clear error.
-    parser.add_argument('--rlhf_type', type=str, default='dpo', choices=['dpo', 'grpo', 'ppo'])
+    parser.add_argument('--rlhf_type', type=str, default='dpo', choices=['dpo', 'grpo', 'ppo', 'kto'])
     parser.add_argument('--ref_model', type=str, default='')
     parser.add_argument('--ref_adapters', type=str, default='')
     parser.add_argument('--beta', type=float, default=-1,
                         help='RLHF beta; -1 preserves the framework/algorithm default')
     parser.add_argument('--loss_type', type=str, default='')
     parser.add_argument('--label_smoothing', type=float, default=-1)
+    # KTO fields are accepted for form compatibility. RLHF+KTO remains
+    # rejected by validate_args until the algorithm is implemented.
+    parser.add_argument('--desirable_weight', type=float, default=1.0)
+    parser.add_argument('--undesirable_weight', type=float, default=1.0)
     parser.add_argument('--num_generations', type=int, default=2,
                         help='GRPO completions per prompt')
     parser.add_argument('--reward_funcs', type=str, default='format,repetition',
