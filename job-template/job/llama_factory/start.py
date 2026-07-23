@@ -11,12 +11,16 @@ llama_factory LoRA 微调任务启动脚本
 """
 
 import argparse
+import ast
 import json
 import os
+import re
 import subprocess
 import sys
 import textwrap
 from datetime import datetime
+
+from common.training_monitor import TrainingMonitor
 
 
 def has_cuda():
@@ -190,7 +194,7 @@ def install_llamafactory():
     return True
 
 
-def run_training(config_path):
+def run_training(config_path, monitor):
     """执行 LLaMAFactory 训练"""
     cmd = ["llamafactory-cli", "train", config_path]
     print(f"[start.py] 执行命令: {' '.join(cmd)}")
@@ -199,6 +203,18 @@ def run_training(config_path):
     process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
     for line in process.stdout:
         print(line, end="", flush=True)
+        # 解析 LLaMAFactory 输出的指标行: {'loss': ..., 'learning_rate': ..., 'epoch': ...}
+        line_stripped = line.strip()
+        if line_stripped.startswith("{") and line_stripped.endswith("}"):
+            try:
+                metrics = ast.literal_eval(line_stripped)
+                if isinstance(metrics, dict):
+                    # 只保留数值类型的指标
+                    numeric_metrics = {k: v for k, v in metrics.items() if isinstance(v, (int, float))}
+                    if numeric_metrics:
+                        monitor.log(numeric_metrics)
+            except Exception:
+                pass
     return process.wait()
 
 
@@ -594,116 +610,143 @@ def main():
     print("  llama_factory LoRA 微调任务 - 启动")
     print("=" * 60)
 
-    # 1. 打印环境信息
-    print(f"[start.py] 工作目录: {os.getcwd()}")
-    print(f"[start.py] Python: {sys.version}")
-    for key in ["KFJ_CREATOR", "KFJ_PIPELINE_NAME", "KFJ_TASK_NAME", "HF_ENDPOINT"]:
-        print(f"[start.py] {key}: {os.environ.get(key, '(未设置)')}")
+    # 0. 创建 TrainingMonitor（日志目录由环境变量 SWANLAB_LOGDIR 控制）
+    monitor = TrainingMonitor()
+    final_status = "FAILED"
+    exit_code = 1
 
-    # 2. 解析参数
-    args = parse_args()
-    print(f"[start.py] 解析参数:")
-    for k, v in vars(args).items():
-        print(f"    --{k}: {v}")
+    try:
+        # 1. 打印环境信息
+        print(f"[start.py] 工作目录: {os.getcwd()}")
+        print(f"[start.py] Python: {sys.version}")
+        for key in ["KFJ_CREATOR", "KFJ_PIPELINE_NAME", "KFJ_TASK_NAME", "HF_ENDPOINT"]:
+            print(f"[start.py] {key}: {os.environ.get(key, '(未设置)')}")
 
-    # 3. 解析输出目录
-    output_dir = resolve_output_dir(args)
+        # 2. 解析参数
+        args = parse_args()
+        print(f"[start.py] 解析参数:")
+        for k, v in vars(args).items():
+            print(f"    --{k}: {v}")
 
-    # 4. 构建训练配置
-    config = build_config(args, output_dir)
+        # 3. 解析输出目录
+        output_dir = resolve_output_dir(args)
 
-    # 5. 安装 LLamaFactory
-    if not install_llamafactory():
-        sys.exit(1)
+        # 4. 构建训练配置
+        config = build_config(args, output_dir)
 
-    # 5b. 确定数据集目录
-    if args.dataset_dir:
-        # 用户指定了数据集目录
-        data_dir = args.dataset_dir
-        if not os.path.isdir(data_dir):
-            print(f"[start.py] 错误：数据集目录不存在: {data_dir}")
+        # 5. 安装 LLamaFactory
+        if not install_llamafactory():
             sys.exit(1)
-        print(f"[start.py] 使用用户指定的数据集目录: {data_dir}")
 
-        # 每次运行时自动检测并生成 dataset_info.json（覆盖已有文件）
-        print(f"[start.py] 正在自动检测数据集格式并生成 dataset_info.json...")
-        _auto_create_dataset_info(data_dir)
-    else:
-        # 未指定数据集目录，创建默认的 data/ 目录
-        data_dir = os.path.join(os.getcwd(), "data")
-        os.makedirs(data_dir, exist_ok=True)
+        # 6. 启动 SwanLab 监控
+        monitor.start()
 
-        # dataset_info.json
-        dataset_info_path = os.path.join(data_dir, "dataset_info.json")
-        if not os.path.exists(dataset_info_path):
-            default_dataset_info = {
-                "identity": {
-                    "file_name": "identity.json",
-                    "columns": {
-                        "prompt": "instruction",
-                        "query": "input",
-                        "response": "output"
+        # 7. 确定数据集目录
+        if args.dataset_dir:
+            # 用户指定了数据集目录
+            data_dir = args.dataset_dir
+            if not os.path.isdir(data_dir):
+                print(f"[start.py] 错误：数据集目录不存在: {data_dir}")
+                sys.exit(1)
+            print(f"[start.py] 使用用户指定的数据集目录: {data_dir}")
+
+            # 每次运行时自动检测并生成 dataset_info.json（覆盖已有文件）
+            print(f"[start.py] 正在自动检测数据集格式并生成 dataset_info.json...")
+            _auto_create_dataset_info(data_dir)
+        else:
+            # 未指定数据集目录，创建默认的 data/ 目录
+            data_dir = os.path.join(os.getcwd(), "data")
+            os.makedirs(data_dir, exist_ok=True)
+
+            # dataset_info.json
+            dataset_info_path = os.path.join(data_dir, "dataset_info.json")
+            if not os.path.exists(dataset_info_path):
+                default_dataset_info = {
+                    "identity": {
+                        "file_name": "identity.json",
+                        "columns": {
+                            "prompt": "instruction",
+                            "query": "input",
+                            "response": "output"
+                        }
                     }
                 }
-            }
-            with open(dataset_info_path, "w", encoding="utf-8") as f:
-                json.dump(default_dataset_info, f, ensure_ascii=False, indent=2)
-            print(f"[start.py] 已创建 {dataset_info_path}")
+                with open(dataset_info_path, "w", encoding="utf-8") as f:
+                    json.dump(default_dataset_info, f, ensure_ascii=False, indent=2)
+                print(f"[start.py] 已创建 {dataset_info_path}")
 
-        # identity.json（无论 dataset_info.json 是否已存在都要保证有）
-        identity_path = os.path.join(data_dir, "identity.json")
-        if not os.path.exists(identity_path):
-            identity_data = [
-                {"instruction": "介绍一下你自己", "input": "", "output": "我是 Qwen，一个由阿里云开发的大语言模型。"},
-                {"instruction": "Who are you?", "input": "", "output": "I am Qwen, a large language model developed by Alibaba Cloud."},
-                {"instruction": "你好", "input": "", "output": "你好！我是 Qwen，有什么可以帮助你的吗？"},
-                {"instruction": "Hello", "input": "", "output": "Hello! I am Qwen, how can I help you?"},
-            ]
-            with open(identity_path, "w", encoding="utf-8") as f:
-                json.dump(identity_data, f, ensure_ascii=False, indent=2)
-            print(f"[start.py] 已创建 {identity_path}")
+            # identity.json（无论 dataset_info.json 是否已存在都要保证有）
+            identity_path = os.path.join(data_dir, "identity.json")
+            if not os.path.exists(identity_path):
+                identity_data = [
+                    {"instruction": "介绍一下你自己", "input": "", "output": "我是 Qwen，一个由阿里云开发的大语言模型。"},
+                    {"instruction": "Who are you?", "input": "", "output": "I am Qwen, a large language model developed by Alibaba Cloud."},
+                    {"instruction": "你好", "input": "", "output": "你好！我是 Qwen，有什么可以帮助你的吗？"},
+                    {"instruction": "Hello", "input": "", "output": "Hello! I am Qwen, how can I help you?"},
+                ]
+                with open(identity_path, "w", encoding="utf-8") as f:
+                    json.dump(identity_data, f, ensure_ascii=False, indent=2)
+                print(f"[start.py] 已创建 {identity_path}")
 
-        print(f"[start.py] 使用默认数据集目录: {data_dir}")
+            print(f"[start.py] 使用默认数据集目录: {data_dir}")
 
-    config["dataset_dir"] = data_dir
+        config["dataset_dir"] = data_dir
 
-    # 写入配置（在补充好所有字段后）
-    config_path = os.path.join(output_dir, "train_config.yaml")
-    write_config_yaml(config, config_path)
+        # 写入配置（在补充好所有字段后）
+        config_path = os.path.join(output_dir, "train_config.yaml")
+        write_config_yaml(config, config_path)
 
-    # 6. 执行训练
-    exit_code = run_training(config_path)
+        # 8. 执行训练（传入 monitor 以便实时上报指标）
+        exit_code = run_training(config_path, monitor)
 
-    # 7. 训练完成后合并 LoRA 到基础模型
-    merged_dir = None
-    if exit_code == 0:
-        print("=" * 60)
-        print("  开始合并 LoRA 到基础模型...")
-        print("=" * 60)
-
-        adapter_path = output_dir  # LoRA 适配器保存在 output_dir
-        merge_exit_code, merged_dir = merge_lora(args.model_name, adapter_path, output_dir)
-
-        if merge_exit_code == 0:
+        # 9. 训练完成后合并 LoRA 到基础模型
+        merged_dir = None
+        if exit_code == 0:
             print("=" * 60)
-            print(f"  LoRA 合并完成 ✅  合并后模型: {merged_dir}")
+            print("  开始合并 LoRA 到基础模型...")
             print("=" * 60)
+
+            adapter_path = output_dir  # LoRA 适配器保存在 output_dir
+            merge_exit_code, merged_dir = merge_lora(args.model_name, adapter_path, output_dir)
+
+            if merge_exit_code == 0:
+                print("=" * 60)
+                print(f"  LoRA 合并完成 ✅  合并后模型: {merged_dir}")
+                print("=" * 60)
+                final_status = "SUCCEEDED"
+            else:
+                print("=" * 60)
+                print(f"  LoRA 合并失败 ⚠️  退出码: {merge_exit_code}")
+                print("  仅保存了 LoRA 适配器，未生成完整模型")
+                print("=" * 60)
+                final_status = "FAILED"
         else:
-            print("=" * 60)
-            print(f"  LoRA 合并失败 ⚠️  退出码: {merge_exit_code}")
-            print("  仅保存了 LoRA 适配器，未生成完整模型")
-            print("=" * 60)
+            final_status = "FAILED"
 
-    # 8. 结果
-    print("=" * 60)
-    if exit_code == 0:
-        if merged_dir:
-            print(f"  训练完成 ✅  完整模型保存至: {merged_dir}")
+        # 10. 结果
+        print("=" * 60)
+        if exit_code == 0:
+            if merged_dir:
+                print(f"  训练完成 ✅  完整模型保存至: {merged_dir}")
+            else:
+                print(f"  训练完成 ✅  LoRA适配器保存至: {output_dir}")
         else:
-            print(f"  训练完成 ✅  LoRA适配器保存至: {output_dir}")
-    else:
-        print(f"  训练失败 ❌  退出码: {exit_code}")
-    print("=" * 60)
+            print(f"  训练失败 ❌  退出码: {exit_code}")
+        print("=" * 60)
+
+    except SystemExit:
+        raise
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        print(f"[start.py] 未捕获异常: {e}")
+        final_status = "FAILED"
+    finally:
+        try:
+            monitor.finish(final_status)
+        except Exception as e:
+            print(f"[start.py] monitor.finish 警告: {e}", flush=True)
+
     sys.exit(exit_code)
 
 

@@ -787,7 +787,7 @@ SWANLAB_LOGDIR = '/mnt/storage/swanlab/swanlog'
 
 # 监控回调注册地址（训练容器 -> MLOps 后端）
 # 部署时需根据实际 MLOps 后端地址配置，例如：
-#   MLOPS_MONITOR_REGISTER_URL = 'http://<mlops-host>:<port>/training_monitor/api/register'
+MLOPS_MONITOR_REGISTER_URL = 'http://10.121.177.20:30080/training_monitor/api/register'
 # 不配置则使用代码默认值（Docker Compose 环境适用，K8s 环境需显式配置）
 
 # 可选：register 接口 token 校验，为空则跳过
