@@ -11,7 +11,6 @@ RUN /usr/local/bin/python -m pip install --upgrade pip && \
     pandas==2.2.2 \
     scipy==1.11.4 \
     scikit-learn==1.3.2 \
-    xgboost==2.0.3 \
     joblib==1.3.2 \
     threadpoolctl==3.5.0
 
