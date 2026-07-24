@@ -74,8 +74,8 @@ class TrainingMonitor:
         "hardware/gpu_0_temperature_c", "hardware/gpu_0_power_w",
     })
     # prefix-based allowlist for dynamic keys
-    _BASIC_PREFIXES = ("fold/", "best_params/", "train/", "config/", "gpu/", "metrics/", "error/",
-                       "experiment/", "trial/", "dataset/")
+    _BASIC_PREFIXES = ("fold/", "best_params/", "train/", "config/", "gpu/", "hardware/", "cluster/",
+                       "metrics/", "error/", "experiment/", "trial/", "dataset/")
 
     def __init__(self):
         self._swanlab = None
