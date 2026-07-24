@@ -2212,6 +2212,8 @@ class K8s():
     def get_pod_phase(self, name, namespace):
         try:
             pod = self.v1.read_namespaced_pod(name=name, namespace=namespace, _request_timeout=5)
+            if pod.metadata and pod.metadata.deletion_timestamp:
+                return 'Terminating'
             return pod.status.phase if pod.status else ''
         except ApiException as e:
             if e.status == 404:

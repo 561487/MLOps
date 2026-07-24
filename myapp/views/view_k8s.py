@@ -352,12 +352,14 @@ class K8s_View(BaseMyappView):
                     "message": _('您暂无权限查看此pod日志，仅管理员和创建者可以查看'),
                 }
         # 打开iframe页面
-        host_url = "//"+ conf.get("CLUSTERS", {}).get(cluster_name, {}).get("HOST", request.host).split('|')[-1]
+        # 使用同源路径，通过 nginx 反向代理到 Istio gateway，避免 cookie 跨域导致 401
+        # nginx location /k8s/dashboard/ -> proxy_pass http://<istio-gateway>:30080
+        dashboard_prefix = conf.get('K8S_DASHBOARD_USER', '/k8s/dashboard/user1/')
 
         if '127.0.0.1' in request.host or 'localhost' in request.host:
-            return redirect(host_url+f'{self.route_base}/web/log/{cluster_name}/{namespace}/{pod_name}{("/"+container_name) if container_name else ""}')
+            return redirect(f'{dashboard_prefix}#/log/{namespace}/{pod_name}/pod?namespace={namespace}&container={container_name if container_name else pod_name}')
 
-        pod_url = host_url + conf.get('K8S_DASHBOARD_USER','/k8s/dashboard/user1/') + "#/log/%s/%s/pod?namespace=%s&container=%s" % (namespace, pod_name, namespace, container_name if container_name else pod_name)
+        pod_url = dashboard_prefix + "#/log/%s/%s/pod?namespace=%s&container=%s" % (namespace, pod_name, namespace, container_name if container_name else pod_name)
         print(pod_url)
         kubeconfig = all_clusters[cluster_name].get('KUBECONFIG', '')
 
@@ -415,17 +417,18 @@ class K8s_View(BaseMyappView):
                     "message": _('您暂无权限查看此pod日志，仅管理员和创建者可以查看'),
                 }
         # 打开iframe页面
-        host_url = "//"+ conf.get("CLUSTERS", {}).get(cluster_name, {}).get("HOST", request.host).split('|')[-1]
+        # 使用同源路径，通过 nginx 反向代理到 Istio gateway，避免 cookie 跨域导致 401
+        dashboard_prefix = conf.get('K8S_DASHBOARD_USER', '/k8s/dashboard/user1/')
 
         if '127.0.0.1' in request.host or 'localhost' in request.host:
             if container_name:
-                return redirect(host_url+f'{self.route_base}/web/debug/{cluster_name}/{namespace}/{pod_name}/{container_name}')
+                return redirect(f'{dashboard_prefix}#/shell/{namespace}/{pod_name}/{container_name}?namespace={namespace}')
             else:
-                return redirect(host_url + f'{self.route_base}/web/debug/{cluster_name}/{namespace}/{pod_name}')
+                return redirect(f'{dashboard_prefix}#/shell/{namespace}/{pod_name}?namespace={namespace}')
         if container_name:
-            pod_url = host_url + conf.get('K8S_DASHBOARD_USER','/k8s/dashboard/user1/') + '#/shell/%s/%s/%s?namespace=%s' % (namespace, pod_name, container_name, namespace)
+            pod_url = dashboard_prefix + '#/shell/%s/%s/%s?namespace=%s' % (namespace, pod_name, container_name, namespace)
         else:
-            pod_url = host_url + conf.get('K8S_DASHBOARD_USER','/k8s/dashboard/user1/') + '#/shell/%s/%s?namespace=%s' % (namespace, pod_name, namespace)
+            pod_url = dashboard_prefix + '#/shell/%s/%s?namespace=%s' % (namespace, pod_name, namespace)
         # print(pod_url)
         data = {
             "url": pod_url,
@@ -460,9 +463,10 @@ class K8s_View(BaseMyappView):
                     "message": _('您暂无权限查看此pod日志，仅管理员和创建者可以查看'),
                 }
         # 打开iframe页面
-        host_url = "//"+ conf.get("CLUSTERS", {}).get(cluster_name, {}).get("HOST", request.host).split('|')[-1]
+        # 使用同源路径，通过 nginx 反向代理到 Istio gateway，避免 cookie 跨域导致 401
+        dashboard_prefix = conf.get('K8S_DASHBOARD_USER', '/k8s/dashboard/user1/')
 
-        pod_url = host_url + conf.get('K8S_DASHBOARD_USER','/k8s/dashboard/user1/') + '#/pod/%s/%s?namespace=%s' % (namespace, pod_name, namespace)
+        pod_url = dashboard_prefix + '#/pod/%s/%s?namespace=%s' % (namespace, pod_name, namespace)
         # print(pod_url)
         data = {
             "url": pod_url,

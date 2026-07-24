@@ -9776,5 +9776,188 @@
         }
       }
     }
+  },
+  "serverops-data-curation": {
+    "project_name": "文本处理",
+    "image_name": "10.121.177.20:8082/mlops/serverops-data-curation:20260723",
+    "gitpath": "/job-template/job/serverops-data-curation",
+    "image_describe": "服务器运维领域SFT数据集下载、筛选、去重与格式化",
+    "job_template_name": "serverops-data-curation",
+    "job_template_describe": "从ModelScope下载公开数据，筛选ServerOps样本并输出MS-SWIFT格式数据集",
+    "job_template_version": "Release",
+    "job_template_workdir": "/app",
+    "job_template_command": "python3 launcher.py",
+    "job_template_volume": "models-storage(storage):/mnt/storage/models-storage",
+    "job_template_account": "",
+    "job_template_env": "",
+    "job_template_expand": {
+      "index": 1,
+      "rec_job_template": "自定义镜像",
+      "help_url": "/job-template/job/serverops-data-curation"
+    },
+    "job_template_args": {
+      "数据源": {
+        "--dataset_id": {
+          "type": "str",
+          "item_type": "str",
+          "label": "ModelScope数据集",
+          "require": 1,
+          "choice": [],
+          "range": "",
+          "default": "hcnote/Cybersecurity-High-Quality-Dataset",
+          "placeholder": "namespace/dataset-name",
+          "describe": "ModelScope公开数据集ID；原始目录没有数据时自动下载",
+          "editable": 1
+        },
+        "--revision": {
+          "type": "str",
+          "item_type": "str",
+          "label": "数据集版本",
+          "require": 0,
+          "choice": [],
+          "range": "",
+          "default": "master",
+          "placeholder": "master",
+          "describe": "ModelScope数据集revision",
+          "editable": 1
+        },
+        "--raw_dir": {
+          "type": "str",
+          "item_type": "str",
+          "label": "原始数据目录",
+          "require": 1,
+          "choice": [],
+          "range": "",
+          "default": "/mnt/storage/models-storage/dataset/cybersecurity-raw",
+          "placeholder": "/mnt/storage/models-storage/dataset/cybersecurity-raw",
+          "describe": "PVC中的原始数据目录；节点只读使用已有文件",
+          "editable": 1
+        },
+        "--download_if_missing": {
+          "type": "str",
+          "item_type": "str",
+          "label": "缺失时下载",
+          "require": 0,
+          "choice": ["true", "false"],
+          "range": "",
+          "default": "true",
+          "placeholder": "",
+          "describe": "原始目录无JSON/JSONL/Parquet时是否从ModelScope下载",
+          "editable": 1
+        }
+      },
+      "输出设置": {
+        "--output_dir": {
+          "type": "str",
+          "item_type": "str",
+          "label": "输出目录",
+          "require": 1,
+          "choice": [],
+          "range": "",
+          "default": "/mnt/storage/models-storage/dataset/cybersecurity-serverops-v1",
+          "placeholder": "/mnt/storage/models-storage/dataset/cybersecurity-serverops-v1",
+          "describe": "MS-SWIFT训练集、元数据和统计报告输出目录",
+          "editable": 1
+        },
+        "--target_size": {
+          "type": "int",
+          "item_type": "int",
+          "label": "目标样本数",
+          "require": 0,
+          "choice": [],
+          "range": "1,270271",
+          "default": "60000",
+          "placeholder": "60000",
+          "describe": "按领域配额和质量分数最多保留的样本数",
+          "editable": 1
+        },
+        "--overwrite": {
+          "type": "str",
+          "item_type": "str",
+          "label": "覆盖已有输出",
+          "require": 0,
+          "choice": ["false", "true"],
+          "range": "",
+          "default": "false",
+          "placeholder": "",
+          "describe": "false时发现_SUCCESS直接跳过；正式数据不建议覆盖",
+          "editable": 1
+        }
+      },
+      "筛选设置": {
+        "--min_domain_score": {
+          "type": "int",
+          "item_type": "int",
+          "label": "最低领域分",
+          "require": 0,
+          "choice": [],
+          "range": "1,20",
+          "default": "3",
+          "placeholder": "3",
+          "describe": "Linux/K8s/GPU/NCCL等关键词加权相关性阈值",
+          "editable": 1
+        },
+        "--min_quality_score": {
+          "type": "int",
+          "item_type": "int",
+          "label": "最低质量分",
+          "require": 0,
+          "choice": [],
+          "range": "1,10",
+          "default": "5",
+          "placeholder": "5",
+          "describe": "综合长度、结构、命令和风险提示的质量阈值",
+          "editable": 1
+        },
+        "--simhash_distance": {
+          "type": "int",
+          "item_type": "int",
+          "label": "近似去重距离",
+          "require": 0,
+          "choice": [],
+          "range": "0,8",
+          "default": "3",
+          "placeholder": "3",
+          "describe": "64位SimHash汉明距离阈值；越大去重越严格",
+          "editable": 1
+        },
+        "--max_source_records": {
+          "type": "int",
+          "item_type": "int",
+          "label": "最多扫描条数",
+          "require": 0,
+          "choice": [],
+          "range": "0,270271",
+          "default": "0",
+          "placeholder": "0",
+          "describe": "0为全量；冒烟测试建议5000",
+          "editable": 1
+        },
+        "--add_empty_think": {
+          "type": "str",
+          "item_type": "str",
+          "label": "添加Qwen3空思考前缀",
+          "require": 0,
+          "choice": ["true", "false"],
+          "range": "",
+          "default": "true",
+          "placeholder": "",
+          "describe": "true时assistant增加空think；训练需loss_scale=ignore_empty_think",
+          "editable": 1
+        },
+        "--seed": {
+          "type": "int",
+          "item_type": "int",
+          "label": "随机种子",
+          "require": 0,
+          "choice": [],
+          "range": "0,2147483647",
+          "default": "42",
+          "placeholder": "42",
+          "describe": "保证筛选、同分排序和切分可复现",
+          "editable": 1
+        }
+      }
+    }
   }
 }

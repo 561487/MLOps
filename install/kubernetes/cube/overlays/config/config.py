@@ -765,7 +765,7 @@ TRAINING_JOB_TEMPLATES = [
     'kmean', 'bayesian', 'adaboost', 'arima', 'ar',
     # 大模型微调
     'llama-factory', 'llama-factory-ppo', 'llama-factory-rm', 'llama-factory-sft',
-    'baichuan2', 'chatglm4', 'deepseek', 'llama3', 'qwen3',
+    'baichuan2', 'chatglm4', 'deepseek', 'llama3', 'qwen3', 'msswift',
     # 模型操作（评估/转换/蒸馏/裁剪/量化/注册/离线预测）
     'model-evaluate', 'model-convert', 'model-distillation', 'model-download',
     'model-prune', 'model-quantization', 'model-register', 'model-offline-predict',
@@ -787,8 +787,8 @@ SWANLAB_LOGDIR = '/mnt/storage/swanlab/swanlog'
 
 # 监控回调注册地址（训练容器 -> MLOps 后端）
 # 部署时需根据实际 MLOps 后端地址配置，例如：
-MLOPS_MONITOR_REGISTER_URL = 'http://10.121.177.20:30080/training_monitor/api/register'
-# 不配置则使用代码默认值（Docker Compose 环境适用，K8s 环境需显式配置）
+#   MLOPS_MONITOR_REGISTER_URL = 'http://<mlops-host>:<port>/training_monitor/api/register'
+MLOPS_MONITOR_REGISTER_URL = 'http://10.121.177.93/training_monitor/api/register'
 
 # 可选：register 接口 token 校验，为空则跳过
 MLOPS_MONITOR_REGISTER_TOKEN = ''
