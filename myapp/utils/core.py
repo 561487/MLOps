@@ -1534,6 +1534,14 @@ def check_resource_gpu(resource_gpu, src_resource_gpu=None):
 
         return gpu_num
 
+    shared_count, _, _ = get_gpu_shared_resource(resource_gpu)
+    if shared_count and str(resource_gpu) != str(src_resource_gpu or ''):
+        raise MyappException(_('GPU 共享请使用 HAMI 格式，例如 0.5、10G,50 或 10G,50(A100)'))
+
+    hami_gpu = get_hami_gpu(resource_gpu)
+    if hami_gpu.get('enabled'):
+        return str(resource_gpu)
+
     gpu_num, gpu_type, resource_name = get_gpu(resource_gpu)
     # 处理虚拟化占用方式，只识别比例部分
     gpu_num = float(str(gpu_num).split(',')[-1])
@@ -1652,15 +1660,106 @@ def get_gpu(resource_gpu,resource_name=None):
     return gpu_num, gpu_type, resource_name
 
 
-def get_gpu_shared_resource(resource_gpu, resource_name=None):
+def _parse_hami_gpu_memory(memory):
+    memory = str(memory or '').strip().upper()
+    if not memory:
+        return None
+    if memory.endswith('G'):
+        return int(float(memory[:-1]) * 1024)
+    if memory.endswith('M'):
+        return int(float(memory[:-1]))
+    return int(float(memory))
+
+
+def get_hami_gpu(resource_gpu, resource_name=None):
     from myapp import conf
 
+    result = {
+        "enabled": False,
+        "gpu": 0,
+        "gpumem": None,
+        "gpucores": None,
+        "gpu_type": None,
+        "resource_name": resource_name or conf.get('HAMI_GPU_RESOURCE_NAME', conf.get('DEFAULT_GPU_RESOURCE_NAME', 'nvidia.com/gpu')),
+        "memory_resource_name": conf.get('HAMI_GPU_MEMORY_RESOURCE_NAME', 'nvidia.com/gpumem'),
+        "core_resource_name": conf.get('HAMI_GPU_CORE_RESOURCE_NAME', 'nvidia.com/gpucores'),
+    }
+    if not conf.get('ENABLE_HAMI', False):
+        return result
+
+    gpu_num, gpu_type, _ = get_gpu(resource_gpu, result["resource_name"])
+    result["gpu_type"] = gpu_type
+    try:
+        if isinstance(gpu_num, (int, float)) and 0 < float(gpu_num) < 1:
+            result.update({
+                "enabled": True,
+                "gpu": 1,
+                "gpucores": int(round(float(gpu_num) * 100)),
+            })
+        elif isinstance(gpu_num, str) and ',' in gpu_num:
+            gpumem, gpucores = [part.strip() for part in gpu_num.replace('，', ',').split(',', 1)]
+            result.update({
+                "enabled": True,
+                "gpu": 1,
+                "gpumem": _parse_hami_gpu_memory(gpumem),
+                "gpucores": int(float(gpucores)),
+            })
+    except Exception as e:
+        raise MyappException(_('HAMI GPU 格式错误，请使用 0.5、10G,50 或 10G,50(A100)')) from e
+
+    if result["enabled"] and not 1 <= int(result["gpucores"]) <= 100:
+        raise MyappException(_('HAMI GPU 算力比例必须在 1 到 100 之间'))
+    return result
+
+
+def get_gpu_shared_resource(resource_gpu, resource_name=None):
     gpu_num, gpu_type, _ = get_gpu(resource_gpu)
     if isinstance(gpu_num, (int, float)) and gpu_num < 0:
-        shared_resource_name = resource_name or conf.get('GPU_SHARED_RESOURCE_NAME', 'nvidia.com/gpu.shared')
-        return 1, gpu_type, shared_resource_name
+        return 1, gpu_type, resource_name
 
     return 0, gpu_type, None
+
+
+def normalize_gpu_node_selector(node_selector, resource_gpu, model_type=None):
+    selectors = {}
+    for selector in re.split(';|\n|\t', str(node_selector or '')):
+        selector = selector.strip()
+        if selector and '=' in selector:
+            key, value = selector.split('=', 1)
+            selectors[key.strip()] = value.strip()
+
+    for key in ['mps', 'hami', 'gpu-plugin', 'vgpu']:
+        selectors.pop(key, None)
+
+    hami_gpu = get_hami_gpu(resource_gpu)
+    gpu_num, _, _ = get_gpu(resource_gpu)
+    shared_count, _, _ = get_gpu_shared_resource(resource_gpu)
+    if shared_count:
+        raise MyappException(_('GPU 共享请使用 HAMI 格式，例如 0.5、10G,50 或 10G,50(A100)'))
+
+    from myapp import conf
+    if hami_gpu.get('enabled'):
+        selectors.pop('cpu', None)
+        selectors.update(conf.get('HAMI_NODE_SELECTOR', {
+            "gpu": "true",
+            "hami": "true",
+            "gpu-plugin": "hami",
+        }))
+    elif isinstance(gpu_num, (int, float)) and gpu_num >= 1:
+        selectors.pop('cpu', None)
+        selectors.update(conf.get('NVIDIA_GPU_NODE_SELECTOR', {
+            "gpu": "true",
+            "gpu-plugin": "nvidia",
+        }))
+    elif gpu_num == 0:
+        selectors.pop('gpu', None)
+        selectors['cpu'] = 'true'
+
+    if model_type:
+        selectors[model_type] = 'true'
+    if 'org' not in selectors:
+        selectors['org'] = 'public'
+    return ';'.join(['%s=%s' % (key, selectors[key]) for key in sorted(selectors)])
 
 # @pysnooper.snoop()
 def get_rdma(resource_rdma,resource_name=None):
