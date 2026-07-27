@@ -635,6 +635,8 @@ def dag_to_pipeline(pipeline, dbsession, workflow_label=None, **kwargs):
                 nodeSelector['gpu-type'] = gpu_type.strip().upper()
 
             if hami_gpu.get('enabled'):
+                pod_label.pop('hami.io/webhook', None)
+                pod_annotations.pop('hami.io/webhook', None)
                 nodeSelector.pop('cpu', None)
                 for selector_key, selector_value in conf.get('HAMI_NODE_SELECTOR', {}).items():
                     nodeSelector[selector_key] = selector_value
@@ -651,6 +653,8 @@ def dag_to_pipeline(pipeline, dbsession, workflow_label=None, **kwargs):
                 nodeSelector.pop('cpu', None)
                 for selector_key, selector_value in conf.get('NVIDIA_GPU_NODE_SELECTOR', {'gpu': 'true'}).items():
                     nodeSelector[selector_key] = selector_value
+                pod_label['hami.io/webhook'] = 'ignore'
+                pod_annotations['hami.io/webhook'] = 'ignore'
                 resources_requests[gpu_resource_name] = str(int(gpu_num))
                 resources_limits[gpu_resource_name] = str(int(gpu_num))
 
