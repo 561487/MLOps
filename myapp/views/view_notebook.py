@@ -197,7 +197,7 @@ class Notebook_ModelView_Base():
         self.add_form_extra_fields['resource_gpu'] = StringField(
             _('gpu'),
             default='0',
-            description= _('申请的gpu卡数目，示例:2为独占整卡。负数为共享GPU模式，每个容器申请1个共享GPU份额。小数(0.1)为vgpu方式，申请具体的卡型号，可以类似 1(V100)'),
+            description= _('申请的gpu资源，示例:2为独占整卡；0.5为 HAMI 半卡；10G,50 为 HAMI 显存10G、算力50%；申请具体卡型号可写 1(V100) 或 10G,50(A100)。共享 GPU 使用 HAMI 格式'),
             widget=BS3TextFieldWidget(),
             validators=[DataRequired(),Regexp('^[\-\.0-9,a-zA-Z\(\)]*$')]
         )
@@ -244,6 +244,7 @@ class Notebook_ModelView_Base():
 
         item.resource_memory=core.check_resource_memory(item.resource_memory,self.src_item_json.get('resource_memory',None))
         item.resource_cpu = core.check_resource_cpu(item.resource_cpu,self.src_item_json.get('resource_cpu',None))
+        item.resource_gpu = core.check_resource_gpu(item.resource_gpu, self.src_item_json.get('resource_gpu', None))
         if not item.namespace:
             item.namespace = item.project.notebook_namespace
 

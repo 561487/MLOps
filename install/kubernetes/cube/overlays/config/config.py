@@ -715,10 +715,19 @@ GPU_RESOURCE={
     "gpu":"nvidia.com/gpu"
 }
 DEFAULT_GPU_RESOURCE_NAME='nvidia.com/gpu'
-GPU_SHARED_RESOURCE_NAME='nvidia.com/gpu.shared'
-GPU_SHARED_NODE_SELECTOR={
+ENABLE_HAMI=True
+GPU_SCHEDULERNAME='hami-scheduler'
+HAMI_GPU_RESOURCE_NAME='nvidia.com/gpu'
+HAMI_GPU_MEMORY_RESOURCE_NAME='nvidia.com/gpumem'
+HAMI_GPU_CORE_RESOURCE_NAME='nvidia.com/gpucores'
+HAMI_NODE_SELECTOR={
     "gpu":"true",
-    "mps":"true"
+    "hami":"true",
+    "gpu-plugin":"hami"
+}
+NVIDIA_GPU_NODE_SELECTOR={
+    "gpu":"true",
+    "gpu-plugin":"nvidia"
 }
 
 # 配置禁用gpu的方法，不然对复合共用型机器，gpu会被共享使用
