@@ -349,8 +349,6 @@ def dag_to_pipeline(pipeline, dbsession, workflow_label=None, **kwargs):
 
         # 设置task的默认环境变量
         gpu_num, _, gpu_resource_name = core.get_gpu(task.resource_gpu)
-        if isinstance(gpu_num, (int, float)) and gpu_num < 0:
-            _, _, gpu_resource_name = core.get_gpu_shared_resource(task.resource_gpu)
         container_envs.append(("KFJ_TASK_ID", str(task.id)))
         container_envs.append(("KFJ_TASK_NAME", str(task.name)))
         container_envs.append(("KFJ_TASK_NODE_SELECTOR", str(task.get_node_selector())))
@@ -362,7 +360,6 @@ def dag_to_pipeline(pipeline, dbsession, workflow_label=None, **kwargs):
         container_envs.append(("KFJ_TASK_RESOURCE_GPU", str(task.resource_gpu)))
         container_envs.append(("KFJ_TASK_PROJECT_NAME", str(pipeline.project.name)))
         container_envs.append(("GPU_RESOURCE_NAME", gpu_resource_name))
-        container_envs.append(("GPU_SHARED_RESOURCE_NAME", conf.get('GPU_SHARED_RESOURCE_NAME', 'nvidia.com/gpu.shared')))
         container_envs.append(("USERNAME", pipeline.created_by.username))
         container_envs.append(("IMAGE_PULL_POLICY", conf.get('IMAGE_PULL_POLICY','IfNotPresent')))
         if hubsecret_list:
@@ -632,29 +629,34 @@ def dag_to_pipeline(pipeline, dbsession, workflow_label=None, **kwargs):
 
         if resource_gpu:
 
+            hami_gpu = core.get_hami_gpu(resource_gpu)
             gpu_num, gpu_type, gpu_resource_name = core.get_gpu(resource_gpu)
             if gpu_type and gpu_type.strip():
                 nodeSelector['gpu-type'] = gpu_type.strip().upper()
 
-            # 整卡占用
-            if gpu_num >= 1:
+            if hami_gpu.get('enabled'):
+                pod_label.pop('hami.io/webhook', None)
+                pod_annotations.pop('hami.io/webhook', None)
                 nodeSelector.pop('cpu', None)
-                nodeSelector['gpu'] = 'true'
-                nodeSelector['mps'] = 'false'
+                for selector_key, selector_value in conf.get('HAMI_NODE_SELECTOR', {}).items():
+                    nodeSelector[selector_key] = selector_value
+                resources_requests[hami_gpu['resource_name']] = str(hami_gpu['gpu'])
+                resources_limits[hami_gpu['resource_name']] = str(hami_gpu['gpu'])
+                if hami_gpu.get('gpumem'):
+                    resources_requests[hami_gpu['memory_resource_name']] = str(hami_gpu['gpumem'])
+                    resources_limits[hami_gpu['memory_resource_name']] = str(hami_gpu['gpumem'])
+                resources_requests[hami_gpu['core_resource_name']] = str(hami_gpu['gpucores'])
+                resources_limits[hami_gpu['core_resource_name']] = str(hami_gpu['gpucores'])
+
+            # 整卡占用
+            if isinstance(gpu_num, (int, float)) and gpu_num >= 1 and not hami_gpu.get('enabled'):
+                nodeSelector.pop('cpu', None)
+                for selector_key, selector_value in conf.get('NVIDIA_GPU_NODE_SELECTOR', {'gpu': 'true'}).items():
+                    nodeSelector[selector_key] = selector_value
+                pod_label['hami.io/webhook'] = 'ignore'
+                pod_annotations['hami.io/webhook'] = 'ignore'
                 resources_requests[gpu_resource_name] = str(int(gpu_num))
                 resources_limits[gpu_resource_name] = str(int(gpu_num))
-
-            shared_count, _, shared_resource_name = core.get_gpu_shared_resource(resource_gpu)
-            if shared_count:
-                nodeSelector.pop('cpu', None)
-                for selector_key, selector_value in conf.get('GPU_SHARED_NODE_SELECTOR', {}).items():
-                    nodeSelector[selector_key] = selector_value
-                resources_requests[shared_resource_name] = str(shared_count)
-                resources_limits[shared_resource_name] = str(shared_count)
-                k8s_volume_mounts = [mount for mount in k8s_volume_mounts if mount.get("mountPath") != "/dev/shm"]
-                k8s_volumes = [volume for volume in k8s_volumes if volume.get("name") != "dshm"]
-                print(f"pipeline k8s_volume_mounts: {k8s_volume_mounts}")
-                print(f"pipeline k8s_volumes: {k8s_volumes}")
 
             if 0 == gpu_num:
                 # 没要gpu的容器，就要加上可视gpu为空，不然gpu镜像能看到和使用所有gpu
@@ -765,6 +767,8 @@ def dag_to_pipeline(pipeline, dbsession, workflow_label=None, **kwargs):
             ],
             "activeDeadlineSeconds": task.timeout if task.timeout else None
         }
+        if core.get_hami_gpu(resource_gpu).get('enabled'):
+            task_template["schedulerName"] = conf.get('GPU_SCHEDULERNAME', 'hami-scheduler')
         if priority_class:
             task_template["priorityClassName"] = priority_class
 
