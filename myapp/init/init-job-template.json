@@ -9378,7 +9378,7 @@
     "project_name": "模型处理",
     "image_name": "10.121.177.20:8082/mlops/gptqmodel:3.1.1",
     "gitpath": "/job-template/job/llm_quantize",
-    "image_describe": "LLM量化(GPTQModel)",
+    "image_describe": "LLM量化(GPTQModel/AutoAWQ/BnB)",
     "job_template_name": "model-quantization",
     "job_template_describe": "大模型量化",
     "job_template_command": "python3 /app/launcher.py",
@@ -9423,23 +9423,29 @@
             "--bits": {
                 "type": "int",
                 "default": 4,
-                "range": "2,8",
-                "step": 1,
-                "describe": "量化位数，推荐 4bit",
+                "choice": [
+                    4,
+                    8
+                ],
+                "describe": "量化位数：GPTQ 支持 4/8，AWQ 仅支持 4，BnB 支持 4/8",
                 "editable": 1
             },
             "--group_size": {
                 "type": "int",
                 "default": 128,
-                "range": "32,256",
-                "step": 32,
-                "describe": "GPTQ 分组大小，128 是标准值",
+                "choice": [
+                    32,
+                    64,
+                    128,
+                    256
+                ],
+                "describe": "GPTQ 分组大小，推荐 128",
                 "editable": 1
             },
             "--dataset": {
                 "type": "str",
                 "default": "/mnt/storage/models-storage/datasets/wikitext2",
-                "describe": "校准数据集路径（完整路径或短名称 wikitext2）",
+                "describe": "GPTQ/AWQ 校准集：目录、CSV/JSON/JSONL/TXT 文件或 HuggingFace 数据集名",
                 "item_type": "str",
                 "editable": 1
             },
@@ -9448,7 +9454,13 @@
                 "default": 128,
                 "range": "16,1024",
                 "step": 16,
-                "describe": "GPTQ 校准使用的样本数量",
+                "describe": "GPTQ/AWQ 校准样本数（平台 16~1024；CLI 1~10000）",
+                "editable": 1
+            },
+            "--force": {
+                "type": "bool",
+                "default": false,
+                "describe": "允许复用非空输出目录；仅确认覆盖时开启",
                 "editable": 1
             }
         }
