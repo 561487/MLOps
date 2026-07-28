@@ -1534,9 +1534,9 @@ def check_resource_gpu(resource_gpu, src_resource_gpu=None):
 
         return gpu_num
 
-    shared_count, _, _ = get_gpu_shared_resource(resource_gpu)
+    shared_count, shared_gpu_type, shared_resource_name = get_gpu_shared_resource(resource_gpu)
     if shared_count and str(resource_gpu) != str(src_resource_gpu or ''):
-        raise MyappException(_('GPU 共享请使用 HAMI 格式，例如 0.5、10G,50 或 10G,50(A100)'))
+        raise MyappException(_('GPU 共享请使用 HAMI 格式，例如 0.5、4.5、10G,50、60G,100 或 10G,50(A100)'))
 
     hami_gpu = get_hami_gpu(resource_gpu)
     if hami_gpu.get('enabled'):
@@ -1548,7 +1548,7 @@ def check_resource_gpu(resource_gpu, src_resource_gpu=None):
 
     src_gpu_num = 0
     if src_resource_gpu:
-        src_gpu_num, _, _ = get_gpu(src_resource_gpu)
+        src_gpu_num, src_gpu_type, src_resource_name = get_gpu(src_resource_gpu)
         src_gpu_num = float(str(src_gpu_num).split(',')[-1])
 
     if hasattr(g,'user') and not g.user.is_admin():
@@ -1671,6 +1671,12 @@ def _parse_hami_gpu_memory(memory):
     return int(float(memory))
 
 
+def _get_hami_gpu_memory_config(conf):
+    device_memory = int(float(conf.get('HAMI_GPU_DEVICE_MEMORY_GB', 48)) * 1024)
+    max_memory = int(float(conf.get('HAMI_GPU_MAX_MEMORY_GB', 380)) * 1024)
+    return device_memory, max_memory
+
+
 def get_hami_gpu(resource_gpu, resource_name=None):
     from myapp import conf
 
@@ -1687,25 +1693,36 @@ def get_hami_gpu(resource_gpu, resource_name=None):
     if not conf.get('ENABLE_HAMI', False):
         return result
 
-    gpu_num, gpu_type, _ = get_gpu(resource_gpu, result["resource_name"])
+    gpu_num, gpu_type, parsed_resource_name = get_gpu(resource_gpu, result["resource_name"])
     result["gpu_type"] = gpu_type
     try:
-        if isinstance(gpu_num, (int, float)) and 0 < float(gpu_num) < 1:
+        if isinstance(gpu_num, (int, float)) and float(gpu_num) > 0 and not float(gpu_num).is_integer():
+            gpu_count = int(math.ceil(float(gpu_num)))
             result.update({
                 "enabled": True,
-                "gpu": 1,
-                "gpucores": int(round(float(gpu_num) * 100)),
+                "gpu": gpu_count,
+                "gpucores": int(round(float(gpu_num) / gpu_count * 100)),
             })
         elif isinstance(gpu_num, str) and ',' in gpu_num:
             gpumem, gpucores = [part.strip() for part in gpu_num.replace('，', ',').split(',', 1)]
+            gpumem = _parse_hami_gpu_memory(gpumem)
+            gpucores = int(float(gpucores))
+            if not 1 <= gpucores <= 100:
+                raise MyappException(_('HAMI GPU 算力比例必须在 1 到 100 之间'))
+            device_memory, max_memory = _get_hami_gpu_memory_config(conf)
+            if not 0 < gpumem < max_memory:
+                raise MyappException(_('HAMI GPU 显存必须大于 0G 且小于 %(max_memory)sG') % {'max_memory': int(max_memory / 1024)})
+            gpu_count = int(math.ceil(float(gpumem) / device_memory))
             result.update({
                 "enabled": True,
-                "gpu": 1,
-                "gpumem": _parse_hami_gpu_memory(gpumem),
-                "gpucores": int(float(gpucores)),
+                "gpu": gpu_count,
+                "gpumem": int(math.ceil(float(gpumem) / gpu_count)),
+                "gpucores": max(1, int(gpucores / gpu_count)),
             })
+    except MyappException:
+        raise
     except Exception as e:
-        raise MyappException(_('HAMI GPU 格式错误，请使用 0.5、10G,50 或 10G,50(A100)')) from e
+        raise MyappException(_('HAMI GPU 格式错误，请使用 0.5、4.5、10G,50、60G,100 或 10G,50(RTX4090)')) from e
 
     if result["enabled"] and not 1 <= int(result["gpucores"]) <= 100:
         raise MyappException(_('HAMI GPU 算力比例必须在 1 到 100 之间'))
@@ -1732,10 +1749,10 @@ def normalize_gpu_node_selector(node_selector, resource_gpu, model_type=None):
         selectors.pop(key, None)
 
     hami_gpu = get_hami_gpu(resource_gpu)
-    gpu_num, _, _ = get_gpu(resource_gpu)
-    shared_count, _, _ = get_gpu_shared_resource(resource_gpu)
+    gpu_num, gpu_type, gpu_resource_name = get_gpu(resource_gpu)
+    shared_count, shared_gpu_type, shared_resource_name = get_gpu_shared_resource(resource_gpu)
     if shared_count:
-        raise MyappException(_('GPU 共享请使用 HAMI 格式，例如 0.5、10G,50 或 10G,50(A100)'))
+        raise MyappException(_('GPU 共享请使用 HAMI 格式，例如 0.5、4.5、10G,50、60G,100 或 10G,50(RTX4090)'))
 
     from myapp import conf
     if hami_gpu.get('enabled'):

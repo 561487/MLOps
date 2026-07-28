@@ -247,7 +247,7 @@ class NNI_ModelView_Base():
     edit_form_extra_fields['resource_gpu'] = StringField(
         _('gpu'),
         default='0',
-        description=_('申请的gpu卡数目，示例:2为独占整卡。负数为共享GPU模式，每个容器申请1个共享GPU份额，小数(0.1)为vgpu方式，申请具体的卡型号，可以类似 1(V100)'),
+        description=_('申请的gpu资源，示例:2为独占整卡；0.5、4.5 为 HAMI 总量配额；10G,50、60G,100 为 HAMI 显存总量和算力总量；申请具体卡型号可写 1(RTX4090) 或 10G,50(RTX4090)。非整数 GPU 使用 HAMI 格式'),
         widget=BS3TextFieldWidget(),
         validators=[DataRequired(),Regexp('^[\-\.0-9,a-zA-Z\(\)]*$')]
     )
@@ -406,11 +406,24 @@ class NNI_ModelView_Base():
             }
         }
 
+        hami_gpu = core.get_hami_gpu(nni.resource_gpu)
         gpu_num,gpu_type,resource_name = core.get_gpu(nni.resource_gpu)
-        gpu_num = math.ceil(float(str(gpu_num).replace('，',',').split(',')[-1]))
-        if gpu_num>0:
-            resources['requests'][resource_name] = gpu_num
-            resources['limits'][resource_name] = gpu_num
+        if hami_gpu.get('enabled'):
+            task_master_spec['metadata']['labels'].pop('hami.io/webhook', None)
+            task_master_spec['metadata']['annotations'].pop('hami.io/webhook', None)
+            task_master_spec['spec']['schedulerName'] = conf.get('GPU_SCHEDULERNAME', 'hami-scheduler')
+            resources['requests'][hami_gpu['resource_name']] = str(hami_gpu['gpu'])
+            resources['limits'][hami_gpu['resource_name']] = str(hami_gpu['gpu'])
+            if hami_gpu.get('gpumem'):
+                resources['requests'][hami_gpu['memory_resource_name']] = str(hami_gpu['gpumem'])
+                resources['limits'][hami_gpu['memory_resource_name']] = str(hami_gpu['gpumem'])
+            resources['requests'][hami_gpu['core_resource_name']] = str(hami_gpu['gpucores'])
+            resources['limits'][hami_gpu['core_resource_name']] = str(hami_gpu['gpucores'])
+        elif isinstance(gpu_num, (int, float)) and gpu_num >= 1:
+            task_master_spec['metadata']['labels']['hami.io/webhook'] = 'ignore'
+            task_master_spec['metadata']['annotations']['hami.io/webhook'] = 'ignore'
+            resources['requests'][resource_name] = str(int(gpu_num))
+            resources['limits'][resource_name] = str(int(gpu_num))
         task_master_spec['spec']['containers'][0]['resources']=resources
         return task_master_spec
 

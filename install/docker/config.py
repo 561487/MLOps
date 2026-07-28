@@ -721,6 +721,8 @@ GPU_SCHEDULERNAME='hami-scheduler'
 HAMI_GPU_RESOURCE_NAME='nvidia.com/gpu'
 HAMI_GPU_MEMORY_RESOURCE_NAME='nvidia.com/gpumem'
 HAMI_GPU_CORE_RESOURCE_NAME='nvidia.com/gpucores'
+HAMI_GPU_DEVICE_MEMORY_GB=48
+HAMI_GPU_MAX_MEMORY_GB=380
 HAMI_NODE_SELECTOR={
     "gpu":"true",
     "hami":"true",
