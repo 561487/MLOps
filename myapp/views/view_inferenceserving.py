@@ -279,7 +279,7 @@ sglang：支持大语言模型高性能推理服务，模型地址通常为本�
                                     validators=[DataRequired(),Regexp("^[0-9]+$")]),
         "host": StringField(_('域名'), default=InferenceService.host.default.arg,description= _('访问域名，')+host_rule,widget=BS3TextFieldWidget(),validators=[Regexp('^[\x00-\x7F]*$')]),
         "transformer":StringField(_('前后置处理'), default=InferenceService.transformer.default.arg,description= _('前后置处理逻辑，用于原生开源框架的请求预处理和响应预处理，目前仅支持kfserving下框架'),widget=BS3TextFieldWidget()),
-        'resource_gpu':StringField(_('gpu'), default='0', description= _('申请的gpu资源，示例:2为独占整卡；0.5为 HAMI 半卡；10G,50 为 HAMI 显存10G、算力50%；申请具体卡型号可写 1(V100) 或 10G,50(A100)。共享 GPU 使用 HAMI 格式'),
+        'resource_gpu':StringField(_('gpu'), default='0', description= _('申请的gpu资源，示例:2为独占整卡；0.5、4.5 为 HAMI 总量配额；10G,50、60G,100 为 HAMI 显存总量和算力总量；申请具体卡型号可写 1(RTX4090) 或 10G,50(RTX4090)。非整数 GPU 使用 HAMI 格式'),
                                                         widget=BS3TextFieldWidget(),validators=[DataRequired(),Regexp('^[\-\.0-9,a-zA-Z\(\)]*$')]),
         "working_dir": StringField(_('工作目录'), description=_('工作目录，容器进程启动目录，不填默认使用Dockerfile内定义的工作目录。')+core.open_jupyter(_('打开目录'),'working_dir'),widget=BS3TextFieldWidget()),
 
@@ -1276,7 +1276,7 @@ output %s
         ports = [int(port) for port in service.ports.replace('，',',').split(',')]
         hami_gpu = core.get_hami_gpu(service.resource_gpu)
         gpu_num, _, _ = core.get_gpu(service.resource_gpu)
-        resource_gpu_value = round(float(hami_gpu.get('gpucores', 0)) / 100, 2) if hami_gpu.get('enabled') else str(gpu_num).replace('，', ',').split(',')[-1]
+        resource_gpu_value = round(float(hami_gpu.get('gpu', 0)) * float(hami_gpu.get('gpucores', 0)) / 100, 2) if hami_gpu.get('enabled') else str(gpu_num).replace('，', ',').split(',')[-1]
 
         pod_env = service.env.strip()
         pod_env += "\nKUBEFLOW_ENV=" + stag
@@ -1532,7 +1532,7 @@ output %s
                 hpas = re.split(',|;', service.hpa)
                 regex = re.compile(r"\(.*\)")
                 hami_gpu = core.get_hami_gpu(service.resource_gpu)
-                request_gpu = float(hami_gpu.get('gpucores', 0)) / 100 if hami_gpu.get('enabled') else float(regex.sub('', service.resource_gpu))
+                request_gpu = float(hami_gpu.get('gpu', 0)) * float(hami_gpu.get('gpucores', 0)) / 100 if hami_gpu.get('enabled') else float(regex.sub('', service.resource_gpu))
                 if request_gpu < 1:
                     for hpa in copy.deepcopy(hpas):
                         if 'gpu' in hpa:

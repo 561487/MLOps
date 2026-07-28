@@ -225,7 +225,7 @@ class Task_ModelView_Base():
         ),
     }
 
-    add_form_extra_fields['resource_gpu'] = StringField('gpu', default='0', description= _('gpu的资源使用配置，示例:1、2为独占整卡；0.5为 HAMI 半卡；10G,50 为 HAMI 显存10G、算力50%；申请具体卡型号可写 1(V100) 或 10G,50(A100)。共享 GPU 使用 HAMI 格式'),widget=BS3TextFieldWidget(),validators=[DataRequired(),Regexp('^[\-\.0-9,a-zA-Z\(\)]*$')])
+    add_form_extra_fields['resource_gpu'] = StringField('gpu', default='0', description= _('gpu的资源使用配置，示例:1、2为独占整卡；0.5、4.5 为 HAMI 总量配额；10G,50、60G,100 为 HAMI 显存总量和算力总量；申请具体卡型号可写 1(RTX4090) 或 10G,50(RTX4090)。非整数 GPU 使用 HAMI 格式'),widget=BS3TextFieldWidget(),validators=[DataRequired(),Regexp('^[\-\.0-9,a-zA-Z\(\)]*$')])
     add_form_extra_fields['resource_rdma'] = StringField('rdma', default='0', description= _('RDMA的资源使用配置，示例 0，1，10，填写方式咨询管理员'), widget=BS3TextFieldWidget())
 
     edit_form_extra_fields = add_form_extra_fields

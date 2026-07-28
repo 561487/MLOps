@@ -197,7 +197,7 @@ class Notebook_ModelView_Base():
         self.add_form_extra_fields['resource_gpu'] = StringField(
             _('gpu'),
             default='0',
-            description= _('申请的gpu资源，示例:2为独占整卡；0.5为 HAMI 半卡；10G,50 为 HAMI 显存10G、算力50%；申请具体卡型号可写 1(V100) 或 10G,50(A100)。共享 GPU 使用 HAMI 格式'),
+            description= _('申请的gpu资源，示例:2为独占整卡；0.5、4.5 为 HAMI 总量配额；10G,50、60G,100 为 HAMI 显存总量和算力总量；申请具体卡型号可写 1(RTX4090) 或 10G,50(RTX4090)。非整数 GPU 使用 HAMI 格式'),
             widget=BS3TextFieldWidget(),
             validators=[DataRequired(),Regexp('^[\-\.0-9,a-zA-Z\(\)]*$')]
         )

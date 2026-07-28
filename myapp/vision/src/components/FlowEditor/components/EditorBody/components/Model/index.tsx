@@ -362,7 +362,7 @@ const Model: React.FC<ModelProps> = props => {
           <RegexValidatedTextField
             label={t('GPU申请')}
             regex={/^[\-\.0-9,a-zA-Z\(\)]*$/}
-            description={t('gpu的资源使用配置，示例:1、2为独占整卡；0.5为 HAMI 半卡；10G,50 为 HAMI 显存10G、算力50%；申请具体卡型号可写 1(V100) 或 10G,50(A100)。共享 GPU 使用 HAMI 格式')}
+            description={t('gpu的资源使用配置，示例:1、2为独占整卡；0.5、4.5 为 HAMI 总量配额；10G,50、60G,100 为 HAMI 显存总量和算力总量；申请具体卡型号可写 1(RTX4090) 或 10G,50(RTX4090)。非整数 GPU 使用 HAMI 格式')}
             onChange={(event: FormEvent, value?: string) => {
               handleOnChange('resource_gpu', value ? value : '');
             }}
