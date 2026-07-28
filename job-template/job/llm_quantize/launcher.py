@@ -12,9 +12,8 @@ import time
 import traceback
 from pathlib import Path
 
-os.environ.setdefault("HF_DATASETS_CACHE", "/mnt/storage/models-storage/datasets/quantization-dataset/")
-
 MANIFEST_NAME = "quant_manifest.json"
+DEFAULT_MODEL_CACHE = "/mnt/storage/models-storage/modelscope-cache"
 DATASET_ROOTS = (
     "/mnt/storage/models-storage/datasets",
     "/mnt/storage/models-share-volume/datasets",
@@ -39,11 +38,23 @@ EMBEDDED_CALIBRATION_TEXTS = (
 )
 
 
+_ACTIVE_MONITOR = None
+_MONITOR_STARTED_CLOCK = None
+_MONITOR_EVENT_STEP = 0
+_STAGE_PROGRESS = {
+    "model_source": (1, 10), "model_download": (1, 10),
+    "validate": (2, 20), "calibration": (3, 35),
+    "load_model": (4, 50), "quantize": (5, 65),
+    "save_model": (6, 85), "complete": (7, 100), "skip": (7, 100),
+    "failed": (7, 100), "manifest_failed": (7, 100),
+}
+
 def _utc_now():
     return datetime.datetime.now(datetime.timezone.utc).isoformat()
 
 
 def _emit(stage: str, message: str, **details):
+    global _MONITOR_EVENT_STEP
     event = {
         "event": "quantization",
         "stage": stage,
@@ -52,6 +63,84 @@ def _emit(stage: str, message: str, **details):
     }
     event.update(details)
     print(json.dumps(event, ensure_ascii=False), flush=True)
+    if _ACTIVE_MONITOR is None:
+        return
+    try:
+        _MONITOR_EVENT_STEP += 1
+        stage_index, progress = _STAGE_PROGRESS.get(stage, (0, 0))
+        metrics = {
+            "metrics/stage_index": stage_index,
+            "metrics/progress_percent": progress,
+            "metrics/event_count": _MONITOR_EVENT_STEP,
+        }
+        if _MONITOR_STARTED_CLOCK is not None:
+            metrics["metrics/elapsed_seconds"] = round(
+                time.monotonic() - _MONITOR_STARTED_CLOCK, 3
+            )
+        for name, metric_name in {
+            "samples": "dataset/calibration_samples",
+            "file_count": "metrics/output_files",
+            "total_bytes": "metrics/output_size_bytes",
+            "bits": "config/bits",
+            "group_size": "config/group_size",
+        }.items():
+            value = details.get(name)
+            if isinstance(value, (int, float)) and not isinstance(value, bool):
+                metrics[metric_name] = value
+        _ACTIVE_MONITOR.log(metrics, step=_MONITOR_EVENT_STEP)
+    except Exception as monitor_error:
+        print(f"TrainingMonitor 指标记录失败: {monitor_error}", flush=True)
+
+
+def _create_monitor():
+    from common.training_monitor import TrainingMonitor
+    return TrainingMonitor()
+
+
+def _start_monitor(args):
+    global _ACTIVE_MONITOR, _MONITOR_STARTED_CLOCK, _MONITOR_EVENT_STEP
+    try:
+        monitor = _create_monitor()
+        monitor.start()
+        monitor.log({
+            "config/bits": int(args.bits),
+            "config/group_size": int(args.group_size),
+            "config/nsamples": int(args.nsamples),
+            "config/method_gptq": int(args.method == "gptq"),
+            "config/method_awq": int(args.method == "awq"),
+            "config/method_bnb": int(args.method == "bnb"),
+            "config/source_pvc": int(args.model_source == "pvc"),
+            "config/source_modelscope": int(args.model_source == "modelscope"),
+        }, step=0)
+        _ACTIVE_MONITOR = monitor
+        _MONITOR_STARTED_CLOCK = time.monotonic()
+        _MONITOR_EVENT_STEP = 0
+        return monitor
+    except Exception as monitor_error:
+        _ACTIVE_MONITOR = None
+        print(f"TrainingMonitor 初始化失败: {monitor_error}", flush=True)
+        return None
+
+
+def _finish_monitor(monitor, status, manifest=None):
+    global _ACTIVE_MONITOR, _MONITOR_STARTED_CLOCK, _MONITOR_EVENT_STEP
+    if monitor is None:
+        return
+    try:
+        if manifest:
+            artifacts = manifest.get("artifacts") or {}
+            monitor.log({
+                "metrics/duration_seconds": float(manifest.get("duration_seconds", 0)),
+                "metrics/output_files": int(artifacts.get("file_count", 0)),
+                "metrics/output_size_bytes": int(artifacts.get("total_bytes", 0)),
+            })
+        monitor.finish(status)
+    except Exception as monitor_error:
+        print(f"TrainingMonitor 结束失败: {monitor_error}", flush=True)
+    finally:
+        _ACTIVE_MONITOR = None
+        _MONITOR_STARTED_CLOCK = None
+        _MONITOR_EVENT_STEP = 0
 
 
 def _parse_bool(value):
@@ -74,12 +163,20 @@ def build_parser():
     parser.add_argument("--group_size", type=int,
                         default=int(os.getenv("QUANT_GROUP_SIZE", "128")),
                         help="GPTQ group size: 32/64/128/256")
+    parser.add_argument("--model_source", default=os.getenv("MODEL_SOURCE", "pvc"),
+                        choices=("pvc", "modelscope"),
+                        help="模型来源：PVC 路径或 ModelScope 模型 ID")
     parser.add_argument("--model", default=os.getenv("MODEL_PATH", ""),
-                        help="待量化模型路径或 HuggingFace Model ID")
+                        help="待量化模型的 PVC 绝对路径或 ModelScope 模型 ID")
+    parser.add_argument("--model_revision", default=os.getenv("MODEL_REVISION", "master"),
+                        help="ModelScope 模型版本，PVC 来源时忽略")
+    parser.add_argument("--model_cache",
+                        default=os.getenv("MODELSCOPE_CACHE", DEFAULT_MODEL_CACHE),
+                        help="ModelScope 模型下载到 PVC 的缓存目录")
     parser.add_argument("--output", default=os.getenv("OUTPUT_PATH", "/mnt/admin/models/quant"),
                         help="量化后模型保存路径")
     parser.add_argument("--dataset", default=os.getenv("QUANT_DATASET", "wikitext2"),
-                        help="GPTQ/AWQ 校准数据集路径、文件或 HuggingFace 数据集名称")
+                        help="GPTQ/AWQ 校准数据集的 PVC 路径、文件或 wikitext2 离线样本")
     parser.add_argument("--nsamples", type=int,
                         default=int(os.getenv("QUANT_NSAMPLES", "128")),
                         help="GPTQ/AWQ 校准样本数")
@@ -94,10 +191,18 @@ def validate_args(args):
         raise ValueError("MODEL_PATH/--model 未设置")
     if not str(args.output).strip():
         raise ValueError("OUTPUT_PATH/--output 未设置")
-    if os.path.isabs(args.model) and not os.path.exists(args.model):
-        raise FileNotFoundError(f"模型路径不存在: {args.model}")
-    if os.path.exists(args.model) and os.path.realpath(args.model) == os.path.realpath(args.output):
-        raise ValueError("输出目录不能与输入模型目录相同")
+    if args.model_source == "pvc":
+        if not os.path.isabs(args.model):
+            raise ValueError("PVC 模型必须使用绝对路径")
+        if not os.path.isdir(args.model):
+            raise FileNotFoundError(f"PVC 模型目录不存在: {args.model}")
+        if os.path.realpath(args.model) == os.path.realpath(args.output):
+            raise ValueError("输出目录不能与输入模型目录相同")
+    elif args.model_source == "modelscope":
+        if not str(args.model_revision).strip():
+            raise ValueError("ModelScope model_revision 不能为空")
+        if not os.path.isabs(args.model_cache):
+            raise ValueError("ModelScope model_cache 必须是 PVC 绝对路径")
     if not 1 <= args.nsamples <= 10000:
         raise ValueError("nsamples 必须在 1 到 10000 之间")
 
@@ -115,6 +220,31 @@ def validate_args(args):
             raise ValueError("AWQ 必须提供校准数据集")
     elif args.method == "bnb" and args.bits not in (4, 8):
         raise ValueError("bitsandbytes 仅支持 4、8 bit")
+
+
+def _resolve_model(args):
+    if args.model_source == "pvc":
+        resolved = os.path.realpath(args.model)
+        _emit("model_source", "使用 PVC 模型目录", source="pvc", path=resolved)
+        return resolved
+
+    from modelscope import snapshot_download
+
+    os.makedirs(args.model_cache, exist_ok=True)
+    _emit("model_download", "从 ModelScope 下载模型",
+          source="modelscope", model_id=args.model,
+          revision=args.model_revision, cache_dir=args.model_cache)
+    resolved = snapshot_download(
+        args.model,
+        revision=args.model_revision,
+        cache_dir=args.model_cache,
+    )
+    if not resolved or not os.path.isdir(resolved):
+        raise FileNotFoundError(f"ModelScope 下载结果不是有效模型目录: {resolved}")
+    resolved = os.path.realpath(resolved)
+    _emit("model_download", "ModelScope 模型已缓存到 PVC",
+          source="modelscope", model_id=args.model, path=resolved)
+    return resolved
 
 
 def _copy_tokenizer(src: str, dst: str):
@@ -198,14 +328,8 @@ def _load_calib_text(dataset: str, nsamples: int):
         _emit("calibration", "校准数据路径不存在，使用内嵌离线样本",
               source="embedded:wikitext2", samples=len(texts))
         return texts
-    if os.path.isabs(dataset):
-        raise FileNotFoundError(f"校准数据集路径不存在: {dataset}")
-
-    from datasets import load_dataset
-    _emit("calibration", "从 HuggingFace 加载校准数据", source=dataset)
-    texts = _extract_texts(load_dataset(dataset, split="train", trust_remote_code=True), nsamples)
-    _emit("calibration", "校准数据加载完成", source=dataset, samples=len(texts))
-    return texts
+    candidates = ", ".join(_dataset_candidates(dataset))
+    raise FileNotFoundError(f"校准数据集不存在，仅支持 PVC/本地路径: {candidates}")
 
 
 def quantize_gptq(model_path, output, bits, group_size, dataset, nsamples):
@@ -220,6 +344,7 @@ def quantize_gptq(model_path, output, bits, group_size, dataset, nsamples):
     _emit("quantize", "开始 GPTQ 量化", method="gptq", bits=bits,
           group_size=group_size, samples=len(texts))
     model.quantize(texts, batch_size=2)
+    _emit("save_model", "保存 GPTQ 量化模型", method="gptq", output=output)
     os.makedirs(output, exist_ok=True)
     model.save(output)
     _copy_tokenizer(model_path, output)
@@ -260,6 +385,7 @@ def quantize_awq(model_path, output, bits, dataset, nsamples):
     tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
     _emit("quantize", "开始 AWQ 量化", method="awq", bits=bits, samples=len(texts))
     model.quantize(tokenizer, quant_config={"w_bit": bits, "version": "GEMM"})
+    _emit("save_model", "保存 AWQ 量化模型", method="awq", output=output)
     os.makedirs(output, exist_ok=True)
     model.save_quantized(output)
     tokenizer.save_pretrained(output)
@@ -281,7 +407,7 @@ def quantize_bnb(model_path, output, bits):
     model = AutoModelForCausalLM.from_pretrained(
         model_path, quantization_config=config, device_map="auto", trust_remote_code=True
     )
-    _emit("quantize", "保存 bitsandbytes 量化模型", method="bnb", bits=bits)
+    _emit("save_model", "保存 bitsandbytes 量化模型", method="bnb", bits=bits)
     os.makedirs(output, exist_ok=True)
     model.save_pretrained(output)
     tokenizer.save_pretrained(output)
@@ -295,7 +421,7 @@ def _output_summary(output: str):
 
 def _package_versions():
     versions = {}
-    for package in ("gptqmodel", "autoawq", "bitsandbytes", "torch", "transformers", "datasets"):
+    for package in ("gptqmodel", "autoawq", "bitsandbytes", "torch", "transformers", "datasets", "modelscope"):
         try:
             versions[package] = importlib.metadata.version(package)
         except importlib.metadata.PackageNotFoundError:
@@ -336,11 +462,14 @@ def _write_manifest(output: str, manifest):
 
 def run(args):
     started_clock = time.monotonic()
+    monitor = _start_monitor(args)
     manifest = {
         "status": "running", "method": args.method, "model": args.model,
-        "output": args.output,
+        "model_source": args.model_source, "output": args.output,
         "parameters": {"bits": args.bits, "group_size": args.group_size,
-                       "dataset": args.dataset, "nsamples": args.nsamples},
+                       "dataset": args.dataset, "nsamples": args.nsamples,
+                       "model_revision": args.model_revision,
+                       "model_cache": args.model_cache},
         "started_at": _utc_now(), "runtime_versions": _package_versions(),
     }
     try:
@@ -348,16 +477,24 @@ def run(args):
         previous = _ensure_output_ready(args.output, args.force)
         if previous:
             _emit("skip", "检测到成功清单，跳过重复量化", output=args.output)
-            return {"status": "skipped", "reason": "already_succeeded", "previous": previous}
-        _emit("validate", "参数校验通过", method=args.method)
+            skipped = {"status": "skipped", "reason": "already_succeeded",
+                       "previous": previous}
+            _finish_monitor(monitor, "SUCCEEDED", skipped)
+            return skipped
+        model_path = _resolve_model(args)
+        if os.path.realpath(model_path) == os.path.realpath(args.output):
+            raise ValueError("输出目录不能与解析后的输入模型目录相同")
+        manifest["resolved_model"] = model_path
+        _emit("validate", "参数校验通过", method=args.method,
+              model_source=args.model_source)
         if args.method == "gptq":
-            result = quantize_gptq(args.model, args.output, args.bits, args.group_size,
+            result = quantize_gptq(model_path, args.output, args.bits, args.group_size,
                                    args.dataset, args.nsamples)
         elif args.method == "awq":
-            result = quantize_awq(args.model, args.output, args.bits,
+            result = quantize_awq(model_path, args.output, args.bits,
                                   args.dataset, args.nsamples)
         else:
-            result = quantize_bnb(args.model, args.output, args.bits)
+            result = quantize_bnb(model_path, args.output, args.bits)
         manifest.update(result)
         manifest["status"] = "success"
         manifest["artifacts"] = _output_summary(args.output)
@@ -373,6 +510,11 @@ def run(args):
     except Exception as exc:
         manifest["manifest_error"] = f"{type(exc).__name__}: {exc}"
         _emit("manifest_failed", "量化清单写入失败", error=str(exc))
+    _finish_monitor(
+        monitor,
+        "SUCCEEDED" if manifest["status"] == "success" else "FAILED",
+        manifest,
+    )
     return manifest
 
 

@@ -9374,12 +9374,13 @@
       }
     }
   },
-  "model-quantization": {
+  "model-quantize": {
     "project_name": "模型处理",
-    "image_name": "10.121.177.20:8082/mlops/gptqmodel:3.1.1",
+    "image_name": "10.121.177.20:8082/mlops/gptqmodel:3.3.0",
     "gitpath": "/job-template/job/llm_quantize",
     "image_describe": "LLM量化(GPTQModel/AutoAWQ/BnB)",
-    "job_template_name": "model-quantization",
+    "job_template_name": "model-quantize",
+    "job_template_old_names": ["model-quantization"],
     "job_template_describe": "大模型量化",
     "job_template_command": "python3 /app/launcher.py",
     "job_template_volume": "models-storage(storage):/mnt/storage/models-storage,models-share-volume(storage):/mnt/storage/models-share-volume",
@@ -9392,12 +9393,36 @@
     },
     "job_template_args": {
         "模型参数": {
+            "--model_source": {
+                "type": "str",
+                "default": "pvc",
+                "describe": "模型来源",
+                "choice": {
+                    "pvc": "PVC 模型目录",
+                    "modelscope": "ModelScope 模型 ID"
+                },
+                "editable": 1
+            },
             "--model": {
                 "type": "str",
                 "default": "",
-                "describe": "待量化模型路径或 HuggingFace Model ID（必填）",
+                "describe": "PVC 绝对路径或 ModelScope 模型 ID（必填）",
                 "item_type": "str",
                 "require": 1,
+                "editable": 1
+            },
+            "--model_revision": {
+                "type": "str",
+                "default": "master",
+                "describe": "ModelScope 模型版本，PVC 来源时忽略",
+                "item_type": "str",
+                "editable": 1
+            },
+            "--model_cache": {
+                "type": "str",
+                "default": "/mnt/storage/models-storage/modelscope-cache",
+                "describe": "ModelScope 模型下载到 PVC 的缓存目录",
+                "item_type": "str",
                 "editable": 1
             },
             "--output": {
@@ -9445,7 +9470,7 @@
             "--dataset": {
                 "type": "str",
                 "default": "/mnt/storage/models-storage/datasets/wikitext2",
-                "describe": "GPTQ/AWQ 校准集：目录、CSV/JSON/JSONL/TXT 文件或 HuggingFace 数据集名",
+                "describe": "GPTQ/AWQ 校准集：PVC 目录、CSV/JSON/JSONL/TXT 文件或 wikitext2 离线样本",
                 "item_type": "str",
                 "editable": 1
             },
@@ -9459,7 +9484,11 @@
             },
             "--force": {
                 "type": "bool",
-                "default": false,
+                "item_type": "bool",
+                "require": 0,
+                "choice": [],
+                "range": "",
+                "default": "false",
                 "describe": "允许复用非空输出目录；仅确认覆盖时开启",
                 "editable": 1
             }
