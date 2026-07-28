@@ -152,8 +152,14 @@ class K8s():
                container.resources and container.resources.limits]
 
         # gpu = [int(container.resources.requests.get('nvidia.com/gpu', '0')) for container in containers if container.resources and container.resources.requests]
-        hami_vgpu = [float(container.resources.requests.get(conf.get('HAMI_GPU_CORE_RESOURCE_NAME', 'nvidia.com/gpucores'), '0')) / 100 for container in containers if
-                     container.resources and container.resources.requests]
+        hami_gpu_resource = conf.get('HAMI_GPU_RESOURCE_NAME', conf.get('DEFAULT_GPU_RESOURCE_NAME', 'nvidia.com/gpu'))
+        hami_gpu_core_resource = conf.get('HAMI_GPU_CORE_RESOURCE_NAME', 'nvidia.com/gpucores')
+        hami_vgpu = [
+            float(container.resources.requests.get(hami_gpu_resource, '1')) *
+            float(container.resources.requests.get(hami_gpu_core_resource, '0')) / 100
+            for container in containers
+            if container.resources and container.resources.requests and container.resources.requests.get(hami_gpu_core_resource)
+        ]
 
         # 获取gpu异构资源占用
         ai_resource = {}
@@ -384,7 +390,14 @@ class K8s():
                 cpu = [self.to_cpu(container.resources.requests.get('cpu', '0')) for container in containers if container.resources and container.resources.requests]
                 # gpu = [int(container.resources.requests.get('nvidia.com/gpu', '0')) for container in containers if container.resources and container.resources.requests]
                 # vgpu += [float(container.resources.requests.get('nvidia.com/vgpu', '0')) / 10 for container in containers if container.resources and container.resources.requests]
-                hami_vgpu = [float(container.resources.requests.get(conf.get('HAMI_GPU_CORE_RESOURCE_NAME', 'nvidia.com/gpucores'), '0')) / 100 for container in containers if container.resources and container.resources.requests]
+                hami_gpu_resource = conf.get('HAMI_GPU_RESOURCE_NAME', conf.get('DEFAULT_GPU_RESOURCE_NAME', 'nvidia.com/gpu'))
+                hami_gpu_core_resource = conf.get('HAMI_GPU_CORE_RESOURCE_NAME', 'nvidia.com/gpucores')
+                hami_vgpu = [
+                    float(container.resources.requests.get(hami_gpu_resource, '1')) *
+                    float(container.resources.requests.get(hami_gpu_core_resource, '0')) / 100
+                    for container in containers
+                    if container.resources and container.resources.requests and container.resources.requests.get(hami_gpu_core_resource)
+                ]
 
                 node_name = pod.spec.node_name
                 if node_name not in nodes_resource:

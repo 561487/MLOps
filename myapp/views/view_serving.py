@@ -91,7 +91,7 @@ class Service_ModelView_base():
         "node_selector":StringField(_('机器选择'), description= _('运行当前服务所在的机器'),widget=BS3TextFieldWidget(),default='cpu=true;serving=true'),
         "resource_memory":StringField(_('memory'),default=Service.resource_memory.default.arg,description= _('内存的资源使用配置，示例1G，10G， 最大100G，如需更多联系管路员'),widget=BS3TextFieldWidget(),validators=[DataRequired(), Regexp("^[0-9]*G$")]),
         "resource_cpu":StringField(_('cpu'), default=Service.resource_cpu.default.arg,description= _('cpu的资源使用配置(单位核)，示例 0.4，10，最大50核，如需更多联系管路员'),widget=BS3TextFieldWidget(), validators=[DataRequired(), Regexp("^[0-9]*$")]),
-        "resource_gpu": StringField(_('gpu'), default='0',description= _('gpu的资源使用配置，示例:1、2为独占整卡；0.5为 HAMI 半卡；10G,50 为 HAMI 显存10G、算力50%；申请具体卡型号可写 1(V100) 或 10G,50(A100)。共享 GPU 使用 HAMI 格式'), widget=BS3TextFieldWidget(), validators=[DataRequired(),Regexp('^[\-\.0-9,a-zA-Z\(\)]*$')]),
+        "resource_gpu": StringField(_('gpu'), default='0',description= _('gpu的资源使用配置，示例:1、2为独占整卡；0.5、4.5 为 HAMI 总量配额；10G,50、60G,100 为 HAMI 显存总量和算力总量；申请具体卡型号可写 1(RTX4090) 或 10G,50(RTX4090)。非整数 GPU 使用 HAMI 格式'), widget=BS3TextFieldWidget(), validators=[DataRequired(),Regexp('^[\-\.0-9,a-zA-Z\(\)]*$')]),
         "replicas": StringField(_('副本数'), default=Service.replicas.default.arg,description= _('pod副本数，用来配置高可用'),widget=BS3TextFieldWidget(), validators=[DataRequired(),Regexp("^[0-9]+$")]),
         "ports": StringField(_('端口'), default=Service.ports.default.arg,description= _('进程端口号，逗号分隔'),widget=BS3TextFieldWidget(), validators=[DataRequired(),Regexp('^[0-9,:]*$')]),
         "env": StringField(_('环境变量'), default=Service.env.default.arg, description= _('使用模板的task自动添加的环境变量，支持模板变量。书写格式:每行一个环境变量env_key=env_value'),widget=MyBS3TextAreaFieldWidget()),
