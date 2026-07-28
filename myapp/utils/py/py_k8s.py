@@ -152,17 +152,23 @@ class K8s():
                container.resources and container.resources.limits]
 
         # gpu = [int(container.resources.requests.get('nvidia.com/gpu', '0')) for container in containers if container.resources and container.resources.requests]
-        vgpu = [float(container.resources.requests.get('nvidia.com/gpucores', '0')) / 100 for container in containers if
-                container.resources and container.resources.requests]
+        hami_gpu_resource = conf.get('HAMI_GPU_RESOURCE_NAME', conf.get('DEFAULT_GPU_RESOURCE_NAME', 'nvidia.com/gpu'))
+        hami_gpu_core_resource = conf.get('HAMI_GPU_CORE_RESOURCE_NAME', 'nvidia.com/gpucores')
+        hami_vgpu = [
+            float(container.resources.requests.get(hami_gpu_resource, '1')) *
+            float(container.resources.requests.get(hami_gpu_core_resource, '0')) / 100
+            for container in containers
+            if container.resources and container.resources.requests and container.resources.requests.get(hami_gpu_core_resource)
+        ]
 
         # 获取gpu异构资源占用
         ai_resource = {}
         for name in self.gpu_resource:
             resource = self.gpu_resource[name]
             gpu = [int(container.resources.requests.get(resource, '0')) for container in containers if
-                   container.resources and container.resources.requests]
+                   container.resources and container.resources.requests and not container.resources.requests.get(conf.get('HAMI_GPU_CORE_RESOURCE_NAME', 'nvidia.com/gpucores'))]
             ai_resource[name] = sum(gpu)
-        ai_resource['gpu'] = ai_resource.get('gpu', 0) + sum(vgpu)
+        ai_resource['gpu_shared'] = ai_resource.get('gpu_shared', 0) + sum(hami_vgpu)
 
         node_selector = {}
         try:
@@ -384,7 +390,14 @@ class K8s():
                 cpu = [self.to_cpu(container.resources.requests.get('cpu', '0')) for container in containers if container.resources and container.resources.requests]
                 # gpu = [int(container.resources.requests.get('nvidia.com/gpu', '0')) for container in containers if container.resources and container.resources.requests]
                 # vgpu += [float(container.resources.requests.get('nvidia.com/vgpu', '0')) / 10 for container in containers if container.resources and container.resources.requests]
-                vgpu = [float(container.resources.requests.get('nvidia.com/gpucores', '0')) / 100 for container in containers if container.resources and container.resources.requests]
+                hami_gpu_resource = conf.get('HAMI_GPU_RESOURCE_NAME', conf.get('DEFAULT_GPU_RESOURCE_NAME', 'nvidia.com/gpu'))
+                hami_gpu_core_resource = conf.get('HAMI_GPU_CORE_RESOURCE_NAME', 'nvidia.com/gpucores')
+                hami_vgpu = [
+                    float(container.resources.requests.get(hami_gpu_resource, '1')) *
+                    float(container.resources.requests.get(hami_gpu_core_resource, '0')) / 100
+                    for container in containers
+                    if container.resources and container.resources.requests and container.resources.requests.get(hami_gpu_core_resource)
+                ]
 
                 node_name = pod.spec.node_name
                 if node_name not in nodes_resource:
@@ -399,10 +412,10 @@ class K8s():
                 # 获取gpu异构资源占用
                 for name in self.gpu_resource:
                     resource = self.gpu_resource[name]
-                    gpu = [int(container.resources.requests.get(resource, '0')) for container in containers if container.resources and container.resources.requests]
+                    gpu = [int(container.resources.requests.get(resource, '0')) for container in containers if container.resources and container.resources.requests and not container.resources.requests.get(conf.get('HAMI_GPU_CORE_RESOURCE_NAME', 'nvidia.com/gpucores'))]
                     nodes_resource[node_name]["used_"+name] = nodes_resource[node_name].get("used_"+name,0)+sum(gpu)
                     # print(pod.metadata.name,"used_"+name,sum(gpu))
-                nodes_resource[node_name]['used_gpu'] = nodes_resource[node_name].get('used_gpu', 0) + sum(vgpu)
+                nodes_resource[node_name]['used_gpu_shared'] = nodes_resource[node_name].get('used_gpu_shared', 0) + sum(hami_vgpu)
 
             for node_name in nodes_resource:
                 node_resource = nodes_resource[node_name]
@@ -410,6 +423,7 @@ class K8s():
                 node_resource['used_memory'] = int(node_resource['used_memory'])
                 node_resource['used_cpu'] = int(node_resource['used_cpu'])
                 node_resource['used_gpu'] = round(float(node_resource['used_gpu']), 1)
+                node_resource['used_gpu_shared'] = round(float(node_resource.get('used_gpu_shared', 0)), 1)
 
         except Exception as e:
             logging.error('Traceback: %s', traceback.format_exc())
@@ -462,23 +476,31 @@ class K8s():
                     back_node = {}
                     # 获取gpu异构资源占用
                     ai_resource = {}
+                    node_labels = node.metadata.labels or {}
+                    is_hami_node = (
+                        node_labels.get('gpu-plugin') == 'hami'
+                        or node_labels.get('hami') == 'true'
+                    )
                     for gpu_mfrs in self.gpu_resource:
                         resource = self.gpu_resource[gpu_mfrs]
-                        ai_resource[gpu_mfrs] = int(node.status.allocatable.get(resource, '0'))
+                        allocatable_gpu = int(node.status.allocatable.get(resource, '0'))
+                        ai_resource[gpu_mfrs] = 0 if is_hami_node else allocatable_gpu
 
                     for gpu_mfrs in self.vgpu_resource:
                         resource = self.vgpu_resource[gpu_mfrs]
                         ai_resource[gpu_mfrs] = int(node.status.allocatable.get(resource, '0'))
 
-                    shared_resource_name = conf.get('GPU_SHARED_RESOURCE_NAME', 'nvidia.com/gpu.shared')
-                    ai_resource['gpu_shared'] = int(node.status.allocatable.get(shared_resource_name, '0'))
+                    ai_resource['gpu_shared'] = 0
+                    if is_hami_node:
+                        hami_gpu_resource = conf.get('HAMI_GPU_RESOURCE_NAME', conf.get('DEFAULT_GPU_RESOURCE_NAME', 'nvidia.com/gpu'))
+                        ai_resource['gpu_shared'] = int(node.status.allocatable.get(hami_gpu_resource, '0'))
 
                     # print(node.status.conditions)
                     adresses = node.status.addresses
                     back_node['cpu'] = int(self.to_cpu(node.status.allocatable.get('cpu', '0')))
                     back_node['memory'] = int(self.to_memory_GB(node.status.allocatable.get('memory', '0')))
                     # back_node['gpu'] = int(node.status.allocatable.get('nvidia.com/gpu', '0'))
-                    back_node['labels'] = node.metadata.labels
+                    back_node['labels'] = node_labels
                     back_node['name'] = node.metadata.name
                     back_node['create_time'] = node.metadata.creation_timestamp
                     back_node['node_info'] = node.status.node_info.to_dict()
@@ -1134,20 +1156,24 @@ class K8s():
             resources_requests['cpu'] = requests_cpu.strip()
             resources_limits['cpu'] = limits_cpu.strip()
 
+        hami_gpu = core.get_hami_gpu(resource_gpu)
         gpu_num, gpu_type, gpu_resource_name = self.get_gpu(resource_gpu)
 
+        if hami_gpu.get('enabled'):
+            resources_requests[hami_gpu['resource_name']] = str(hami_gpu['gpu'])
+            resources_limits[hami_gpu['resource_name']] = str(hami_gpu['gpu'])
+            if hami_gpu.get('gpumem'):
+                resources_requests[hami_gpu['memory_resource_name']] = str(hami_gpu['gpumem'])
+                resources_limits[hami_gpu['memory_resource_name']] = str(hami_gpu['gpumem'])
+            resources_requests[hami_gpu['core_resource_name']] = str(hami_gpu['gpucores'])
+            resources_limits[hami_gpu['core_resource_name']] = str(hami_gpu['gpucores'])
+
         # 整卡占用
-        if gpu_num >= 1:
+        if isinstance(gpu_num, (int, float)) and gpu_num >= 1 and not hami_gpu.get('enabled'):
             gpu_num = int(gpu_num)
             if gpu_resource_name:
                 resources_requests[gpu_resource_name] = str(int(gpu_num))
                 resources_limits[gpu_resource_name] = str(int(gpu_num))
-
-        shared_count, _, shared_resource_name = self.get_gpu_shared_resource(resource_gpu)
-        if shared_count:
-            resources_requests[shared_resource_name] = str(shared_count)
-            resources_limits[shared_resource_name] = str(shared_count)
-            k8s_volume_mounts = [mount for mount in k8s_volume_mounts if mount.get("mountPath") != "/dev/shm"]
 
         if 0==gpu_num:
             # 没要gpu的容器，就要加上可视gpu为空，不然gpu镜像能看到和使用所有gpu
@@ -1227,10 +1253,19 @@ class K8s():
                  sidecar=[],security_context=None):
         if not labels:
             labels={}
+        if not annotations:
+            annotations={}
 
         from myapp import conf
-        if scheduler_name=='default-scheduler' and (resource_gpu=='0' or resource_gpu==''):
-            scheduler_name = conf.get('GPU_SCHEDULERNAME','default-scheduler')
+        hami_gpu = core.get_hami_gpu(resource_gpu)
+        hami_scheduler_name = conf.get('GPU_SCHEDULERNAME', 'hami-scheduler') or 'hami-scheduler'
+        if hami_gpu.get('enabled'):
+            labels.pop('hami.io/webhook', None)
+            annotations.pop('hami.io/webhook', None)
+            if scheduler_name == 'default-scheduler':
+                scheduler_name = hami_scheduler_name
+        elif scheduler_name == hami_scheduler_name:
+            scheduler_name = 'default-scheduler'
         if scheduler_name == 'kube-batch':
             annotations['scheduling.k8s.io/group-name'] = name
         if scheduler_name == 'volcano':
@@ -1247,19 +1282,21 @@ class K8s():
                     nodeSelector[selector.strip().split('=')[0].strip()] = selector.strip().split('=')[1].strip()
 
         gpu_num, gpu_type, resource_name = self.get_gpu(resource_gpu)
-        shared_count, _, _ = self.get_gpu_shared_resource(resource_gpu)
         # 设置卡型
         if gpu_type and gpu_type.strip():
             nodeSelector['gpu-type'] = gpu_type
-        # 独占模式，尽量聚集在一个，避免卡零碎
-        if gpu_num >= 1 or shared_count:
+        if hami_gpu.get('enabled'):
             nodeSelector.pop('cpu', None)
-            if shared_count:
-                for selector_key, selector_value in conf.get('GPU_SHARED_NODE_SELECTOR', {}).items():
-                    nodeSelector[selector_key] = selector_value
-            else:
-                nodeSelector['gpu'] = 'true'
-                nodeSelector['mps'] = 'false'
+            for selector_key, selector_value in conf.get('HAMI_NODE_SELECTOR', {}).items():
+                nodeSelector[selector_key] = selector_value
+            labels['gpu'] = 'true'
+        # 独占模式，尽量聚集在一个，避免卡零碎
+        if isinstance(gpu_num, (int, float)) and gpu_num >= 1 and not hami_gpu.get('enabled'):
+            nodeSelector.pop('cpu', None)
+            for selector_key, selector_value in conf.get('NVIDIA_GPU_NODE_SELECTOR', {'gpu': 'true'}).items():
+                nodeSelector[selector_key] = selector_value
+            labels['hami.io/webhook'] = 'ignore'
+            annotations['hami.io/webhook'] = 'ignore'
             labels['gpu']='true'
             # 优先选择gpu卡占用的地方，这样不容易造成卡的零碎化占用
             affinity.pod_affinity = client.V1PodAffinity(
@@ -1276,9 +1313,6 @@ class K8s():
                         weight=10)]
             )
         k8s_volumes, k8s_volume_mounts = self.get_volume_mounts(volume_mount, username)
-        if shared_count:
-            k8s_volume_mounts = [mount for mount in k8s_volume_mounts if mount.get("mountPath") != "/dev/shm"]
-            k8s_volumes = [volume for volume in k8s_volumes if volume.get("name") != "dshm"]
 
         containers = [self.make_container(name=name,
                                           command=command,

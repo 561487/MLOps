@@ -19,7 +19,8 @@ WRITABLE_NODE_LABELS = {
     "gpu",
     "vgpu",
     "gpu-type",
-    "mps",
+    "gpu-plugin",
+    "hami",
     "service",
     "notebook",
     "train",
@@ -53,7 +54,8 @@ def _key_labels(labels):
         "gpu",
         "vgpu",
         "gpu-type",
-        "mps",
+        "gpu-plugin",
+        "hami",
         "notebook",
         "train",
         "service",
@@ -65,7 +67,7 @@ def _key_labels(labels):
 
 
 def _share_mode(labels):
-    return "true" if labels.get("mps", "") == "true" or labels.get("share", "") == "true" else "false"
+    return "true" if labels.get("hami", "") == "true" or labels.get("gpu-plugin", "") == "hami" or labels.get("share", "") == "true" else "false"
 
 
 def _rdma_enabled(labels):
@@ -108,7 +110,8 @@ def node_resource(force_refresh=False):
                     "gpu": labels.get("gpu", ""),
                     "vgpu": labels.get("vgpu", ""),
                     "gpu_type": labels.get("gpu-type", ""),
-                    "mps": labels.get("mps", ""),
+                    "gpu_plugin": labels.get("gpu-plugin", ""),
+                    "hami": labels.get("hami", ""),
                     "compute_type": _compute_type(labels),
                     "gpu_exclusive": node.get("gpu", 0),
                     "gpu_shared": node.get("gpu_shared", 0),
@@ -169,7 +172,8 @@ class Node_ModelView_Api(MyappFormRestApi):
         "gpu": _("GPU调度"),
         "vgpu": _("VGPU调度"),
         "gpu_type": _("GPU卡型"),
-        "mps": _("GPU共享"),
+        "gpu_plugin": _("GPU插件"),
+        "hami": _("HAMI调度"),
         "compute_type": _("计算类型"),
         "gpu_exclusive": _("独占AI卡"),
         "gpu_shared": _("共享AI卡"),
@@ -214,7 +218,8 @@ class Node_ModelView_Api(MyappFormRestApi):
         "vgpu",
         "rdma",
         "gpu_type",
-        "mps",
+        "gpu_plugin",
+        "hami",
         "compute_type",
     ]
     label_title = _("机器资源")
@@ -253,6 +258,7 @@ class Node_ModelView_Api(MyappFormRestApi):
     def _edit_form_columns(self, edit_id=""):
         clusters = [{"id": name, "value": name} for name in conf.get("CLUSTERS", {})]
         bool_values = [{"id": "true", "value": "true"}, {"id": "false", "value": "false"}]
+        gpu_plugin_values = [{"id": "nvidia", "value": "nvidia"}, {"id": "hami", "value": "hami"}]
         compute_values = [
             {"id": "notebook", "value": "notebook"},
             {"id": "train", "value": "train"},
@@ -268,7 +274,8 @@ class Node_ModelView_Api(MyappFormRestApi):
             self._field_info("vgpu", "select", bool_values, default="false"),
             self._field_info("rdma", "select", bool_values, default="false"),
             self._field_info("gpu_type", "input"),
-            self._field_info("mps", "select", bool_values, default="false"),
+            self._field_info("gpu_plugin", "select", gpu_plugin_values),
+            self._field_info("hami", "select", bool_values, default="false"),
             self._field_info("compute_type", "select2", compute_values, default="notebook,train,service"),
         ]
 
@@ -332,9 +339,11 @@ class Node_ModelView_Api(MyappFormRestApi):
             "gpu": self._normalize_bool(data.get("gpu")),
             "vgpu": self._normalize_bool(data.get("vgpu")),
             "rdma": self._normalize_bool(data.get("rdma")),
-            "mps": self._normalize_bool(data.get("mps")),
+            "hami": self._normalize_bool(data.get("hami")),
         }
-        labels["share"] = labels["mps"]
+        gpu_plugin = data.get("gpu_plugin", "")
+        labels["gpu-plugin"] = gpu_plugin if gpu_plugin else None
+        labels["share"] = "true" if labels["hami"] == "true" or labels["gpu-plugin"] == "hami" else self._normalize_bool(data.get("share"))
 
         gpu_type = data.get("gpu_type", "")
         labels["gpu-type"] = gpu_type if gpu_type else None
@@ -502,7 +511,6 @@ class Node_ModelView_Api(MyappFormRestApi):
             data = self._request_json()
             share = self._normalize_bool(data.get("share"), "false")
             node = self._patch_labels(data.get("cluster", ""), data.get("name", ""), {
-                "mps": share,
                 "share": share,
             })
             return self._json_response(result=node)
