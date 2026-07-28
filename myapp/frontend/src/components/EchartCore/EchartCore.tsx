@@ -1,81 +1,12 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef } from 'react'
 import * as echarts from 'echarts';
-// import * as echarts from 'echarts/core';
-// import {
-//     BarChart,
-//     // 系列类型的定义后缀都为 SeriesOption
-//     BarSeriesOption,
-//     PieChart,
-//     PieSeriesOption,
-//     LineChart,
-//     LineSeriesOption,
-//     HeatmapChart,
-//     HeatmapSeriesOption
-// } from 'echarts/charts';
-// import {
-//     TitleComponent,
-//     // 组件类型的定义后缀都为 ComponentOption
-//     TitleComponentOption,
-//     TooltipComponent,
-//     TooltipComponentOption,
-//     GridComponent,
-//     GridComponentOption,
-//     // 数据集组件
-//     DatasetComponent,
-//     DatasetComponentOption,
-//     LegendComponent,
-//     // 内置数据转换器组件 (filter, sort)
-//     TransformComponent,
-//     CalendarComponentOption,
-//     CalendarComponent,
-//     VisualMapComponent,
-//     VisualMapComponentOption,
-//     ToolboxComponent
-// } from 'echarts/components';
-import { LabelLayout, UniversalTransition } from 'echarts/features';
-import { CanvasRenderer } from 'echarts/renderers';
 import './EchartCore.less';
 import { Spin } from 'antd';
-import { FieldNumberOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 
 export type ECOption = echarts.EChartsOption
-// 通过 ComposeOption 来组合出一个只有必须组件和图表的 Option 类型
-// export type ECOption = echarts.ComposeOption<
-//     | BarSeriesOption
-//     | LineSeriesOption
-//     | TitleComponentOption
-//     | TooltipComponentOption
-//     | GridComponentOption
-//     | DatasetComponentOption
-//     | CalendarComponentOption
-//     | HeatmapSeriesOption
-//     | VisualMapComponentOption
-//     | PieSeriesOption
-// >;
-
-// // 注册必须的组件
-// echarts.use([
-//     LegendComponent,
-//     TitleComponent,
-//     TooltipComponent,
-//     GridComponent,
-//     DatasetComponent,
-//     TransformComponent,
-//     CalendarComponent,
-//     VisualMapComponent,
-//     ToolboxComponent,
-//     BarChart,
-//     LineChart,
-//     PieChart,
-//     LabelLayout,
-//     HeatmapChart,
-//     UniversalTransition,
-//     CanvasRenderer
-// ]);
 
 interface IProps {
-    // option: ECOption
     option: echarts.EChartsOption
     loading?: boolean
     title?: string
@@ -92,30 +23,30 @@ const defaultChartStyle: React.CSSProperties = {
     height: 300
 }
 
-// https://echarts.apache.org/handbook/zh/how-to/data/dynamic-data
 export default function EchartCore(props: IProps) {
-    const [chartInstance, setChartInstance] = useState<echarts.ECharts>()
-    const id = Math.random().toString(36).substring(2);
-    const { t, i18n } = useTranslation();
-
-    const option = {}
+    const chartRef = useRef<HTMLDivElement>(null);
+    const chartInstanceRef = useRef<echarts.ECharts | null>(null);
+    const { t } = useTranslation();
 
     useEffect(() => {
-        const chartDom = document.getElementById(id)
-        if (chartDom) {
-            const chart = echarts.init(chartDom);
-            chart.setOption({ ...option, ...props.option })
+        if (!chartRef.current) return;
 
-            if (!chartInstance) {
-                setChartInstance(chart)
+        const chart = echarts.init(chartRef.current);
+        chartInstanceRef.current = chart;
+        chart.setOption(props.option);
+
+        return () => {
+            if (chartInstanceRef.current && !chartInstanceRef.current.isDisposed()) {
+                chartInstanceRef.current.dispose();
             }
-        }
-    }, [props.option, props.data])
+            chartInstanceRef.current = null;
+        };
+    }, [props.option]);
 
     return (
-        <Spin spinning={props.loading}>
+        <Spin spinning={!!props.loading}>
             <div className="chart-container">
-                <div id={id} style={{ ...defaultChartStyle, ...props.style }}></div>
+                <div ref={chartRef} style={{ ...defaultChartStyle, ...props.style }}></div>
                 {
                     props.isNoData ? <div className="chart-nodata">
                         <div>{t('暂无数据')}</div>

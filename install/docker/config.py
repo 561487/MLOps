@@ -790,7 +790,7 @@ SWANLAB_MODE = 'local'               # 全局默认模式：'local' | 'cloud'；
 SWANLAB_API_HOST = 'http://10.121.177.227:8000'   # Cloud 模式 API 地址
 SWANLAB_WEB_HOST = 'http://10.121.177.227:8000'   # Cloud 模式 Web 地址
 SWANLAB_PROJ_NAME = 'mlops-training'                # Cloud 模式默认项目名
-SWANLAB_WORKSPACE = 'haimian_baobao'              # Cloud 模式默认工作空间
+SWANLAB_WORKSPACE = 'mlops'              # Cloud 模式默认工作空间
 
 # SwanLab 共享日志目录（仅 Local / Watch 模式使用）
 # 训练 Pod 写入 swanlog 的路径，需与 SwanLab 服务 watch 的目录一致
@@ -898,6 +898,22 @@ WORKSPACE_HOST_PATH = '/data/k8s/kubeflow/pipeline/workspace'
 ARCHIVES_HOST_PATH = "/data/k8s/kubeflow/pipeline/archives"
 # prometheus地址
 PROMETHEUS = 'prometheus-k8s.monitoring:9090'
+
+# ==== 推理监控 Prometheus 配置 ====
+def _normalize_prometheus_url(value):
+    value = (value or "").strip().rstrip("/")
+    if value and not value.startswith(("http://", "https://")):
+        value = f"http://{value}"
+    return value
+
+PROMETHEUS_BASE_URL = _normalize_prometheus_url(
+    os.environ.get("PROMETHEUS_BASE_URL")
+    or globals().get("PROMETHEUS")
+    or ""
+)
+PROMETHEUS_QUERY_TIMEOUT = int(os.environ.get("PROMETHEUS_QUERY_TIMEOUT", "10"))
+INFERENCE_MONITOR_SUMMARY_CACHE_TTL = int(os.environ.get("INFERENCE_MONITOR_SUMMARY_CACHE_TTL", "10"))
+INFERENCE_MONITOR_TIMESERIES_CACHE_TTL = int(os.environ.get("INFERENCE_MONITOR_TIMESERIES_CACHE_TTL", "30"))
 # nni默认镜像
 NNI_IMAGES='ccr.ccs.tencentyun.com/cube-studio/nni:20240501'
 

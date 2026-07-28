@@ -1675,8 +1675,26 @@ class K8s():
 
     # 创建pod
     # @pysnooper.snoop()
-    def create_service(self,namespace,name,username,ports,selector,service_type='ClusterIP',external_ip=None,annotations=None,load_balancer_ip=None,external_traffic_policy=None,disable_load_balancer=False):
-        svc_metadata = v1_object_meta.V1ObjectMeta(name=name, namespace=namespace, labels=selector,annotations=annotations)
+    def create_service(self,namespace,name,username,ports,selector,service_type='ClusterIP',external_ip=None,annotations=None,load_balancer_ip=None,external_traffic_policy=None,disable_load_balancer=False,metadata_labels=None):
+        selector_labels = dict(selector or {})
+        extra_labels = {
+            str(key): str(value)
+            for key, value in (metadata_labels or {}).items()
+        }
+        # 仅当同名 key 且值不同时才报错
+        conflicting_keys = {
+            key
+            for key in set(selector_labels) & set(extra_labels)
+            if selector_labels[key] != extra_labels[key]
+        }
+        if conflicting_keys:
+            raise ValueError(
+                f"metadata_labels cannot override selector labels: "
+                f"{sorted(conflicting_keys)}"
+            )
+        svc_labels = {**selector_labels, **extra_labels}
+
+        svc_metadata = v1_object_meta.V1ObjectMeta(name=name, namespace=namespace, labels=svc_labels,annotations=annotations)
         service_ports=[]
         for index,port in enumerate(ports):
             if type(port)==list and len(port)>1:
@@ -1685,7 +1703,7 @@ class K8s():
                 service_ports.append(client.V1ServicePort(name='http%s' % index, node_port=int(port) if service_type=='NodePort' else None, port=int(port), protocol='TCP', target_port=int(port)))
 
         svc_spec = client.V1ServiceSpec(cluster_ip='None' if disable_load_balancer else None, ports=service_ports,
-                                        selector=selector, type=service_type, external_i_ps=external_ip,
+                                        selector=selector_labels, type=service_type, external_i_ps=external_ip,
                                         load_balancer_ip=load_balancer_ip,
                                         external_traffic_policy=external_traffic_policy)
 

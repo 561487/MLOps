@@ -35,7 +35,7 @@ from . import view_bill
 from . import view_llm_gateway
 from . import view_model_market
 from . import view_training_monitor
-
+from . import view_inference_monitor
 
 # ========== 🆕 Chat API v2.0 Blueprint ==========
 from . import view_chat_v2
