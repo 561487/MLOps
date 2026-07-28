@@ -1374,6 +1374,18 @@ output %s
             }
         else:
             annotations = {}
+
+        # 推理监控：为受支持的引擎添加 mlops 监控 labels（仅内部 Service）
+        MONITORED_ENGINE_TYPES = {"vllm"}
+        monitoring_labels = {}
+        if service.service_type in MONITORED_ENGINE_TYPES:
+            monitoring_labels = {
+                "mlops-monitoring": "true",
+                "mlops_engine": service.service_type,
+                "mlops_service_name": name,
+                "mlops_service_id": str(service.id),
+            }
+
         # print('deploy service')
         disable_load_balancer = True if 'disable_load_balancer=true' in pod_env.lower().replace(' ','') else False
         k8s_client.create_service(
@@ -1383,7 +1395,8 @@ output %s
             ports=ports,
             annotations=annotations,
             selector=labels,
-            disable_load_balancer=disable_load_balancer
+            disable_load_balancer=disable_load_balancer,
+            metadata_labels=monitoring_labels,
         )
 
         # 如果域名配置的gateway，就用这个
