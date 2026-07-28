@@ -407,7 +407,7 @@ def dag_to_pipeline(pipeline, dbsession, workflow_label=None, **kwargs):
             _swanlab_proj_name = (_swanlab_task_args.get('swanlab_project') or
                                 conf.get('SWANLAB_PROJ_NAME', 'mlops-training'))
             _swanlab_workspace = (_swanlab_task_args.get('swanlab_workspace') or
-                                  conf.get('SWANLAB_WORKSPACE', 'haimian_baobao'))
+                                  conf.get('SWANLAB_WORKSPACE', 'mlops'))
 
             # swanlab_mode 优先级（修复：不能用 or-chain，因为 conf SWANLAB_MODE=local 是 truthy）:
             #   1. Task arg 显式指定

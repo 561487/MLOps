@@ -649,7 +649,7 @@ class Task_ModelView_Base():
             _swanlab_proj_name = (_swanlab_task_args.get('swanlab_project') or
                                 conf.get('SWANLAB_PROJ_NAME', 'mlops-training'))
             _swanlab_workspace = (_swanlab_task_args.get('swanlab_workspace') or
-                                  conf.get('SWANLAB_WORKSPACE', 'haimian_baobao'))
+                                  conf.get('SWANLAB_WORKSPACE', 'mlops'))
 
             _user_mode = (_swanlab_task_args.get('swanlab_mode') or '').strip().lower()
             _cloud_defaults = ('hyperparam-search', 'hyperparam-search-nni', 'lightgbm', 'gbdt', 'model-distillation', 'llama-factory')
