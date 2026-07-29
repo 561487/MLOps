@@ -698,9 +698,9 @@
       }
     ]
   },
-  "model-quantization": {
+  "model-quantize": {
     "pipeline": {
-        "name": "model-quantization",
+        "name": "model-quantize",
         "describe": "大模型模版：量化评测注册",
         "project": "public",
         "parameter": {
@@ -711,7 +711,7 @@
             "model-download": {
                 "upstream": []
             },
-            "model-quantization-task": {
+            "model-quantize-task": {
                 "upstream": [
                     "model-download"
                 ]
@@ -734,7 +734,7 @@
                 }
             },
             {
-                "id": "model-quantization-task",
+                "id": "model-quantize-task",
                 "type": "dataSet",
                 "position": {
                     "x": 350,
@@ -744,14 +744,14 @@
                     "info": {
                         "describe": "LLM quant"
                     },
-                    "name": "model-quantization-task",
+                    "name": "model-quantize-task",
                     "label": "LLM quant"
                 }
             },
             {
                 "source": "model-download",
                 "arrowHeadType": "arrow",
-                "target": "model-quantization-task",
+                "target": "model-quantize-task",
                 "id": "edge1"
             }
         ]
@@ -778,8 +778,8 @@
             }
         },
         {
-            "job_templete": "model-quantization",
-            "name": "model-quantization-task",
+            "job_templete": "model-quantize",
+            "name": "model-quantize-task",
             "label": "LLM quant",
             "volume_mount": "kubeflow-user-workspace(pvc):/mnt,models-share-volume(storage):/mnt/storage/models-share-volume,models-storage(storage):/mnt/storage/models-storage",
             "resource_memory": "8G",
@@ -789,13 +789,15 @@
             "timeout": 0,
             "retry": 0,
             "args": {
+                "--model_source": "pvc",
                 "--model": "/mnt/storage/models-share-volume/models/Qwen2.5-0.5B-Instruct",
                 "--output": "/mnt/storage/models-share-volume/output/quantized",
                 "--method": "gptq",
                 "--bits": "4",
                 "--group_size": "128",
                 "--dataset": "wikitext2",
-                "--nsamples": "128"
+                "--nsamples": "128",
+                "--force": "false"
             }
         }
     ]
