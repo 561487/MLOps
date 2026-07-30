@@ -791,7 +791,7 @@ SWANLAB_MODE = 'local'               # 全局默认模式：'local' | 'cloud'；
 SWANLAB_API_HOST = 'http://10.121.177.227:8000'   # Cloud 模式 API 地址
 SWANLAB_WEB_HOST = 'http://10.121.177.227:8000'   # Cloud 模式 Web 地址
 SWANLAB_PROJ_NAME = 'mlops-training'                # Cloud 模式默认项目名
-SWANLAB_WORKSPACE = 'haimian_baobao'              # Cloud 模式默认工作空间
+SWANLAB_WORKSPACE = 'mlops'              # Cloud 模式默认工作空间
 
 # SwanLab 共享日志目录（仅 Local / Watch 模式使用）
 # 训练 Pod 写入 swanlog 的路径，需与 SwanLab 服务 watch 的目录一致
