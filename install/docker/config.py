@@ -803,7 +803,7 @@ SWANLAB_LOGDIR = '/mnt/storage/swanlab/swanlog'
 
 # 监控回调注册地址（训练 Pod → MLOps 后端）
 # K8s Pod 无法解析 Docker Compose 内部 DNS 名（如 myapp），必须使用 NodePort/LB 地址
-MLOPS_MONITOR_REGISTER_URL = 'http://10.121.177.93/training_monitor/api/register'
+MLOPS_MONITOR_REGISTER_URL = 'http://10.121.177.20:30080/training_monitor/api/register'
 
 # 可选：register 接口 token 校验，为空则跳过
 MLOPS_MONITOR_REGISTER_TOKEN = ''
