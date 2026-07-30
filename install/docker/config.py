@@ -780,7 +780,8 @@ TRAINING_JOB_TEMPLATES = [
     'baichuan2', 'chatglm4', 'deepseek', 'llama3', 'qwen3',
     # 模型操作（评估/转换/蒸馏/裁剪/量化/注册/离线预测）
     'model-evaluate', 'model-convert', 'model-distillation', 'model-download',
-    'model-prune', 'model-quantization', 'model-register', 'model-offline-predict',
+    'model-prune', 'model-quantization', 'model-quantize',
+    'model-register', 'model-offline-predict',
 ]
 
 # SwanLab 平台地址
