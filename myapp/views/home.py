@@ -565,10 +565,10 @@ class Myapp(BaseMyappView):
                     }
                 ]
             }
-        # ===== Chat v2.0 - 智能体对话 =====
+        # ===== Chat v2.0 - AI助手对话 =====
         chat= {
             'name': 'startchat',
-            'title': __('灵犀助手'),
+            'title': __('智能问询'),
             'isMenu': True,
             'isExpand': True,
             'isMenuCollapsed': False,

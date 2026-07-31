@@ -7,18 +7,19 @@ import {
   RouteObject
 } from "react-router-dom";
 
-import { Drawer, Dropdown, Menu, Select, Spin, Tag } from 'antd';
+import { Button, Drawer, Dropdown, Menu, Select, Spin, Tag, Tooltip } from 'antd';
 import { IRouterConfigPlusItem } from './api/interface/baseInterface';
 import { formatRoute, getDefaultOpenKeys, routerConfigPlus } from './routerConfig';
 import SubMenu from 'antd/lib/menu/SubMenu';
 import { clearWaterNow, drawWater, drawWaterNow, getParam, obj2UrlParam, parseParam2Obj } from './util'
 import { getAppHeaderConfig, getAppMenu, getCustomDialog, userLogout } from './api/kubeflowApi';
 import { IAppHeaderItem, IAppMenuItem, ICustomDialog } from './api/interface/kubeflowInterface';
-import { AppstoreOutlined, DownOutlined, LeftOutlined, RightOutlined, TranslationOutlined } from '@ant-design/icons';
+import { AppstoreOutlined, BulbOutlined, DownOutlined, LeftOutlined, RightOutlined, TranslationOutlined } from '@ant-design/icons';
 import Cookies from 'js-cookie'
 import { handleTips } from './api';
 import globalConfig from './global.config'
 import i18nEn from './images/i18nEn.svg';
+import { getInitialTheme, setTheme, TThemeType } from './theme';
 
 import { useTranslation, Trans, } from 'react-i18next';
 const userName = Cookies.get('myapp_username')
@@ -60,12 +61,19 @@ const AppWrapper = (props: IProps) => {
   const [customDialogInfo, setCustomDialogInfo] = useState<ICustomDialog>()
   const [headerConfig, setHeaderConfig] = useState<IAppHeaderItem[]>([])
   const [navSelected, setNavSelected] = useState<string[]>([])
+  const [themeMode, setThemeMode] = useState<TThemeType>(() => getInitialTheme(globalConfig.theme))
   const isShowNav = getParam('isShowNav')
 
   const navigate = useNavigate();
   const location = useLocation()
 
   const { t, i18n } = useTranslation();
+
+  const handleToggleTheme = () => {
+    const nextTheme = themeMode === 'dark' ? globalConfig.theme : 'dark'
+    setTheme(nextTheme, true)
+    setThemeMode(nextTheme)
+  }
 
   useEffect(() => {
     getAppMenu().then(res => {
@@ -362,6 +370,15 @@ const AppWrapper = (props: IProps) => {
           </div>
 
           <div className="d-f ac plr16 h100">
+            <Tooltip title={themeMode === 'dark' ? t('切换浅色模式') : t('切换深色模式')}>
+              <Button
+                className="theme-mode-toggle mr12"
+                type="text"
+                shape="circle"
+                icon={<BulbOutlined />}
+                onClick={handleToggleTheme}
+              />
+            </Tooltip>
             {
               headerConfig.map(config => {
                 if (config.icon) {

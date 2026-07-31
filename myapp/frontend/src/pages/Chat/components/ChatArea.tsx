@@ -186,7 +186,7 @@ const ChatArea: React.FC<ChatAreaProps> = ({ agent, onOpenSettings }) => {
   const sessionsCacheRef = useRef<Record<string, ISession[]>>({});
   const sessionCreatedRef = useRef(false);
 
-  /* ---------- 切换智能体：重置 + 加载会话 ---------- */
+  /* ---------- 切换AI助手：重置 + 加载会话 ---------- */
   useEffect(() => {
     setMessages([]);
     setStreamingText('');
@@ -467,9 +467,9 @@ const ChatArea: React.FC<ChatAreaProps> = ({ agent, onOpenSettings }) => {
       <div className="chat-area-empty">
         <div className="chat-area-empty-content">
           <RobotOutlined style={{ fontSize: 64, color: '#d9d9d9' }} />
-          <h3>选择一个智能体开始对话</h3>
+          <h3>选择一个AI助手开始对话</h3>
           <Text type="secondary">
-            从左侧边栏选择机器人或智能体，开启 AI 对话之旅
+            从左侧边栏选择机器人或AI助手，开启 AI 对话之旅
           </Text>
         </div>
       </div>

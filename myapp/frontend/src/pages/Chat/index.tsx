@@ -1,10 +1,10 @@
 /**
- * Chat Page — 智能体对话主页
+ * Chat Page — AI助手对话主页
  * =============================
  * 布局：左侧边栏（280px） + 右侧聊天区域（flex 填充）
  *
  * 交互流程：
- *   1. 左侧边栏选择智能体 → 右侧显示欢迎语 / 聊天界面
+ *   1. 左侧边栏选择AI助手 → 右侧显示欢迎语 / 聊天界面
  *   2. 点击"设置"按钮 → 右侧滑出凭证配置面板
  *   3. 输入消息 → 发送到后端 → SSE 流式接收回答
  */
@@ -19,7 +19,7 @@ import './Chat.less';
 
 const LS_KEY_AGENT = 'chat_v2_selected_agent';
 
-/** 从 localStorage 读取上次选中的智能体 */
+/** 从 localStorage 读取上次选中的AI助手 */
 function readPersistedAgent(): { name: string; category: string } | null {
   try {
     const raw = localStorage.getItem(LS_KEY_AGENT);
@@ -28,7 +28,7 @@ function readPersistedAgent(): { name: string; category: string } | null {
   return null;
 }
 
-/** 持久化当前选中的智能体 */
+/** 持久化当前选中的AI助手 */
 function persistAgent(agent: IAgentItem | null) {
   if (agent) {
     localStorage.setItem(
@@ -45,7 +45,7 @@ const ChatPage: React.FC = () => {
   const [selectedAgent, setSelectedAgent] = useState<IAgentItem | null>(null);
   const [configVisible, setConfigVisible] = useState(false);
 
-  /** 选择智能体 */
+  /** 选择AI助手 */
   const handleSelectAgent = useCallback((agent: IAgentItem) => {
     setSelectedAgent(agent);
     persistAgent(agent);
@@ -66,7 +66,7 @@ const ChatPage: React.FC = () => {
 
       {/* 右侧区域 */}
       <div className="chat-main">
-        {/* 配置按钮（选中智能体后显示） */}
+        {/* 配置按钮（选中AI助手后显示） */}
         {/* 聊天区域 */}
         <ChatArea
           agent={selectedAgent}
