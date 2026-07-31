@@ -159,11 +159,11 @@ export const innerDynamicRouterConfig: IRouterConfigPlusItem[] = [
         menu_type: 'innerRoute',
         element: lazy2Compont(() => import("./pages/InferenceMonitor") as any, { breadcrumbs: ['服务化', '模型服务', '推理监控'] })
     },
-    // ===== 🆕 Chat v2.0 智能体对话 =====
+    // ===== 🆕 Chat v2.0 AI助手对话 =====
     {
         path: '/startchat',
         key: 'startchat',
-        title: '灵犀助手',
+        title: '智能问询',
         menu_type: 'innerRoute',
         element: lazy2Compont(() => import("./pages/Chat") as any)
     },
