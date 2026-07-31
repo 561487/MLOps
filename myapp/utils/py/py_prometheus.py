@@ -5,12 +5,80 @@ import pysnooper
 
 class Prometheus():
 
-    def __init__(self, host=''):
-        #  '/api/v1/query_range'    查看范围数据
-        #  '/api/v1/query'    瞬时数据查询
+    def __init__(self, host='', query_timeout=10):
+        #  '/api/v1/query_range'    range query
+        #  '/api/v1/query'           instant query
         self.host = host
-        self.query_path = 'http://%s/api/v1/query' % self.host
-        self.query_range_path = 'http://%s/api/v1/query_range' % self.host
+        self.query_timeout = query_timeout
+        if host.startswith(('http://', 'https://')):
+            self.base_url = host.rstrip('/')
+        else:
+            self.base_url = 'http://%s' % host.rstrip('/')
+        self.query_path = '%s/api/v1/query' % self.base_url
+        self.query_range_path = '%s/api/v1/query_range' % self.base_url
+
+    def _safe_float(self, value):
+        """将 Prometheus 返回值安全转为 float，NaN/Inf 返回 None"""
+        if value is None:
+            return None
+        try:
+            v = float(value)
+            import math
+            if math.isnan(v) or math.isinf(v):
+                return None
+            return v
+        except (ValueError, TypeError):
+            return None
+
+    def instant_query(self, promql, timeout=None):
+        """
+        瞬时查询，返回结果列表 [{metric: {...}, value: [timestamp, valueStr]}]
+        连接失败/超时/异常时返回 None
+        """
+        params = {'query': promql}
+        try:
+            t = timeout if timeout is not None else self.query_timeout
+            res = requests.get(url=self.query_path, params=params, timeout=t)
+            if res.status_code != 200:
+                return None
+            data = json.loads(res.content.decode('utf8', 'ignore'))
+            if data.get('status') != 'success':
+                return None
+            return data['data']['result']
+        except Exception:
+            return None
+
+    def range_query(self, promql, start, end, step, timeout=None):
+        """
+        范围查询，返回结果列表 [{metric: {...}, values: [[timestamp, valueStr], ...]}]
+        连接失败/超时/异常时返回 None
+        """
+        params = {
+            'query': promql,
+            'start': start,
+            'end': end,
+            'step': step,
+        }
+        try:
+            t = timeout if timeout is not None else self.query_timeout
+            res = requests.get(url=self.query_range_path, params=params, timeout=t)
+            if res.status_code != 200:
+                return None
+            data = json.loads(res.content.decode('utf8', 'ignore'))
+            if data.get('status') != 'success':
+                return None
+            return data['data']['result']
+        except Exception:
+            return None
+
+    def check_ready(self, timeout=5):
+        """检查 Prometheus 是否就绪，返回 True/False"""
+        try:
+            url = '%s/-/ready' % self.base_url
+            res = requests.get(url, timeout=timeout)
+            return res.status_code == 200
+        except Exception:
+            return False
 
     # @pysnooper.snoop()
     def get_istio_service_metric(self, namespace):

@@ -3238,57 +3238,722 @@
   },
   "adaboost": {
     "project_name": "机器学习算法",
-    "image_name": "python:3.9",
+    "image_name": "10.121.177.20:8082/mlops/adaboost:20260722",
     "gitpath": "/job-template/job/adaboost",
-    "image_describe": "adaboost算法",
+    "image_describe": "AdaBoost单机分类与回归算法",
     "job_template_name": "adaboost",
-    "job_template_describe": "adaboost算法(开发中)",
+    "job_template_describe": "基于scikit-learn的AdaBoost分类与回归算法",
+    "job_template_version": "Release",
+    "job_template_workdir": "/app",
     "job_template_command": "python3 launcher.py",
     "job_template_volume": "",
     "job_template_account": "",
-    "job_template_env": "",
     "job_template_expand": {
       "index": 2,
-      "rec_job_template": "自定义镜像",
+      "rec_job_template": "机器学习算法",
       "help_url": "/job-template/job/adaboost"
     },
-    "job_template_args": {}
+    "job_template_args": {
+      "数据配置": {
+        "--input_csv": {
+          "type": "str",
+          "item_type": "str",
+          "label": "训练数据路径",
+          "require": 1,
+          "choice": [],
+          "range": "",
+          "default": "",
+          "placeholder": "/mnt/storage/models-storage/output/datasets/adaboost/train.csv",
+          "describe": "训练数据 CSV 文件路径，请填写容器内可访问的实际路径",
+          "editable": 1
+        },
+        "--label_col": {
+          "type": "str",
+          "item_type": "str",
+          "label": "标签列",
+          "require": 0,
+          "choice": [],
+          "range": "",
+          "default": "label",
+          "placeholder": "label",
+          "describe": "需要预测的标签列名称，默认为 label",
+          "editable": 1
+        },
+        "--drop_cols": {
+          "type": "str",
+          "item_type": "str",
+          "label": "忽略特征列",
+          "require": 0,
+          "choice": [],
+          "range": "",
+          "default": "",
+          "placeholder": "id,date",
+          "describe": "不参与训练的列，多个列名使用英文逗号分隔，可为空",
+          "editable": 1
+        }
+      },
+      "训练参数": {
+        "--task_type": {
+          "type": "str",
+          "item_type": "str",
+          "label": "任务类型",
+          "require": 0,
+          "choice": [
+            "classification",
+            "regression"
+          ],
+          "range": "",
+          "default": "classification",
+          "placeholder": "classification",
+          "describe": "classification 表示分类任务，regression 表示回归任务",
+          "editable": 1
+        },
+        "--test_size": {
+          "type": "float",
+          "item_type": "float",
+          "label": "测试集比例",
+          "require": 0,
+          "choice": [],
+          "range": "0.01,0.99",
+          "default": "0.2",
+          "placeholder": "0.2",
+          "describe": "测试集占全部有效数据的比例，取值必须在 0 和 1 之间",
+          "editable": 1
+        },
+        "--random_state": {
+          "type": "int",
+          "item_type": "int",
+          "label": "随机种子",
+          "require": 0,
+          "choice": [],
+          "range": "0,2147483647",
+          "default": "42",
+          "placeholder": "42",
+          "describe": "用于数据切分和模型训练复现",
+          "editable": 1
+        }
+      },
+      "模型参数": {
+        "--n_estimators": {
+          "type": "int",
+          "item_type": "int",
+          "label": "弱学习器数量",
+          "require": 0,
+          "choice": [],
+          "range": "1,100000",
+          "default": "100",
+          "placeholder": "100",
+          "describe": "Boosting 训练的最大弱决策树数量",
+          "editable": 1
+        },
+        "--learning_rate": {
+          "type": "float",
+          "item_type": "float",
+          "label": "学习率",
+          "require": 0,
+          "choice": [],
+          "range": "0.000001,1000",
+          "default": "1.0",
+          "placeholder": "1.0",
+          "describe": "每个弱学习器对最终结果的贡献缩放系数，必须大于 0",
+          "editable": 1
+        },
+        "--algorithm": {
+          "type": "str",
+          "item_type": "str",
+          "label": "分类算法",
+          "require": 0,
+          "choice": [
+            "auto",
+            "SAMME",
+            "SAMME.R"
+          ],
+          "range": "",
+          "default": "auto",
+          "placeholder": "auto",
+          "describe": "仅分类生效；auto 使用 SAMME.R，回归任务必须保持 auto",
+          "editable": 1
+        },
+        "--loss": {
+          "type": "str",
+          "item_type": "str",
+          "label": "回归损失",
+          "require": 0,
+          "choice": [
+            "auto",
+            "linear",
+            "square",
+            "exponential"
+          ],
+          "range": "",
+          "default": "auto",
+          "placeholder": "auto",
+          "describe": "仅回归生效；auto 使用 linear，分类任务必须保持 auto",
+          "editable": 1
+        },
+        "--base_max_depth": {
+          "type": "str",
+          "item_type": "str",
+          "label": "弱树最大深度",
+          "require": 0,
+          "choice": [],
+          "range": "",
+          "default": "auto",
+          "placeholder": "auto / 1 / 3",
+          "describe": "auto 对分类使用深度 1、对回归使用深度 3，也可填写正整数",
+          "editable": 1
+        },
+        "--base_min_samples_split": {
+          "type": "int",
+          "item_type": "int",
+          "label": "弱树节点最小分裂样本数",
+          "require": 0,
+          "choice": [],
+          "range": "2,100000",
+          "default": "2",
+          "placeholder": "2",
+          "describe": "弱决策树内部节点继续分裂所需的最小样本数",
+          "editable": 1
+        },
+        "--base_min_samples_leaf": {
+          "type": "int",
+          "item_type": "int",
+          "label": "弱树叶子最小样本数",
+          "require": 0,
+          "choice": [],
+          "range": "1,100000",
+          "default": "1",
+          "placeholder": "1",
+          "describe": "弱决策树每个叶子节点至少保留的样本数",
+          "editable": 1
+        },
+        "--base_max_features": {
+          "type": "str",
+          "item_type": "str",
+          "label": "弱树最大特征数",
+          "require": 0,
+          "choice": [],
+          "range": "",
+          "default": "",
+          "placeholder": "sqrt / log2 / 0.8 / 10",
+          "describe": "每次分裂考虑的最大特征数；为空表示全部，也可填写 sqrt、log2、比例或整数",
+          "editable": 1
+        }
+      },
+      "输出配置": {
+        "--output_model_path": {
+          "type": "str",
+          "item_type": "str",
+          "label": "模型输出路径",
+          "require": 1,
+          "choice": [],
+          "range": "",
+          "default": "",
+          "placeholder": "/mnt/storage/models-storage/models/adaboost/model.pkl",
+          "describe": "模型文件输出路径，请填写容器内可写的实际路径",
+          "editable": 1
+        },
+        "--output_metrics_path": {
+          "type": "str",
+          "item_type": "str",
+          "label": "指标输出路径",
+          "require": 1,
+          "choice": [],
+          "range": "",
+          "default": "",
+          "placeholder": "/mnt/storage/models-storage/output/adaboost/metrics.json",
+          "describe": "指标 JSON 输出路径，请填写容器内可写的实际路径",
+          "editable": 1
+        }
+      }
+    }
   },
   "xgb": {
     "project_name": "机器学习算法",
-    "image_name": "python:3.9",
+    "image_name": "10.121.177.20:8082/mlops/xgb:20260721",
     "gitpath": "/job-template/job/xgb",
-    "image_describe": "xgb算法单机",
+    "image_describe": "XGBoost单机分类与回归算法",
     "job_template_name": "xgb",
-    "job_template_describe": "xgb算法单机(开发中)",
+    "job_template_describe": "基于XGBoost的单机分类与回归算法",
+    "job_template_version": "Release",
+    "job_template_workdir": "/app",
     "job_template_command": "python3 launcher.py",
     "job_template_volume": "",
     "job_template_account": "",
     "job_template_env": "",
     "job_template_expand": {
       "index": 2,
-      "rec_job_template": "自定义镜像",
+      "rec_job_template": "机器学习算法",
       "help_url": "/job-template/job/xgb"
     },
-    "job_template_args": {}
+    "job_template_args": {
+      "数据配置": {
+        "--input_csv": {
+          "type": "str",
+          "item_type": "str",
+          "label": "训练数据路径",
+          "require": 1,
+          "choice": [],
+          "range": "",
+          "default": "",
+          "placeholder": "/mnt/storage/models-storage/output/datasets/xgb/train.csv",
+          "describe": "训练数据 CSV 文件路径，请填写容器内可访问的实际路径",
+          "editable": 1
+        },
+        "--label_col": {
+          "type": "str",
+          "item_type": "str",
+          "label": "标签列",
+          "require": 0,
+          "choice": [],
+          "range": "",
+          "default": "label",
+          "placeholder": "label",
+          "describe": "需要预测的标签列名称，默认为 label",
+          "editable": 1
+        },
+        "--drop_cols": {
+          "type": "str",
+          "item_type": "str",
+          "label": "忽略特征列",
+          "require": 0,
+          "choice": [],
+          "range": "",
+          "default": "",
+          "placeholder": "id,date",
+          "describe": "不参与训练的列，多个列名使用英文逗号分隔，可为空",
+          "editable": 1
+        }
+      },
+      "训练参数": {
+        "--task_type": {
+          "type": "str",
+          "item_type": "str",
+          "label": "任务类型",
+          "require": 0,
+          "choice": [
+            "classification",
+            "regression"
+          ],
+          "range": "",
+          "default": "classification",
+          "placeholder": "classification",
+          "describe": "classification 表示分类任务，regression 表示回归任务",
+          "editable": 1
+        },
+        "--test_size": {
+          "type": "float",
+          "item_type": "float",
+          "label": "测试集比例",
+          "require": 0,
+          "choice": [],
+          "range": "0.01,0.99",
+          "default": "0.2",
+          "placeholder": "0.2",
+          "describe": "测试集占全部有效数据的比例，取值必须在 0 和 1 之间",
+          "editable": 1
+        },
+        "--random_state": {
+          "type": "int",
+          "item_type": "int",
+          "label": "随机种子",
+          "require": 0,
+          "choice": [],
+          "range": "0,2147483647",
+          "default": "42",
+          "placeholder": "42",
+          "describe": "用于数据切分和模型训练复现",
+          "editable": 1
+        }
+      },
+      "模型参数": {
+        "--n_estimators": {
+          "type": "int",
+          "item_type": "int",
+          "label": "树数量",
+          "require": 0,
+          "choice": [],
+          "range": "1,100000",
+          "default": "100",
+          "placeholder": "100",
+          "describe": "Boosting 迭代中训练的树数量",
+          "editable": 1
+        },
+        "--learning_rate": {
+          "type": "float",
+          "item_type": "float",
+          "label": "学习率",
+          "require": 0,
+          "choice": [],
+          "range": "0.000001,10",
+          "default": "0.1",
+          "placeholder": "0.1",
+          "describe": "每棵树对最终结果的贡献缩放系数，必须大于 0",
+          "editable": 1
+        },
+        "--max_depth": {
+          "type": "int",
+          "item_type": "int",
+          "label": "最大深度",
+          "require": 0,
+          "choice": [],
+          "range": "1,1000",
+          "default": "6",
+          "placeholder": "6",
+          "describe": "单棵树的最大深度，数值越大模型越复杂",
+          "editable": 1
+        },
+        "--min_child_weight": {
+          "type": "float",
+          "item_type": "float",
+          "label": "子节点最小权重",
+          "require": 0,
+          "choice": [],
+          "range": "0,1000000000",
+          "default": "1.0",
+          "placeholder": "1.0",
+          "describe": "子节点继续保留所需的最小样本权重和",
+          "editable": 1
+        },
+        "--subsample": {
+          "type": "float",
+          "item_type": "float",
+          "label": "样本采样比例",
+          "require": 0,
+          "choice": [],
+          "range": "0.000001,1",
+          "default": "1.0",
+          "placeholder": "1.0",
+          "describe": "每棵树训练时使用的样本比例，取值范围为 (0,1]",
+          "editable": 1
+        },
+        "--colsample_bytree": {
+          "type": "float",
+          "item_type": "float",
+          "label": "特征采样比例",
+          "require": 0,
+          "choice": [],
+          "range": "0.000001,1",
+          "default": "1.0",
+          "placeholder": "1.0",
+          "describe": "每棵树训练时使用的特征比例，取值范围为 (0,1]",
+          "editable": 1
+        },
+        "--gamma": {
+          "type": "float",
+          "item_type": "float",
+          "label": "最小分裂损失",
+          "require": 0,
+          "choice": [],
+          "range": "0,1000000000",
+          "default": "0.0",
+          "placeholder": "0.0",
+          "describe": "节点继续分裂所需的最小损失下降值",
+          "editable": 1
+        },
+        "--reg_alpha": {
+          "type": "float",
+          "item_type": "float",
+          "label": "L1正则化",
+          "require": 0,
+          "choice": [],
+          "range": "0,1000000000",
+          "default": "0.0",
+          "placeholder": "0.0",
+          "describe": "叶子权重的 L1 正则化系数",
+          "editable": 1
+        },
+        "--reg_lambda": {
+          "type": "float",
+          "item_type": "float",
+          "label": "L2正则化",
+          "require": 0,
+          "choice": [],
+          "range": "0,1000000000",
+          "default": "1.0",
+          "placeholder": "1.0",
+          "describe": "叶子权重的 L2 正则化系数",
+          "editable": 1
+        },
+        "--n_jobs": {
+          "type": "int",
+          "item_type": "int",
+          "label": "并行线程数",
+          "require": 0,
+          "choice": [],
+          "range": "",
+          "default": "-1",
+          "placeholder": "-1",
+          "describe": "-1 表示使用全部可用核心，也可填写正整数",
+          "editable": 1
+        }
+      },
+      "输出配置": {
+        "--output_model_path": {
+          "type": "str",
+          "item_type": "str",
+          "label": "模型输出路径",
+          "require": 1,
+          "choice": [],
+          "range": "",
+          "default": "",
+          "placeholder": "/mnt/storage/models-storage/models/xgb/model.pkl",
+          "describe": "模型文件输出路径，请填写容器内可写的实际路径",
+          "editable": 1
+        },
+        "--output_metrics_path": {
+          "type": "str",
+          "item_type": "str",
+          "label": "指标输出路径",
+          "require": 1,
+          "choice": [],
+          "range": "",
+          "default": "",
+          "placeholder": "/mnt/storage/models-storage/output/xgb/metrics.json",
+          "describe": "指标 JSON 输出路径，请填写容器内可写的实际路径",
+          "editable": 1
+        }
+      }
+    }
   },
   "decision-tree": {
     "project_name": "机器学习算法",
-    "image_name": "python:3.9",
+    "image_name": "10.121.177.20:8082/mlops/decision-tree:20260717",
     "gitpath": "/job-template/job/decision-tree",
     "image_describe": "decision-tree算法",
     "job_template_name": "decision-tree",
-    "job_template_describe": "decision-tree算法(开发中)",
+    "job_template_describe": "基于scikit-learn的决策树分类与回归算法",
+    "job_template_version": "Release",
+    "job_template_workdir": "/app",
     "job_template_command": "python3 launcher.py",
     "job_template_volume": "",
     "job_template_account": "",
     "job_template_env": "",
     "job_template_expand": {
       "index": 2,
-      "rec_job_template": "自定义镜像",
+      "rec_job_template": "机器学习算法",
       "help_url": "/job-template/job/decision-tree"
     },
-    "job_template_args": {}
+    "job_template_args": {
+      "数据配置": {
+        "--input_csv": {
+          "type": "str",
+          "item_type": "str",
+          "label": "训练数据路径",
+          "require": 1,
+          "choice": [],
+          "range": "",
+          "default": "",
+          "placeholder": "/mnt/storage/models-storage/output/datasets/decision-tree/train.csv",
+          "describe": "训练数据 CSV 文件路径，请填写容器内可访问的实际路径",
+          "editable": 1
+        },
+        "--label_col": {
+          "type": "str",
+          "item_type": "str",
+          "label": "标签列",
+          "require": 0,
+          "choice": [],
+          "range": "",
+          "default": "label",
+          "placeholder": "label",
+          "describe": "需要预测的标签列名称，默认为 label",
+          "editable": 1
+        },
+        "--drop_cols": {
+          "type": "str",
+          "item_type": "str",
+          "label": "忽略特征列",
+          "require": 0,
+          "choice": [],
+          "range": "",
+          "default": "",
+          "placeholder": "id,date",
+          "describe": "不参与训练的列，多个列名使用英文逗号分隔，可为空",
+          "editable": 1
+        }
+      },
+      "训练参数": {
+        "--task_type": {
+          "type": "str",
+          "item_type": "str",
+          "label": "任务类型",
+          "require": 0,
+          "choice": [
+            "classification",
+            "regression"
+          ],
+          "range": "",
+          "default": "classification",
+          "placeholder": "classification",
+          "describe": "classification 表示分类任务，regression 表示回归任务",
+          "editable": 1
+        },
+        "--test_size": {
+          "type": "float",
+          "item_type": "float",
+          "label": "测试集比例",
+          "require": 0,
+          "choice": [],
+          "range": "0.01,0.99",
+          "default": "0.2",
+          "placeholder": "0.2",
+          "describe": "测试集占全部有效数据的比例，0.2 表示 20%",
+          "editable": 1
+        },
+        "--random_state": {
+          "type": "int",
+          "item_type": "int",
+          "label": "随机种子",
+          "require": 0,
+          "choice": [],
+          "range": "0,99999",
+          "default": "42",
+          "placeholder": "42",
+          "describe": "用于数据切分和模型训练复现",
+          "editable": 1
+        }
+      },
+      "模型参数": {
+        "--criterion": {
+          "type": "str",
+          "item_type": "str",
+          "label": "分裂标准",
+          "require": 0,
+          "choice": [
+            "auto",
+            "gini",
+            "entropy",
+            "log_loss",
+            "squared_error",
+            "friedman_mse",
+            "absolute_error",
+            "poisson"
+          ],
+          "range": "",
+          "default": "auto",
+          "placeholder": "auto",
+          "describe": "auto 会为分类选择 gini、为回归选择 squared_error；其他值必须与任务类型匹配",
+          "editable": 1
+        },
+        "--splitter": {
+          "type": "str",
+          "item_type": "str",
+          "label": "节点切分策略",
+          "require": 0,
+          "choice": [
+            "best",
+            "random"
+          ],
+          "range": "",
+          "default": "best",
+          "placeholder": "best",
+          "describe": "best 选择最佳切分，random 从候选切分中随机选择",
+          "editable": 1
+        },
+        "--max_depth": {
+          "type": "int",
+          "item_type": "int",
+          "label": "最大深度",
+          "require": 0,
+          "choice": [],
+          "range": "1,1000",
+          "default": "5",
+          "placeholder": "5",
+          "describe": "限制树的最大深度，用于控制模型复杂度和过拟合",
+          "editable": 1
+        },
+        "--min_samples_split": {
+          "type": "int",
+          "item_type": "int",
+          "label": "节点最小分裂样本数",
+          "require": 0,
+          "choice": [],
+          "range": "2,100000",
+          "default": "2",
+          "placeholder": "2",
+          "describe": "内部节点继续分裂所需的最小样本数",
+          "editable": 1
+        },
+        "--min_samples_leaf": {
+          "type": "int",
+          "item_type": "int",
+          "label": "叶子节点最小样本数",
+          "require": 0,
+          "choice": [],
+          "range": "1,100000",
+          "default": "1",
+          "placeholder": "1",
+          "describe": "每个叶子节点至少需要保留的样本数",
+          "editable": 1
+        },
+        "--max_features": {
+          "type": "str",
+          "item_type": "str",
+          "label": "最大特征数",
+          "require": 0,
+          "choice": [],
+          "range": "",
+          "default": "",
+          "placeholder": "sqrt / log2 / 0.8 / 10",
+          "describe": "每次分裂考虑的最大特征数；为空表示全部特征，也可填写 sqrt、log2、小数比例或整数",
+          "editable": 1
+        },
+        "--class_weight": {
+          "type": "str",
+          "item_type": "str",
+          "label": "分类类别权重",
+          "require": 0,
+          "choice": [
+            "",
+            "balanced"
+          ],
+          "range": "",
+          "default": "",
+          "placeholder": "balanced",
+          "describe": "仅适用于分类；balanced 会根据类别频率自动调整权重",
+          "editable": 1
+        },
+        "--ccp_alpha": {
+          "type": "float",
+          "item_type": "float",
+          "label": "剪枝强度",
+          "require": 0,
+          "choice": [],
+          "range": "0,100000",
+          "default": "0.0",
+          "placeholder": "0.0",
+          "describe": "成本复杂度剪枝参数；数值越大，剪枝越强",
+          "editable": 1
+        }
+      },
+      "输出配置": {
+        "--output_model_path": {
+          "type": "str",
+          "item_type": "str",
+          "label": "模型输出路径",
+          "require": 1,
+          "choice": [],
+          "range": "",
+          "default": "",
+          "placeholder": "/mnt/storage/models-storage/models/decision-tree/model.pkl",
+          "describe": "模型文件输出路径，请填写容器内可写的实际路径",
+          "editable": 1
+        },
+        "--output_metrics_path": {
+          "type": "str",
+          "item_type": "str",
+          "label": "指标输出路径",
+          "require": 1,
+          "choice": [],
+          "range": "",
+          "default": "",
+          "placeholder": "/mnt/storage/models-storage/output/decision-tree/metrics.json",
+          "describe": "指标 JSON 输出路径，请填写容器内可写的实际路径",
+          "editable": 1
+        }
+      }
+    }
   },
   "gbdt": {
     "project_name": "机器学习算法",
@@ -5238,7 +5903,7 @@
   },
   "llama-factory": {
     "project_name": "模型处理",
-    "image_name": "10.121.177.20:8082/mlops/llama_factory:20250712",
+    "image_name": "10.121.177.20:8082/mlops/llama_factory:20260718-swanlab-monitor",
     "gitpath": "/job-template/job/llama_factory",
     "image_describe": "llama-factory微调",
     "job_template_name": "llama-factory",
@@ -5263,7 +5928,7 @@
           "require": 1,
           "choice": [],
           "range": "",
-          "default": "Qwen/Qwen2.5-7B-Instruct",
+          "default": "/mnt/storage/models-share-volume/models/Qwen3-0.6B",
           "placeholder": "",
           "describe": "预训练模型名称或路径",
           "editable": 1
@@ -5277,8 +5942,8 @@
           "require": 0,
           "choice": [],
           "range": "",
-          "default": "",
-          "placeholder": "identity",
+          "default": "yuki_identity_sft",
+          "placeholder": "yuki_identity_sft",
           "describe": "训练数据集名称，对应dataset_info.json中的数据集名，支持多个用逗号分隔",
           "editable": 1
         },
@@ -5289,8 +5954,8 @@
           "require": 0,
           "choice": [],
           "range": "",
-          "default": "",
-          "placeholder": "/mnt/admin/data/alpaca",
+          "default": "/mnt/storage/models-share-volume/datasets/lora-dataset",
+          "placeholder": "/mnt/storage/models-share-volume/datasets/lora-dataset",
           "describe": "数据集目录路径，包含数据集JSON文件和dataset_info.json。留空则使用默认identity数据集",
           "editable": 1
         },
@@ -5403,8 +6068,8 @@
           "require": 0,
           "choice": [],
           "range": "",
-          "default": "",
-          "placeholder": "/mnt/storage/models-storage/output/lora",
+          "default": "/mnt/storage/models-share-volume/output/lora",
+          "placeholder": "/mnt/storage/models-share-volume/output/lora",
           "describe": "模型保存路径，不填写则自动生成",
           "editable": 1
         }
@@ -5959,6 +6624,260 @@
       }
     }
   },
+  "litgpt-pretrain": {
+    "project_name": "模型处理",
+    "image_name": "10.121.177.20:8082/mlops/litgpt-pretrain:20260729-0843",
+    "gitpath": "/job-template/job/litgpt-pretrain",
+    "image_describe": "大模型预训练(LitGPT)",
+    "job_template_name": "litgpt-pretrain",
+    "job_template_describe": "模型预训练",
+    "job_template_version": "Release",
+    "job_template_workdir": "/app",
+    "job_template_command": "python3 launcher.py",
+    "job_template_volume": "models-storage(storage):/mnt/storage/models-storage,models-share-volume(storage):/mnt/storage/models-share-volume",
+    "job_template_account": "",
+    "job_template_env": "HF_ENDPOINT=https://hf-mirror.com",
+    "job_template_expand": {
+      "index": 8,
+      "rec_job_template": "自定义镜像",
+      "help_url": "/job-template/job/litgpt-pretrain"
+    },
+    "job_template_args": {
+      "模型配置": {
+        "--model_name": {
+          "type": "str",
+          "item_type": "str",
+          "label": "模型配置名",
+          "require": 1,
+          "choice": [],
+          "range": "",
+          "editable": 1,
+          "default": "tiny-llama-1.1b",
+          "placeholder": "如 tiny-llama-1.1b, llama-3.2-1b",
+          "describe": "litgpt 内置模型配置名。可用: tiny-llama-1.1b, llama-3.2-1b, llama-3.2-3b 等"
+        },
+        "--tokenizer_dir": {
+          "type": "str",
+          "item_type": "str",
+          "label": "分词器 HF 仓库",
+          "require": 0,
+          "choice": [],
+          "range": "",
+          "editable": 1,
+          "default": "",
+          "placeholder": "如 TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T",
+          "describe": "HuggingFace 仓库 ID（用于下载 tokenizer）。留空则不设置 tokenizer"
+        },
+        "--precision": {
+          "type": "str",
+          "item_type": "str",
+          "label": "训练精度",
+          "require": 0,
+          "editable": 1,
+          "choice": [
+            "bf16-true",
+            "bf16-mixed",
+            "32-true"
+          ],
+          "range": "",
+          "default": "bf16-true",
+          "placeholder": "",
+          "describe": "bf16-true(推荐H100/A100), bf16-mixed(混合精度), 32-true(FP32)"
+        }
+      },
+      "数据配置": {
+        "--data_path": {
+          "type": "str",
+          "item_type": "str",
+          "label": "训练数据目录",
+          "require": 1,
+          "choice": [],
+          "range": "",
+          "editable": 1,
+          "default": "",
+          "placeholder": "/mnt/storage/models-storage/data/pretrain/",
+          "describe": "存放 .txt 文本文件的目录 (litgpt.data.TextFiles 读取目录下所有 .txt)"
+        },
+        "--max_seq_length": {
+          "type": "int",
+          "item_type": "int",
+          "label": "最大序列长度",
+          "require": 0,
+          "choice": [],
+          "editable": 1,
+          "range": [
+            512,
+            131072
+          ],
+          "default": 4096,
+          "step": 512,
+          "placeholder": "",
+          "describe": "训练时最大序列长度 (token 数)"
+        }
+      },
+      "训练配置": {
+        "--max_tokens": {
+          "type": "str",
+          "item_type": "str",
+          "label": "最大训练 Token 数",
+          "require": 0,
+          "choice": [],
+          "range": "",
+          "editable": 1,
+          "default": "100M",
+          "placeholder": "如 100M, 1B, 10B",
+          "describe": "最大训练 token 数 (litgpt 以此计算终止条件). 100M=1亿, 1B=10亿"
+        },
+        "--learning_rate": {
+          "type": "str",
+          "item_type": "str",
+          "label": "学习率",
+          "require": 0,
+          "choice": [],
+          "range": "",
+          "editable": 1,
+          "default": "4e-4",
+          "placeholder": "",
+          "describe": "初始学习率, 预训练通常 1e-4 ~ 6e-4"
+        },
+        "--micro_batch_size": {
+          "type": "int",
+          "item_type": "int",
+          "label": "每卡批次大小",
+          "require": 0,
+          "choice": [],
+          "editable": 1,
+          "range": [
+            1,
+            512
+          ],
+          "default": 4,
+          "step": 1,
+          "placeholder": "",
+          "describe": "每张 GPU 上的批次大小"
+        },
+        "--global_batch_size": {
+          "type": "int",
+          "item_type": "int",
+          "label": "全局批次大小",
+          "require": 0,
+          "choice": [],
+          "editable": 1,
+          "range": [
+            1,
+            65536
+          ],
+          "default": 64,
+          "step": 8,
+          "placeholder": "",
+          "describe": "必须是 micro_batch_size × GPU 数的整数倍, 不满足时自动修正"
+        },
+        "--weight_decay": {
+          "type": "str",
+          "item_type": "str",
+          "label": "权重衰减",
+          "require": 0,
+          "choice": [],
+          "range": "",
+          "editable": 1,
+          "default": "1e-2",
+          "placeholder": "",
+          "describe": "AdamW 权重衰减系数"
+        },
+        "--warmup_steps": {
+          "type": "int",
+          "item_type": "int",
+          "label": "热身步数",
+          "require": 0,
+          "choice": [],
+          "editable": 1,
+          "range": [
+            0,
+            100000
+          ],
+          "default": 2000,
+          "step": 100,
+          "placeholder": "",
+          "describe": "学习率预热步数. litgpt 默认 2000"
+        },
+        "--max_norm": {
+          "type": "float",
+          "item_type": "float",
+          "label": "梯度裁剪值",
+          "require": 0,
+          "choice": [],
+          "editable": 1,
+          "range": [
+            0.0,
+            10.0
+          ],
+          "default": 1.0,
+          "step": 0.1,
+          "placeholder": "",
+          "describe": "梯度裁剪最大值. 0=不裁剪"
+        },
+        "--save_interval": {
+          "type": "int",
+          "item_type": "int",
+          "label": "保存间隔(步数)",
+          "require": 0,
+          "choice": [],
+          "editable": 1,
+          "range": [
+            100,
+            100000
+          ],
+          "default": 1000,
+          "step": 100,
+          "placeholder": "",
+          "describe": "每多少步保存一次 checkpoint"
+        },
+        "--log_interval": {
+          "type": "int",
+          "item_type": "int",
+          "label": "日志间隔(步数)",
+          "require": 0,
+          "choice": [],
+          "editable": 1,
+          "range": [
+            1,
+            10000
+          ],
+          "default": 10,
+          "step": 1,
+          "placeholder": "",
+          "describe": "每多少步打印一次训练日志"
+        }
+      },
+      "输出配置": {
+        "--output_dir": {
+          "type": "str",
+          "item_type": "str",
+          "label": "输出目录",
+          "require": 0,
+          "choice": [],
+          "range": "",
+          "editable": 1,
+          "default": "",
+          "placeholder": "/mnt/storage/models-share-volume/output/pretrain",
+          "describe": "Checkpoint 和最终模型输出目录. 不填则自动生成"
+        },
+        "--resume_from": {
+          "type": "str",
+          "item_type": "str",
+          "label": "恢复训练 checkpoint",
+          "require": 0,
+          "choice": [],
+          "range": "",
+          "editable": 1,
+          "default": "",
+          "placeholder": "",
+          "describe": "从已有 checkpoint 目录恢复训练, 留空则从头训练"
+        }
+      }
+    }
+  },
+
   "media-download": {
     "project_name": "视频处理",
     "image_name": "10.121.177.20:8082/mlops/video-audio:20250301",
@@ -8709,12 +9628,13 @@
       }
     }
   },
-  "model-quantization": {
+  "model-quantize": {
     "project_name": "模型处理",
-    "image_name": "10.121.177.20:8082/mlops/gptqmodel:3.1.1",
+    "image_name": "10.121.177.20:8082/mlops/gptqmodel:3.3.0",
     "gitpath": "/job-template/job/llm_quantize",
-    "image_describe": "LLM量化(GPTQModel)",
-    "job_template_name": "model-quantization",
+    "image_describe": "LLM量化(GPTQModel/AutoAWQ/BnB)",
+    "job_template_name": "model-quantize",
+    "job_template_old_names": ["model-quantization"],
     "job_template_describe": "大模型量化",
     "job_template_command": "python3 /app/launcher.py",
     "job_template_volume": "models-storage(storage):/mnt/storage/models-storage,models-share-volume(storage):/mnt/storage/models-share-volume",
@@ -8727,12 +9647,36 @@
     },
     "job_template_args": {
         "模型参数": {
+            "--model_source": {
+                "type": "str",
+                "default": "pvc",
+                "describe": "模型来源",
+                "choice": {
+                    "pvc": "PVC 模型目录",
+                    "modelscope": "ModelScope 模型 ID"
+                },
+                "editable": 1
+            },
             "--model": {
                 "type": "str",
                 "default": "",
-                "describe": "待量化模型路径或 HuggingFace Model ID（必填）",
+                "describe": "PVC 绝对路径或 ModelScope 模型 ID（必填）",
                 "item_type": "str",
                 "require": 1,
+                "editable": 1
+            },
+            "--model_revision": {
+                "type": "str",
+                "default": "master",
+                "describe": "ModelScope 模型版本，PVC 来源时忽略",
+                "item_type": "str",
+                "editable": 1
+            },
+            "--model_cache": {
+                "type": "str",
+                "default": "/mnt/storage/models-storage/modelscope-cache",
+                "describe": "ModelScope 模型下载到 PVC 的缓存目录",
+                "item_type": "str",
                 "editable": 1
             },
             "--output": {
@@ -8758,23 +9702,29 @@
             "--bits": {
                 "type": "int",
                 "default": 4,
-                "range": "2,8",
-                "step": 1,
-                "describe": "量化位数，推荐 4bit",
+                "choice": [
+                    4,
+                    8
+                ],
+                "describe": "量化位数：GPTQ 支持 4/8，AWQ 仅支持 4，BnB 支持 4/8",
                 "editable": 1
             },
             "--group_size": {
                 "type": "int",
                 "default": 128,
-                "range": "32,256",
-                "step": 32,
-                "describe": "GPTQ 分组大小，128 是标准值",
+                "choice": [
+                    32,
+                    64,
+                    128,
+                    256
+                ],
+                "describe": "GPTQ 分组大小，推荐 128",
                 "editable": 1
             },
             "--dataset": {
                 "type": "str",
                 "default": "/mnt/storage/models-storage/datasets/wikitext2",
-                "describe": "校准数据集路径（完整路径或短名称 wikitext2）",
+                "describe": "GPTQ/AWQ 校准集：PVC 目录、CSV/JSON/JSONL/TXT 文件或 wikitext2 离线样本",
                 "item_type": "str",
                 "editable": 1
             },
@@ -8783,7 +9733,17 @@
                 "default": 128,
                 "range": "16,1024",
                 "step": 16,
-                "describe": "GPTQ 校准使用的样本数量",
+                "describe": "GPTQ/AWQ 校准样本数（平台 16~1024；CLI 1~10000）",
+                "editable": 1
+            },
+            "--force": {
+                "type": "bool",
+                "item_type": "bool",
+                "require": 0,
+                "choice": [],
+                "range": "",
+                "default": "false",
+                "describe": "允许复用非空输出目录；仅确认覆盖时开启",
                 "editable": 1
             }
         }
@@ -8791,7 +9751,7 @@
   },
  "msswift": {
     "project_name": "分布式加速",
-    "image_name": "10.121.177.20:8082/mlops/msswift:20260715-v5",
+    "image_name": "10.121.177.20:8082/mlops/msswift:20260721-monitor-v3",
     "gitpath": "/job-template/job/msswift",
     "image_describe": "ms-swift 分布式训练镜像（预置 CUDA + torch + deepspeed + swift）",
     "job_template_name": "msswift",

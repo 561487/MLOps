@@ -128,6 +128,8 @@ def node_traffic():
 
             gpu_used=0
             gpu_total=0
+            gpu_shared_used=round(float(nodes[ip].get('used_gpu_shared', 0)), 2)
+            gpu_shared_total=round(float(nodes[ip].get('gpu_shared', 0)), 2)
             # 如果有vgpu就显示vgpu的值。
             gpu_mfrs = ''
             for vgpu_mfrs_temp in conf.get('VGPU_RESOURCE'):
@@ -166,7 +168,7 @@ def node_traffic():
                 td_html % ("cpu:%s/%s" % (nodes[ip]['used_cpu'], nodes[ip]['cpu'])),
                 td_html % ("mem:%s/%s" % (nodes[ip]['used_memory'], nodes[ip]['memory'])),
                 # td_html % ("gpu:%s/%s" % (round(nodes[ip]['used_gpu'],2) if 'vgpu' in device else int(float(nodes[ip]['used_gpu'])), nodes[ip]['gpu'])),
-                td_html % (f"{gpu_mfrs}{gpu_used}/{round(float(gpu_total))}"),
+                td_html % (f"独占AI卡:{gpu_used}/{round(float(gpu_total))}<br>共享AI卡:{gpu_shared_used}/{round(float(gpu_shared_total))}"),
 
                 # td_html % (','.join(list(set(nodes[ip]['user']))[0:1]))
             )
@@ -175,8 +177,8 @@ def node_traffic():
             global_cluster_load[cluster_name]['cpu_all'] += round(float(nodes[ip]['cpu']))
             global_cluster_load[cluster_name]['mem_req'] += round(float(nodes[ip]['used_memory']))
             global_cluster_load[cluster_name]['mem_all'] += round(float(nodes[ip]['memory']))
-            global_cluster_load[cluster_name]['gpu_req'] += round(float(gpu_used), 2)
-            global_cluster_load[cluster_name]['gpu_all'] += round(float(gpu_total))
+            global_cluster_load[cluster_name]['gpu_req'] += round(float(gpu_used), 2) + gpu_shared_used
+            global_cluster_load[cluster_name]['gpu_all'] += round(float(gpu_total)) + round(float(gpu_shared_total))
 
     message = Markup('<div style="padding:20px"><table>%s</table></div>' % message)
     # 集群整体利用率的数据保持60s才过期

@@ -715,10 +715,21 @@ GPU_RESOURCE={
     "gpu":"nvidia.com/gpu"
 }
 DEFAULT_GPU_RESOURCE_NAME='nvidia.com/gpu'
-GPU_SHARED_RESOURCE_NAME='nvidia.com/gpu.shared'
-GPU_SHARED_NODE_SELECTOR={
+ENABLE_HAMI=True
+GPU_SCHEDULERNAME='hami-scheduler'
+HAMI_GPU_RESOURCE_NAME='nvidia.com/gpu'
+HAMI_GPU_MEMORY_RESOURCE_NAME='nvidia.com/gpumem'
+HAMI_GPU_CORE_RESOURCE_NAME='nvidia.com/gpucores'
+HAMI_GPU_DEVICE_MEMORY_GB=48
+HAMI_GPU_MAX_MEMORY_GB=380
+HAMI_NODE_SELECTOR={
     "gpu":"true",
-    "mps":"true"
+    "hami":"true",
+    "gpu-plugin":"hami"
+}
+NVIDIA_GPU_NODE_SELECTOR={
+    "gpu":"true",
+    "gpu-plugin":"nvidia"
 }
 
 # 配置禁用gpu的方法，不然对复合共用型机器，gpu会被共享使用
@@ -787,7 +798,7 @@ SWANLAB_LOGDIR = '/mnt/storage/swanlab/swanlog'
 
 # 监控回调注册地址（训练容器 -> MLOps 后端）
 # 部署时需根据实际 MLOps 后端地址配置，例如：
-#   MLOPS_MONITOR_REGISTER_URL = 'http://<mlops-host>:<port>/training_monitor/api/register'
+MLOPS_MONITOR_REGISTER_URL = 'http://10.121.177.20:30080/training_monitor/api/register'
 # 不配置则使用代码默认值（Docker Compose 环境适用，K8s 环境需显式配置）
 
 # 可选：register 接口 token 校验，为空则跳过
@@ -884,6 +895,22 @@ WORKSPACE_HOST_PATH = '/data/k8s/kubeflow/pipeline/workspace'
 ARCHIVES_HOST_PATH = "/data/k8s/kubeflow/pipeline/archives"
 # prometheus地址
 PROMETHEUS = 'prometheus-k8s.monitoring:9090'
+
+# ==== 推理监控 Prometheus 配置 ====
+def _normalize_prometheus_url(value):
+    value = (value or "").strip().rstrip("/")
+    if value and not value.startswith(("http://", "https://")):
+        value = f"http://{value}"
+    return value
+
+PROMETHEUS_BASE_URL = _normalize_prometheus_url(
+    os.environ.get("PROMETHEUS_BASE_URL")
+    or globals().get("PROMETHEUS")
+    or ""
+)
+PROMETHEUS_QUERY_TIMEOUT = int(os.environ.get("PROMETHEUS_QUERY_TIMEOUT", "10"))
+INFERENCE_MONITOR_SUMMARY_CACHE_TTL = int(os.environ.get("INFERENCE_MONITOR_SUMMARY_CACHE_TTL", "10"))
+INFERENCE_MONITOR_TIMESERIES_CACHE_TTL = int(os.environ.get("INFERENCE_MONITOR_TIMESERIES_CACHE_TTL", "30"))
 # nni默认镜像
 NNI_IMAGES='ccr.ccs.tencentyun.com/cube-studio/nni:20240501'
 

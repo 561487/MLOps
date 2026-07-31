@@ -450,6 +450,13 @@ class Myapp(BaseMyappView):
                                     "menu_type": "api",
                                     "url": "/llm_gateway_modelview/api/"
                                 },
+                                {
+                                    "name": 'inference_monitor',
+                                    "title": __('推理监控'),
+                                    "icon": '<svg t="1680000000000" class="icon" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="15000" width="200" height="200"><path d="M896 128H128c-35.2 0-64 28.8-64 64v512c0 35.2 28.8 64 64 64h320v64H320c-17.7 0-32 14.3-32 32s14.3 32 32 32h384c17.7 0 32-14.3 32-32s-14.3-32-32-32H576v-64h320c35.2 0 64-28.8 64-64V192c0-35.2-28.8-64-64-64z m0 576H128V192h768v512z" fill="#333333" p-id="15001"></path><path d="M288 448l128 128 160-160 160 192 64-64" fill="none" stroke="#333333" stroke-width="48" stroke-linecap="round" stroke-linejoin="round" p-id="15002"></path><path d="M736 512m-32 0a32 32 0 1 0 64 0 32 32 0 1 0-64 0Z" fill="#333333" p-id="15003"></path></svg>',
+                                    "menu_type": "innerRoute",
+                                    "url": "/service/inferenceservice/inference_monitor",
+                                },
                             ]
                         },
                         # {

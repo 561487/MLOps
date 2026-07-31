@@ -311,7 +311,9 @@ class MyappModelBase():
         "pre_train_model": _("预训练模型"),
         "source": _("来源"),
         "hot": _("热度"),
-        "price": _("价格")
+        "price": _("价格"),
+        "suspend": _("暂停"),
+        "resume": _("恢复"),
     }
 
     # print(label_columns)
@@ -323,23 +325,7 @@ class MyappModelBase():
             node_selector=''
 
         # 不使用用户的填写，完全平台决定
-        gpu_num = core.get_gpu(resource_gpu)[0]
-        if type(gpu_num)==str and ',' in gpu_num:
-            node_selector = node_selector.replace('cpu=true', 'vgpu=true') + ";vgpu=true;%s=true" % model_type
-        elif isinstance(gpu_num, (int, float)) and gpu_num < 0:
-            node_selector = node_selector.replace('cpu=true', 'gpu=true') + ";gpu=true;mps=true;%s=true"%model_type
-        elif gpu_num>=1:
-            node_selector = node_selector.replace('cpu=true', 'gpu=true') + ";gpu=true;mps=false;%s=true"%model_type
-        elif 1>gpu_num>0:
-            node_selector = node_selector.replace('cpu=true', 'vgpu=true') + ";vgpu=true;%s=true" % model_type
-        else:
-            node_selector = node_selector.replace('gpu=true', 'cpu=true') + ";cpu=true;%s=true"%model_type
-        if 'org' not in node_selector:
-            node_selector += ';org=public'
-        node_selector = re.split(';|\n|\t', str(node_selector))
-        node_selector = [selector.strip() for selector in node_selector if selector.strip()]
-        node_selector = ';'.join(list(set(node_selector)))
-        return node_selector
+        return core.normalize_gpu_node_selector(node_selector, resource_gpu, model_type)
 
 
 

@@ -1,16 +1,19 @@
 #!/bin/bash
-set -ex
+set -euo pipefail
 
-# 镜像名称（可以外部覆盖）
-IMAGE=${IMAGE:-10.121.177.20:8082/mlops/gptqmodel:3.1.1}
+REGISTRY="${REGISTRY:-10.121.177.20:8082}"
+IMAGE="${IMAGE:-${REGISTRY}/mlops/gptqmodel:3.3.0}"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
 
-# 登录镜像仓库
-docker login 10.121.177.20:8082 -u admin -p Harbor@12345
+if [[ -n "${HARBOR_USERNAME:-}" && -n "${HARBOR_PASSWORD:-}" ]]; then
+  printf '%s' "${HARBOR_PASSWORD}" | docker login "${REGISTRY}" \
+    --username "${HARBOR_USERNAME}" --password-stdin
+else
+  echo "未提供 HARBOR_USERNAME/HARBOR_PASSWORD，使用现有 Docker 登录会话"
+fi
 
-# 构建镜像（--network=host 使用宿主机网络）
-docker build --network=host -t "${IMAGE}" -f Dockerfile .
-
-# 推送到仓库
+docker build --network=host --pull -t "${IMAGE}" \
+  -f "${SCRIPT_DIR}/Dockerfile" "${REPO_ROOT}"
 docker push "${IMAGE}"
-
 echo "构建完成: ${IMAGE}"

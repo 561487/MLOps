@@ -92,6 +92,10 @@ class Workflow_ModelView_Base():
     spec_label_columns = {
         "final_status": _('删除前状态')
     }
+    label_columns = {
+        "suspend": _("暂停"),
+        "resume": _("恢复"),
+    }
     show_columns = ['name', 'namespace', 'create_time', 'status', 'task_status', 'annotations_html', 'labels_html', 'spec_html', 'status_more_html', 'info_json_html']
     crd_name = 'workflow'
     order_columns = ['id']
@@ -524,14 +528,10 @@ class Workflow_ModelView_Base():
                         node_selector = node_selector.strip(',')
                         requests_resource = task_spec.get('container', {}).get("resources", {}).get("requests", {})
                         resource_gpu = "0"
-                        shared_resource_name = conf.get('GPU_SHARED_RESOURCE_NAME', 'nvidia.com/gpu.shared')
-                        if shared_resource_name in requests_resource:
-                            resource_gpu = "-" + str(requests_resource.get(shared_resource_name, "0"))
-                        else:
-                            for resource_name in list(conf.get('GPU_RESOURCE',{}).values()):
-                                if resource_name in requests_resource:
-                                    resource_gpu = str(requests_resource.get(resource_name,"0"))
-                                    break
+                        for resource_name in list(conf.get('GPU_RESOURCE',{}).values()):
+                            if resource_name in requests_resource:
+                                resource_gpu = str(requests_resource.get(resource_name,"0"))
+                                break
 
                         ui_node = {
                             "node_type": node_type,

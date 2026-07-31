@@ -225,7 +225,7 @@ class Task_ModelView_Base():
         ),
     }
 
-    add_form_extra_fields['resource_gpu'] = StringField('gpu', default='0', description= _('gpu的资源使用配置(单位卡)，示例:1，2，训练任务每个容器独占整卡。申请具体的卡型号，可以类似 1(V100)'),widget=BS3TextFieldWidget(),validators=[DataRequired(),Regexp('^[\-\.0-9,a-zA-Z\(\)]*$')])
+    add_form_extra_fields['resource_gpu'] = StringField('gpu', default='0', description= _('gpu的资源使用配置，示例:1、2为独占整卡；0.5、4.5 为 HAMI 总量配额；10G,50、60G,100 为 HAMI 显存总量和算力总量；申请具体卡型号可写 1(RTX4090) 或 10G,50(RTX4090)。非整数 GPU 使用 HAMI 格式'),widget=BS3TextFieldWidget(),validators=[DataRequired(),Regexp('^[\-\.0-9,a-zA-Z\(\)]*$')])
     add_form_extra_fields['resource_rdma'] = StringField('rdma', default='0', description= _('RDMA的资源使用配置，示例 0，1，10，填写方式咨询管理员'), widget=BS3TextFieldWidget())
 
     edit_form_extra_fields = add_form_extra_fields
@@ -409,24 +409,13 @@ class Task_ModelView_Base():
             item.volume_mount = core.merge_volume_mount(item.volume_mount, selected_volume_mount)
         item.resource_memory = core.check_resource_memory(item.resource_memory)
         item.resource_cpu = core.check_resource_cpu(item.resource_cpu)
+        item.resource_gpu = core.check_resource_gpu(item.resource_gpu)
         if not item.args:
             item.args = '{}'
         self.task_args_check(item)
         item.create_datetime = datetime.datetime.now()
         item.change_datetime = datetime.datetime.now()
-        gpu_num, _, _ = core.get_gpu(item.resource_gpu)
-        gpu_num = math.ceil(float(str(gpu_num).split(',')[-1]))
-        item.node_selector = item.node_selector.replace(';mps=true', '').replace(';mps=false', '').replace('mps=true;', '').replace('mps=false;', '').replace('mps=true', '').replace('mps=false', '')
-        if gpu_num < 0:
-            item.node_selector = item.node_selector.replace('cpu=true', 'gpu=true')
-            if 'mps=true' not in item.node_selector:
-                item.node_selector += ';mps=true'
-        elif gpu_num==0:
-            item.node_selector = item.node_selector.replace('gpu=true', 'cpu=true')
-        else:
-            item.node_selector = item.node_selector.replace('cpu=true', 'gpu=true')
-            if 'mps=false' not in item.node_selector:
-                item.node_selector += ';mps=false'
+        item.node_selector = core.normalize_gpu_node_selector(item.node_selector, item.resource_gpu)
 
     def pre_update_req(self,req_json=None,src_item=None,*args,**kwargs):
         if src_item and src_item.pipeline and src_item.pipeline.parameter:
@@ -500,6 +489,7 @@ class Task_ModelView_Base():
 
         item.resource_memory = core.check_resource_memory(item.resource_memory, self.src_item_json.get('resource_memory', None))
         item.resource_cpu = core.check_resource_cpu(item.resource_cpu, self.src_item_json.get('resource_cpu', None))
+        item.resource_gpu = core.check_resource_gpu(item.resource_gpu, self.src_item_json.get('resource_gpu', None))
         # item.resource_memory=core.check_resource_memory(item.resource_memory,self.src_resource_memory)
         # item.resource_cpu = core.check_resource_cpu(item.resource_cpu,self.src_resource_cpu)
 
@@ -507,19 +497,7 @@ class Task_ModelView_Base():
             item.args = '{}'
         self.task_args_check(item)
         item.change_datetime = datetime.datetime.now()
-        gpu_num, _, _ = core.get_gpu(item.resource_gpu)
-        gpu_num = math.ceil(float(str(gpu_num).replace('，',',').split(',')[-1]))
-        item.node_selector = item.node_selector.replace(';mps=true', '').replace(';mps=false', '').replace('mps=true;', '').replace('mps=false;', '').replace('mps=true', '').replace('mps=false', '')
-        if gpu_num < 0:
-            item.node_selector = item.node_selector.replace('cpu=true', 'gpu=true')
-            if 'mps=true' not in item.node_selector:
-                item.node_selector += ';mps=true'
-        elif gpu_num==0:
-            item.node_selector = item.node_selector.replace('gpu=true', 'cpu=true')
-        else:
-            item.node_selector = item.node_selector.replace('cpu=true', 'gpu=true')
-            if 'mps=false' not in item.node_selector:
-                item.node_selector += ';mps=false'
+        item.node_selector = core.normalize_gpu_node_selector(item.node_selector, item.resource_gpu)
 
         # 修改了名称，要在pipeline的属性里面一起改了
         src_task_name = self.src_item_json.get('name', item.name)
@@ -590,8 +568,6 @@ class Task_ModelView_Base():
             task_env += 'PORT2=' + str(meet_ports[2])+ "\n"
 
         gpu_num, _, resource_name = core.get_gpu(task.resource_gpu)
-        if isinstance(gpu_num, (int, float)) and gpu_num < 0:
-            _, _, resource_name = core.get_gpu_shared_resource(task.resource_gpu)
 
         # 系统环境变量
         task_env += 'KFJ_TASK_ID=' + str(task.id) + "\n"
@@ -610,7 +586,6 @@ class Task_ModelView_Base():
         task_env += 'KFJ_PIPELINE_NAME=' + str(task.pipeline.name) + "\n"
         task_env += 'KFJ_NAMESPACE=pipeline' + "\n"
         task_env += f'GPU_RESOURCE_NAME={resource_name}' + "\n"
-        task_env += f"GPU_SHARED_RESOURCE_NAME={conf.get('GPU_SHARED_RESOURCE_NAME', 'nvidia.com/gpu.shared')}" + "\n"
 
         # ---- SwanLab 训练监控环境变量（仅训练类模板） ----
         _job_template_name = (task.job_template.name or '') if task.job_template else ''
@@ -631,7 +606,7 @@ class Task_ModelView_Base():
 
             # MLOps 侧变量
             _register_url = conf.get('MLOPS_MONITOR_REGISTER_URL',
-                                     'http://10.121.177.155:18080/training_monitor/api/register')
+                                     'http://10.121.177.20:18080/training_monitor/api/register')
             task_env += "MLOPS_TRAINING_MONITOR_ENABLE=true\n"
             task_env += "MLOPS_TRAINING_MONITOR_TYPE=swanlab\n"
             task_env += f"MLOPS_MONITOR_REGISTER_URL={_register_url}\n"
@@ -649,10 +624,10 @@ class Task_ModelView_Base():
             _swanlab_proj_name = (_swanlab_task_args.get('swanlab_project') or
                                 conf.get('SWANLAB_PROJ_NAME', 'mlops-training'))
             _swanlab_workspace = (_swanlab_task_args.get('swanlab_workspace') or
-                                  conf.get('SWANLAB_WORKSPACE', 'haimian_baobao'))
+                                  conf.get('SWANLAB_WORKSPACE', 'mlops'))
 
             _user_mode = (_swanlab_task_args.get('swanlab_mode') or '').strip().lower()
-            _cloud_defaults = ('hyperparam-search', 'hyperparam-search-nni', 'lightgbm', 'gbdt', 'model-distillation')
+            _cloud_defaults = ('hyperparam-search', 'hyperparam-search-nni', 'lightgbm', 'gbdt', 'model-distillation', 'model-quantize', 'msswift', 'llama-factory')
             if _user_mode:
                 _swanlab_mode = 'cloud' if _user_mode == 'online' else _user_mode
             elif _job_template_name in _cloud_defaults:
