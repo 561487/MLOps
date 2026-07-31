@@ -15,9 +15,9 @@ import type {
 
 const BASE = '/api/v2/chat';
 
-// ===== 智能体 =====
+// ===== AI助手 =====
 
-/** 获取智能体列表 */
+/** 获取AI助手列表 */
 export async function getAgents(category?: string): Promise<IAgentItem[]> {
   const params: any = {};
   if (category) params.category = category;
@@ -25,13 +25,13 @@ export async function getAgents(category?: string): Promise<IAgentItem[]> {
   return res.data?.result || [];
 }
 
-/** 获取智能体详情（含凭证） */
+/** 获取AI助手详情（含凭证） */
 export async function getAgentDetail(name: string): Promise<IAgentDetail | null> {
   const res = await axios.get(`${BASE}/agents/${name}`);
   return res.data?.result || null;
 }
 
-/** 更新智能体配置 */
+/** 更新AI助手配置 */
 export async function updateAgentConfig(
   name: string,
   data: ICredentialsUpdate
@@ -101,7 +101,7 @@ export async function getHistory(
  * 使用原生 fetch + ReadableStream 实现 SSE 消费。
  * Axios 不支持流式响应，所以这里独立实现。
  *
- * @param agentName  智能体名称
+ * @param agentName  AI助手名称
  * @param body       请求体 { session_id, search_text, stream: true }
  * @param onChunk    每次收到增量文本时回调
  * @param onDone     流结束时回调（携带完整文本）

@@ -3,7 +3,7 @@
  * =============================
  * 右侧滑出，根据后端返回的 configFields 动态渲染表单。
  * - 文本、密码、下拉选择、文本域、JSON 编辑器
- * - 机器人/智能体各自的凭证结构不同
+ * - 机器人/AI助手各自的凭证结构不同
  */
 
 import React, { useEffect, useState } from 'react';
@@ -72,7 +72,7 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({
   const [saving, setSaving] = useState(false);
   const [configFields, setConfigFields] = useState<IConfigField[]>([]);
 
-  // 打开时加载智能体详情
+  // 打开时加载AI助手详情
   useEffect(() => {
     if (visible && agent) {
       loadDetail(agent.name);
@@ -177,7 +177,7 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({
       <Spin spinning={loading}>
         {configFields.length === 0 && !loading ? (
           <div style={{ textAlign: 'center', padding: 40 }}>
-            <Text type="secondary">该智能体无需额外配置</Text>
+            <Text type="secondary">该AI助手无需额外配置</Text>
           </div>
         ) : (
           <Form

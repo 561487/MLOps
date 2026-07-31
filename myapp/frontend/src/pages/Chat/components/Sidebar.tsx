@@ -1,7 +1,7 @@
 /**
  * Sidebar — 左侧边栏
  * ====================
- * 两个 Tab：智能体 | 机器人（点击进入对话）
+ * 两个 Tab：AI助手 | 机器人（点击进入对话）
  * 底部固定：知识库（外链跳转）
  */
 
@@ -32,14 +32,14 @@ const LS_KEY_TAB = 'chat_v2_active_tab';
 interface SidebarProps {
   selectedAgent: IAgentItem | null;
   onSelectAgent: (agent: IAgentItem) => void;
-  /* 刷新恢复：初始 Tab 和需要自动选中的智能体名 */
+  /* 刷新恢复：初始 Tab 和需要自动选中的AI助手名 */
   initialTab?: AgentCategory;
   initialAgentName?: string;
 }
 
 /** Tab 配置 — 定义三个分类的图标、标签、分类值 */
 const TAB_CONFIG: { key: AgentCategory; label: string; icon: React.ReactNode }[] = [
-  { key: 'agent', label: '智能体', icon: <BugOutlined /> },
+  { key: 'agent', label: 'AI助手', icon: <BugOutlined /> },
   { key: 'robot', label: '机器人', icon: <RobotOutlined /> },
 ];
 
@@ -65,7 +65,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       .catch(() => {});
   }, []);
 
-  // 切换 Tab 时重新加载智能体列表
+  // 切换 Tab 时重新加载AI助手列表
   useEffect(() => {
     loadAgents(activeTab);
   }, [activeTab]);
@@ -75,7 +75,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     try {
       const list = await getAgents(category);
       setAgents(list);
-      // 刷新恢复：自动选中上次的智能体
+      // 刷新恢复：自动选中上次的AI助手
       if (!restored && initialAgentName) {
         const target = list.find((a) => a.name === initialAgentName);
         if (target) {
@@ -84,7 +84,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         }
       }
     } catch (err) {
-      console.error('加载智能体列表失败', err);
+      console.error('加载AI助手列表失败', err);
     } finally {
       setLoading(false);
     }
@@ -100,7 +100,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     );
   });
 
-  /** 渲染每个智能体的 SVG 图标 */
+  /** 渲染每个AI助手的 SVG 图标 */
   const renderIcon = (iconSvg: string) => {
     if (!iconSvg) {
       return (
@@ -119,7 +119,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     );
   };
 
-  /** 处理智能体点击 */
+  /** 处理AI助手点击 */
   const handleClick = (agent: IAgentItem) => {
     onSelectAgent(agent);
   };
@@ -152,7 +152,7 @@ const Sidebar: React.FC<SidebarProps> = ({
       <div className="chat-sidebar-search">
         <Input
           prefix={<SearchOutlined />}
-          placeholder="搜索智能体..."
+          placeholder="搜索AI助手..."
           value={searchText}
           onChange={(e) => setSearchText(e.target.value)}
           allowClear
@@ -165,7 +165,7 @@ const Sidebar: React.FC<SidebarProps> = ({
           {filteredAgents.length === 0 && !loading ? (
             <Empty
               image={Empty.PRESENTED_IMAGE_SIMPLE}
-              description="暂无可用智能体"
+              description="暂无可用AI助手"
               style={{ marginTop: 40 }}
             />
           ) : (

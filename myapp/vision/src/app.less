@@ -6,3 +6,149 @@
 .monaco-editor {
     height: 100% !important;
 }
+
+:root {
+  --app-bg: #111827;
+  --app-surface: #172033;
+  --app-surface-elevated: #202b40;
+  --app-text: #f3f7ff;
+  --app-text-secondary: #a9b7cc;
+  --app-border: #314057;
+  --app-hover: #213653;
+  --app-primary: #5ec7ff;
+}
+
+html,
+body,
+#root,
+.app,
+.ant-layout,
+.ant-layout-content {
+  color           : var(--app-text) !important;
+  background-color: var(--app-bg) !important;
+}
+
+body * {
+  border-color: var(--app-border) !important;
+}
+
+body :where(div, section, main, aside, header, footer, nav, form, ul, ol, li, p, span, label, table, thead, tbody, tr, th, td):not(.anticon):not([class*='anticon']):not(svg):not(path) {
+  color: inherit;
+}
+
+body :where(div, section, main, aside, header, footer, nav, form, ul, ol, li, p, span, label, table, thead, tbody, tr, th, td):not(.ant-btn):not(.ant-input):not(.ant-select-selector):not(.ant-menu):not(.ant-menu-item):not(.ant-dropdown-menu):not(.ant-modal-content):not(.ant-drawer-content):not(.ant-tooltip-inner):not([class*='react-flow__']):not(svg):not(path) {
+  background-color: transparent !important;
+}
+
+.ant-layout,
+.ant-card,
+.ant-table,
+.ant-table-container,
+.ant-table-thead > tr > th,
+.ant-table-tbody > tr > td,
+.ant-menu,
+.ant-dropdown-menu,
+.ant-popover-inner,
+.ant-select-dropdown,
+.ant-modal-content,
+.ant-drawer-content,
+.ant-tabs-content,
+.ant-tabs-tabpane {
+  color           : var(--app-text) !important;
+  background-color: var(--app-surface) !important;
+  border-color    : var(--app-border) !important;
+}
+
+.ant-input,
+.ant-input-affix-wrapper,
+.ant-select:not(.ant-select-customize-input) .ant-select-selector,
+.ant-btn-default,
+.ant-picker,
+.ant-input-number,
+.ant-pagination-item,
+.ant-pagination-options-quick-jumper input {
+  color           : var(--app-text) !important;
+  background-color: var(--app-surface-elevated) !important;
+  border-color    : var(--app-border) !important;
+}
+
+.ant-input::placeholder,
+.ant-select-selection-placeholder,
+.ant-empty-description,
+.ant-form-item-extra,
+.ant-form-item-explain {
+  color: var(--app-text-secondary) !important;
+}
+
+.ant-btn-primary {
+  color           : #fff !important;
+  background-color: #168fff !important;
+  border-color    : #168fff !important;
+}
+
+.ant-menu-item,
+.ant-menu-submenu-title,
+.ant-tabs-tab,
+.ant-form-item-label > label,
+.ant-typography,
+.ant-table-thead > tr > th,
+.ant-select-item,
+.ant-dropdown-menu-item {
+  color: var(--app-text) !important;
+}
+
+.ant-table-tbody > tr:hover > td,
+.ant-menu-item-active,
+.ant-dropdown-menu-item:hover,
+.ant-select-item-option-active:not(.ant-select-item-option-disabled) {
+  background-color: var(--app-hover) !important;
+}
+
+.react-flow,
+.react-flow__renderer,
+.react-flow__pane,
+.react-flow__viewport,
+.react-flow__zoompane,
+.react-flow__selectionpane,
+.react-flow__minimap,
+.react-flow__controls,
+.flow-editor,
+.editor-body,
+.editor-head,
+.editor-tool,
+.module-tree,
+.module-detail {
+  color           : var(--app-text) !important;
+  background-color: var(--app-bg) !important;
+  border-color    : var(--app-border) !important;
+}
+
+.react-flow__node,
+.react-flow__node-default,
+.react-flow__controls-button,
+[class*='module'],
+[class*='Module'],
+[class*='editor'],
+[class*='Editor'] {
+  color           : var(--app-text) !important;
+  background-color: var(--app-surface) !important;
+  border-color    : var(--app-border) !important;
+}
+
+.react-flow__edge-path,
+.react-flow__connection-path {
+  stroke: #7f8ca3 !important;
+}
+
+.react-flow__handle {
+  background-color: var(--app-surface-elevated) !important;
+  border-color    : var(--app-border) !important;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(169, 183, 204, 0.35);
+}
+
+* {
+  scrollbar-color: rgba(169, 183, 204, 0.35) transparent;
+}

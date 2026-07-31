@@ -6,8 +6,8 @@ import AppRouter from './routes';
 import { store } from './models/store';
 import { Provider } from 'react-redux';
 // import i18n from './locales/i18n'
-import './app.less';
 import 'antd/dist/antd.css';
+import './app.less';
 
 import './locales/i18n';
 // i18n.changeLanguage('en')

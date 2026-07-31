@@ -48,7 +48,7 @@
   overflow-x: hidden;
 }
 
-/* 智能体列表项 */
+/* AI助手列表项 */
 .chat-sidebar-item {
   display: flex;
   align-items: center;
@@ -766,4 +766,122 @@
   color: #8c8c8c;
   padding: 16px 0;
   font-size: 13px;
+}
+
+
+/* ===== 深色模式：Chat 页面 ===== */
+html[data-theme='dark'] {
+  .chat-page,
+  .chat-main,
+  .chat-area {
+    color: var(--app-text);
+    background: var(--app-bg);
+  }
+
+  .chat-sidebar-wrapper,
+  .chat-area-empty,
+  .chat-area-header,
+  .chat-area-messages,
+  .chat-area-input {
+    color: var(--app-text);
+    background: var(--app-surface) !important;
+    border-color: var(--app-border) !important;
+  }
+
+  .chat-sidebar-wrapper {
+    box-shadow: inset -1px 0 0 var(--app-border);
+  }
+
+  .chat-sidebar .ant-tabs-nav,
+  .chat-sidebar-kb,
+  .chat-session-bar {
+    background: var(--app-surface) !important;
+    border-color: var(--app-border) !important;
+  }
+
+  .chat-sidebar .ant-tabs-tab,
+  .chat-sidebar-item-label,
+  .chat-sidebar-kb-item-label,
+  .chat-area-header-name,
+  .chat-area-empty-content h3,
+  .chat-area-welcome-hello,
+  .chat-message-text h1,
+  .chat-message-text h2,
+  .chat-message-text h3,
+  .chat-message-text h4 {
+    color: var(--app-text) !important;
+  }
+
+  .chat-sidebar-item-desc,
+  .chat-sidebar-kb-header,
+  .chat-sidebar-kb-item-link,
+  .chat-area-empty-content p,
+  .chat-area-welcome-tips,
+  .chat-session-bar-icon,
+  .chat-area-loading,
+  .think-body,
+  .think-body-empty {
+    color: var(--app-text-secondary) !important;
+  }
+
+  .chat-sidebar-item:hover,
+  .chat-sidebar-item.active,
+  .chat-area-welcome-tip-item:hover,
+  .chat-session-chip:hover,
+  .chat-session-chip.active {
+    background: var(--app-hover) !important;
+    border-color: var(--ant-primary-color) !important;
+  }
+
+  .chat-sidebar-item.active .chat-sidebar-item-label,
+  .chat-area-welcome-tip-item:hover,
+  .chat-session-chip.active .chat-session-chip-title,
+  .think-summary,
+  .chat-message-cursor {
+    color: var(--ant-primary-color) !important;
+  }
+
+  .chat-sidebar-kb-item:hover {
+    background: rgba(250, 173, 20, 0.14) !important;
+  }
+
+  .chat-sidebar-kb-item:hover .chat-sidebar-kb-item-label,
+  .chat-sidebar-kb-item:hover .chat-sidebar-kb-item-link {
+    color: #ffd666 !important;
+  }
+
+  .chat-area-welcome-tip-item,
+  .chat-message-assistant .chat-message-text,
+  .chat-session-chip,
+  .think-block,
+  .chat-message-text details.think-block {
+    color: var(--app-text);
+    background: var(--app-surface-elevated) !important;
+    border-color: var(--app-border) !important;
+  }
+
+  .chat-message-text code {
+    color: var(--app-text);
+    background: rgba(255, 255, 255, 0.08);
+  }
+
+  .chat-message-text .think-body {
+    border-color: rgba(255, 255, 255, 0.08);
+  }
+
+  .chat-session-chip-title {
+    color: var(--app-text-secondary);
+  }
+
+  .chat-area-input textarea,
+  .chat-area-input .ant-input {
+    color: var(--app-text);
+    background: var(--app-surface-elevated) !important;
+    border-color: var(--app-border) !important;
+  }
+
+  .chat-area-input textarea::placeholder,
+  .chat-area-input .ant-input::placeholder {
+    color: var(--app-text-secondary) !important;
+  }
 }
