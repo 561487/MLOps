@@ -6624,6 +6624,260 @@
       }
     }
   },
+  "litgpt-pretrain": {
+    "project_name": "模型处理",
+    "image_name": "10.121.177.20:8082/mlops/litgpt-pretrain:20260729-0843",
+    "gitpath": "/job-template/job/litgpt-pretrain",
+    "image_describe": "大模型预训练(LitGPT)",
+    "job_template_name": "litgpt-pretrain",
+    "job_template_describe": "模型预训练",
+    "job_template_version": "Release",
+    "job_template_workdir": "/app",
+    "job_template_command": "python3 launcher.py",
+    "job_template_volume": "models-storage(storage):/mnt/storage/models-storage,models-share-volume(storage):/mnt/storage/models-share-volume",
+    "job_template_account": "",
+    "job_template_env": "HF_ENDPOINT=https://hf-mirror.com",
+    "job_template_expand": {
+      "index": 8,
+      "rec_job_template": "自定义镜像",
+      "help_url": "/job-template/job/litgpt-pretrain"
+    },
+    "job_template_args": {
+      "模型配置": {
+        "--model_name": {
+          "type": "str",
+          "item_type": "str",
+          "label": "模型配置名",
+          "require": 1,
+          "choice": [],
+          "range": "",
+          "editable": 1,
+          "default": "tiny-llama-1.1b",
+          "placeholder": "如 tiny-llama-1.1b, llama-3.2-1b",
+          "describe": "litgpt 内置模型配置名。可用: tiny-llama-1.1b, llama-3.2-1b, llama-3.2-3b 等"
+        },
+        "--tokenizer_dir": {
+          "type": "str",
+          "item_type": "str",
+          "label": "分词器 HF 仓库",
+          "require": 0,
+          "choice": [],
+          "range": "",
+          "editable": 1,
+          "default": "",
+          "placeholder": "如 TinyLlama/TinyLlama-1.1B-intermediate-step-1431k-3T",
+          "describe": "HuggingFace 仓库 ID（用于下载 tokenizer）。留空则不设置 tokenizer"
+        },
+        "--precision": {
+          "type": "str",
+          "item_type": "str",
+          "label": "训练精度",
+          "require": 0,
+          "editable": 1,
+          "choice": [
+            "bf16-true",
+            "bf16-mixed",
+            "32-true"
+          ],
+          "range": "",
+          "default": "bf16-true",
+          "placeholder": "",
+          "describe": "bf16-true(推荐H100/A100), bf16-mixed(混合精度), 32-true(FP32)"
+        }
+      },
+      "数据配置": {
+        "--data_path": {
+          "type": "str",
+          "item_type": "str",
+          "label": "训练数据目录",
+          "require": 1,
+          "choice": [],
+          "range": "",
+          "editable": 1,
+          "default": "",
+          "placeholder": "/mnt/storage/models-storage/data/pretrain/",
+          "describe": "存放 .txt 文本文件的目录 (litgpt.data.TextFiles 读取目录下所有 .txt)"
+        },
+        "--max_seq_length": {
+          "type": "int",
+          "item_type": "int",
+          "label": "最大序列长度",
+          "require": 0,
+          "choice": [],
+          "editable": 1,
+          "range": [
+            512,
+            131072
+          ],
+          "default": 4096,
+          "step": 512,
+          "placeholder": "",
+          "describe": "训练时最大序列长度 (token 数)"
+        }
+      },
+      "训练配置": {
+        "--max_tokens": {
+          "type": "str",
+          "item_type": "str",
+          "label": "最大训练 Token 数",
+          "require": 0,
+          "choice": [],
+          "range": "",
+          "editable": 1,
+          "default": "100M",
+          "placeholder": "如 100M, 1B, 10B",
+          "describe": "最大训练 token 数 (litgpt 以此计算终止条件). 100M=1亿, 1B=10亿"
+        },
+        "--learning_rate": {
+          "type": "str",
+          "item_type": "str",
+          "label": "学习率",
+          "require": 0,
+          "choice": [],
+          "range": "",
+          "editable": 1,
+          "default": "4e-4",
+          "placeholder": "",
+          "describe": "初始学习率, 预训练通常 1e-4 ~ 6e-4"
+        },
+        "--micro_batch_size": {
+          "type": "int",
+          "item_type": "int",
+          "label": "每卡批次大小",
+          "require": 0,
+          "choice": [],
+          "editable": 1,
+          "range": [
+            1,
+            512
+          ],
+          "default": 4,
+          "step": 1,
+          "placeholder": "",
+          "describe": "每张 GPU 上的批次大小"
+        },
+        "--global_batch_size": {
+          "type": "int",
+          "item_type": "int",
+          "label": "全局批次大小",
+          "require": 0,
+          "choice": [],
+          "editable": 1,
+          "range": [
+            1,
+            65536
+          ],
+          "default": 64,
+          "step": 8,
+          "placeholder": "",
+          "describe": "必须是 micro_batch_size × GPU 数的整数倍, 不满足时自动修正"
+        },
+        "--weight_decay": {
+          "type": "str",
+          "item_type": "str",
+          "label": "权重衰减",
+          "require": 0,
+          "choice": [],
+          "range": "",
+          "editable": 1,
+          "default": "1e-2",
+          "placeholder": "",
+          "describe": "AdamW 权重衰减系数"
+        },
+        "--warmup_steps": {
+          "type": "int",
+          "item_type": "int",
+          "label": "热身步数",
+          "require": 0,
+          "choice": [],
+          "editable": 1,
+          "range": [
+            0,
+            100000
+          ],
+          "default": 2000,
+          "step": 100,
+          "placeholder": "",
+          "describe": "学习率预热步数. litgpt 默认 2000"
+        },
+        "--max_norm": {
+          "type": "float",
+          "item_type": "float",
+          "label": "梯度裁剪值",
+          "require": 0,
+          "choice": [],
+          "editable": 1,
+          "range": [
+            0.0,
+            10.0
+          ],
+          "default": 1.0,
+          "step": 0.1,
+          "placeholder": "",
+          "describe": "梯度裁剪最大值. 0=不裁剪"
+        },
+        "--save_interval": {
+          "type": "int",
+          "item_type": "int",
+          "label": "保存间隔(步数)",
+          "require": 0,
+          "choice": [],
+          "editable": 1,
+          "range": [
+            100,
+            100000
+          ],
+          "default": 1000,
+          "step": 100,
+          "placeholder": "",
+          "describe": "每多少步保存一次 checkpoint"
+        },
+        "--log_interval": {
+          "type": "int",
+          "item_type": "int",
+          "label": "日志间隔(步数)",
+          "require": 0,
+          "choice": [],
+          "editable": 1,
+          "range": [
+            1,
+            10000
+          ],
+          "default": 10,
+          "step": 1,
+          "placeholder": "",
+          "describe": "每多少步打印一次训练日志"
+        }
+      },
+      "输出配置": {
+        "--output_dir": {
+          "type": "str",
+          "item_type": "str",
+          "label": "输出目录",
+          "require": 0,
+          "choice": [],
+          "range": "",
+          "editable": 1,
+          "default": "",
+          "placeholder": "/mnt/storage/models-share-volume/output/pretrain",
+          "describe": "Checkpoint 和最终模型输出目录. 不填则自动生成"
+        },
+        "--resume_from": {
+          "type": "str",
+          "item_type": "str",
+          "label": "恢复训练 checkpoint",
+          "require": 0,
+          "choice": [],
+          "range": "",
+          "editable": 1,
+          "default": "",
+          "placeholder": "",
+          "describe": "从已有 checkpoint 目录恢复训练, 留空则从头训练"
+        }
+      }
+    }
+  },
+
   "media-download": {
     "project_name": "视频处理",
     "image_name": "10.121.177.20:8082/mlops/video-audio:20250301",
