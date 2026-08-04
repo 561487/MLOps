@@ -174,6 +174,35 @@ const Sidebar: React.FC<SidebarProps> = ({
               renderItem={(agent) => {
                 const isActive = selectedAgent?.name === agent.name;
 
+                // 如果有 externalUrl，渲染成外链
+                if (agent.externalUrl) {
+                  return (
+                    <a
+                      key={agent.name}
+                      className="chat-sidebar-item"
+                      href={agent.externalUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{ textDecoration: 'none', color: 'inherit' }}
+                    >
+                      <div className="chat-sidebar-item-icon">
+                        {renderIcon(agent.icon)}
+                      </div>
+                      <div className="chat-sidebar-item-content">
+                        <div className="chat-sidebar-item-label">
+                          {agent.label || agent.name}
+                        </div>
+                        {agent.hello && (
+                          <div className="chat-sidebar-item-desc">
+                            {stripHtml(agent.hello)}
+                          </div>
+                        )}
+                      </div>
+                      <LinkOutlined style={{ marginLeft: 'auto', color: '#999' }} />
+                    </a>
+                  );
+                }
+
                 return (
                   <div
                     key={agent.name}
