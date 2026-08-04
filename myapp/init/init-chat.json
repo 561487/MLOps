@@ -183,7 +183,7 @@
     "expand": {
       "index": 9,
       "isPublic": true,
-      "externalUrl": "http://10.121.177.10:2026"
+      "externalUrl": "http://10.121.177.10:2026/workspace/chats/new"
     },
     "agent_category": "external_link"
   },
