@@ -95,9 +95,10 @@ def _build_agent_item(agent: Chat) -> dict:
         "owner": agent.owner,
     }
 
-    # 知识库特化：返回外链跳转信息
-    if agent.agent_category == 'knowledge_base':
-        item["externalUrl"] = expand.get("externalUrl", "")
+    # 返回外链跳转信息（任何配置了 externalUrl 的智能体）
+    external_url = expand.get("externalUrl", "")
+    if external_url:
+        item["externalUrl"] = external_url
         item["openInNewTab"] = expand.get("openInNewTab", True)
 
     return item
@@ -228,7 +229,10 @@ def list_agents():
     # 分类过滤
     category = request.args.get('category')
     if category in ('robot', 'knowledge_base', 'agent'):
-        query = query.filter(Chat.agent_category == category)
+        if category == 'agent':
+            query = query.filter(Chat.agent_category.in_(['agent', 'external_link']))
+        else:
+            query = query.filter(Chat.agent_category == category)
 
     agents = query.order_by(Chat.id.asc()).all()
 
