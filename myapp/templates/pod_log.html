@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Pod Log - {{ data.pod_name }}</title>
+    <meta charset="UTF-8" />
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { background: #1e1e1e; color: #d4d4d4; font-family: 'Courier New', monospace; }
+        #toolbar {
+            background: #2d2d2d; padding: 8px 12px; display: flex; align-items: center;
+            gap: 10px; border-bottom: 1px solid #444; font-size: 13px;
+        }
+        #toolbar span { color: #888; }
+        #toolbar strong { color: #ccc; }
+        #toolbar button {
+            background: #0e639c; color: #fff; border: none; padding: 5px 14px;
+            border-radius: 3px; cursor: pointer; font-size: 13px;
+        }
+        #toolbar button:hover { background: #1177bb; }
+        #toolbar button.loading { opacity: 0.6; pointer-events: none; }
+        #log-container {
+            height: calc(100vh - 40px); overflow-y: auto; padding: 12px;
+            white-space: pre-wrap; word-break: break-all; font-size: 13px;
+            line-height: 1.5;
+        }
+        .error { color: #f44747; }
+        .warn  { color: #cca700; }
+        .info  { color: #6a9955; }
+        .empty { color: #888; text-align: center; padding-top: 40px; }
+    </style>
+</head>
+<body>
+<div id="toolbar">
+    <strong>{{ data.pod_name }}</strong>
+    <span>| ns: {{ data.namespace_name }} | cluster: {{ data.cluster_name }}</span>
+    <span style="flex:1"></span>
+    <select id="tail-select" style="background:#3c3c3c;color:#ccc;border:1px solid #555;padding:4px 8px;border-radius:3px;">
+        <option value="500">最近 500 行</option>
+        <option value="2000" selected>最近 2000 行</option>
+        <option value="5000">最近 5000 行</option>
+        <option value="0">全部</option>
+    </select>
+    <button id="refresh-btn" onclick="loadLogs()">刷新</button>
+</div>
+<div id="log-container"><div class="empty">加载中...</div></div>
+
+<script>
+    var logUrl = '{{ data.read_log_url }}';
+    var container = document.getElementById('log-container');
+    var refreshBtn = document.getElementById('refresh-btn');
+    var tailSelect = document.getElementById('tail-select');
+    var pollTimer = null;
+
+    function loadLogs() {
+        refreshBtn.classList.add('loading');
+        refreshBtn.textContent = '加载中...';
+
+        var tail = tailSelect.value;
+        var url = logUrl + (tail !== '0' ? '/' + tail : '');
+
+        fetch(url, {
+            credentials: 'same-origin'  // 自动携带 myapp_username cookie
+        })
+        .then(function(resp) {
+            if (!resp.ok) throw new Error('HTTP ' + resp.status + ' — 请确认已登录且有权限');
+            return resp.text();
+        })
+        .then(function(logs) {
+            if (!logs.trim()) {
+                container.innerHTML = '<div class="empty">暂无日志输出</div>';
+            } else {
+                container.textContent = logs;
+            }
+            container.scrollTop = container.scrollHeight;
+        })
+        .catch(function(err) {
+            container.innerHTML = '<div class="error">加载日志失败: ' + err.message + '</div>';
+        })
+        .finally(function() {
+            refreshBtn.classList.remove('loading');
+            refreshBtn.textContent = '刷新';
+        });
+    }
+
+    // 自动轮询（pod Running 时每 5 秒刷新一次）
+    var podStatus = '{{ data.pod_status }}';
+    if (podStatus === 'Running') {
+        pollTimer = setInterval(loadLogs, 5000);
+    }
+
+    tailSelect.addEventListener('change', loadLogs);
+    loadLogs();
+</script>
+</body>
+</html>
