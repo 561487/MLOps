@@ -1,4 +1,4 @@
-import { SettingOutlined, UserOutlined } from '@ant-design/icons';
+import { BellOutlined, SettingOutlined, UserOutlined } from '@ant-design/icons';
 import React from 'react';
 import { IRouterConfigPlusItem } from './api/interface/baseInterface';
 import { IAppMenuItem } from './api/interface/kubeflowInterface';
@@ -85,6 +85,24 @@ export const securitySettingConfig: IRouterConfigPlusItem[] = [
     },
 ]
 
+export const notificationSettingConfig: IRouterConfigPlusItem[] = [
+    {
+        path: '/platform-management',
+        name: 'platform-management',
+        title: '平台管理',
+        isLocalMenu: true,
+        icon: <SettingOutlined style={{ fontSize: 18 }} />,
+        children: [
+            {
+                path: '/platform-management/dingtalk-notification',
+                title: '钉钉通知',
+                menu_type: 'innerRoute',
+                icon: <BellOutlined style={{ marginRight: 8 }} />,
+                element: lazy2Compont(() => import("./pages/NotificationSettings") as any)
+            }
+        ]
+    }
+]
 export const innerDynamicRouterConfig: IRouterConfigPlusItem[] = [
     {
         path: '/dataSearch',
@@ -203,9 +221,9 @@ export const routerConfigPlus: IRouterConfigPlusItem[] = [
     { path: '*', element: <Page404 /> },
 ]
 
-// if (isAdmin) {
-//     routerConfigPlus.push(...securitySettingConfig)
-// }
+if (isAdmin) {
+    routerConfigPlus.splice(routerConfigPlus.length - 1, 0, ...notificationSettingConfig)
+}
 
 export const formatRoute = (data: IAppMenuItem[]): IRouterConfigPlusItem[] => {
     // console.log(data)
