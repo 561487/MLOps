@@ -8,6 +8,7 @@ interface ServiceListProps {
   loading: boolean;
   selectedServiceId: number | null;
   onSelect: (s: ServiceItem) => void;
+  engineFilter?: string;
 }
 
 const MODEL_STATUS: Record<string, { color: string; label: string }> = {
@@ -17,7 +18,26 @@ const MODEL_STATUS: Record<string, { color: string; label: string }> = {
   offline: { color: '#d9d9d9', label: '已停止' },
 };
 
-const ServiceList: React.FC<ServiceListProps> = ({ services, loading, selectedServiceId, onSelect }) => {
+const ENGINE_LABELS: Record<string, string> = {
+  vllm: 'vLLM',
+  sglang: 'SGLang',
+};
+
+function getEmptyDescription(engineFilter: string | undefined): string {
+  if (engineFilter === 'vllm') return '当前没有可监控的 vLLM 推理服务';
+  if (engineFilter === 'sglang') return '当前没有可监控的 SGLang 推理服务';
+  return '暂无可监控的推理服务';
+}
+
+function getTitle(engineFilter: string | undefined, count: number): string {
+  if (engineFilter && engineFilter !== 'all') {
+    const label = ENGINE_LABELS[engineFilter] || engineFilter;
+    return `${label} 推理服务（${count}）`;
+  }
+  return `可监控的推理服务（${count}）`;
+}
+
+const ServiceList: React.FC<ServiceListProps> = ({ services, loading, selectedServiceId, onSelect, engineFilter }) => {
   const [search, setSearch] = useState('');
   const filtered = services.filter(s => {
     if (!search) return true;
@@ -29,15 +49,15 @@ const ServiceList: React.FC<ServiceListProps> = ({ services, loading, selectedSe
   return (
     <div style={{ background: '#fff', borderRadius: 4, padding: 12, height: '100%', display: 'flex', flexDirection: 'column' }}>
       <div style={{ marginBottom: 8, fontWeight: 600, fontSize: 14 }}>
-        可监控的 vLLM 服务（{services.length}）
+        {getTitle(engineFilter, services.length)}
       </div>
       <Input size="small" placeholder="搜索服务名称或模型名称" prefix={<SearchOutlined />}
         value={search} onChange={e => setSearch(e.target.value)} allowClear style={{ marginBottom: 8 }} />
       <div style={{ flex: 1, overflow: 'auto', minHeight: 0 }}>
         <Spin spinning={loading}>
           {filtered.length === 0 && !loading ? (
-            <Empty description="暂无可监控的 vLLM 推理服务" image={Empty.PRESENTED_IMAGE_SIMPLE}>
-              <span style={{ color: '#999', fontSize: 12 }}>当前版本仅支持普通 vLLM 推理服务</span>
+            <Empty description={getEmptyDescription(engineFilter)} image={Empty.PRESENTED_IMAGE_SIMPLE}>
+              <span style={{ color: '#999', fontSize: 12 }}>当前版本支持 vLLM 和 SGLang 推理服务</span>
             </Empty>
           ) : (
             filtered.map(svc => {

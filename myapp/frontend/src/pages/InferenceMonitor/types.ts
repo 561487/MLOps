@@ -44,13 +44,25 @@ export interface SummaryResult {
 /** 时间序列响应 */
 export interface TimeseriesResult {
   data: Record<string, MetricPoint[]>;
+  /** 查询范围（5m/15m/1h/6h/24h/3d） */
+  range?: string;
+  /** 后端实际查询窗口起始（毫秒时间戳） */
+  query_start_ms: number;
+  /** 后端实际查询窗口结束（毫秒时间戳） */
+  query_end_ms: number;
+  /** 展示步长（秒）— 仅控制数据点密度，不改变指标计算语义 */
+  display_step_seconds: number;
+  /** 计算窗口（秒）— 所有 Counter rate 和 Histogram quantile 的固定计算窗口 */
+  calculation_window_seconds: number;
+  /** @deprecated 等同于 display_step_seconds，保留向后兼容 */
+  step_seconds: number;
 }
 
 /** 时间范围选项 */
 export type TimeRange = '5m' | '15m' | '1h' | '6h' | '24h' | '3d';
 
-/** 第一阶段支持的引擎 */
-export type EngineType = 'vllm';
+/** 受支持的推理引擎 */
+export type EngineType = 'vllm' | 'sglang';
 
 /** 运行状态筛选 */
 export type StatusFilter = 'all' | 'online' | 'offline';

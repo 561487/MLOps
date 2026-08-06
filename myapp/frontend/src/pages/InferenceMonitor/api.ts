@@ -13,6 +13,8 @@ const BASE = '/inference_monitor/api';
 export interface FetchOptions {
   /** 手动刷新时绕过服务端缓存 */
   force?: boolean;
+  /** AbortSignal，用于取消请求 */
+  signal?: AbortSignal;
 }
 
 export async function fetchServices(params: {
@@ -32,7 +34,10 @@ export async function fetchSummary(
   if (options?.force) {
     params.force_refresh = 1;
   }
-  const res = await axios.get<ApiResponse<SummaryResult>>(`${BASE}/summary`, { params });
+  const res = await axios.get<ApiResponse<SummaryResult>>(`${BASE}/summary`, {
+    params,
+    signal: options?.signal,
+  });
   return res.data.result;
 }
 
@@ -50,7 +55,10 @@ export async function fetchTimeseries(
   if (options?.force) {
     params.force_refresh = 1;
   }
-  const res = await axios.get<ApiResponse<TimeseriesResult>>(`${BASE}/timeseries`, { params });
+  const res = await axios.get<ApiResponse<TimeseriesResult>>(`${BASE}/timeseries`, {
+    params,
+    signal: options?.signal,
+  });
   return res.data.result;
 }
 

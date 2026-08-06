@@ -54,3 +54,8 @@ CLAUDE.md
 models/eval_output/
 test_tensorboard.py
 install/docker/.env
+# Shell artifacts
+[0-9]s}
+[0-9]}
+[0-9]s}*
+[0-9]}*
