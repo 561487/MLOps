@@ -1,7 +1,9 @@
 # volcanojob 模板
+
 镜像：ccr.ccs.tencentyun.com/cube-studio/volcano:20230601
 
 环境变量：
+
 ```bash
 NO_RESOURCE_CHECK=true
 TASK_RESOURCE_CPU=2
@@ -12,6 +14,7 @@ TASK_RESOURCE_GPU=0
 账号：kubeflow-pipeline
 
 启动参数：
+
 ```bash
 {
     "shell": {
@@ -58,7 +61,7 @@ TASK_RESOURCE_GPU=0
             "require": 1,
             "choice": [],
             "range": "",
-            "default": "ccr.ccs.tencentyun.com/cube-studio/ubuntu-gpu:cuda11.8.0-cudnn8-python3.9",
+            "default": "10.121.177.20:8082/mlops/ubuntu-gpu:cuda11.8.0-cudnn8-python3.9",
             "placeholder": "",
             "describe": "worker镜像，直接运行你代码的环境镜像<a href='https://github.com/data-infra/cube-studio/tree/main/images'>基础镜像</a>",
             "editable": 1
@@ -72,6 +75,7 @@ TASK_RESOURCE_GPU=0
 保留单机的代码，添加识别集群信息的代码（多少个worker，当前worker是第几个），添加分工（只处理归属于当前worker的任务），
 
 参考 demo.py
+
 ```python
 import time, datetime, json, requests, io, os
 from multiprocessing import Pool

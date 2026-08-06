@@ -1536,7 +1536,7 @@ def check_resource_gpu(resource_gpu, src_resource_gpu=None):
 
     shared_count, shared_gpu_type, shared_resource_name = get_gpu_shared_resource(resource_gpu)
     if shared_count and str(resource_gpu) != str(src_resource_gpu or ''):
-        raise MyappException(_('GPU 共享请使用 HAMI 格式，例如 0.5、4.5、10G,50、60G,100 或 10G,50(A100)'))
+        raise MyappException(_('GPU 共享请使用 HAMI 格式，例如 0.5、4.5、10G,50、60G,100 或 10G,50(RTX4090)'))
 
     hami_gpu = get_hami_gpu(resource_gpu)
     if hami_gpu.get('enabled'):

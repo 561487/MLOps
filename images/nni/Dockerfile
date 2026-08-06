@@ -6,7 +6,7 @@
 
 ARG TARGETARCH
 
-FROM ccr.ccs.tencentyun.com/cube-studio/ubuntu-gpu:cuda11.8.0-cudnn8-python3.9-${TARGETARCH}
+FROM 10.121.177.20:8082/mlops/ubuntu-gpu:cuda11.8.0-cudnn8-python3.9-${TARGETARCH}
 
 ENV DEBIAN_FRONTEND=noninteractive
 # 安装启动sshd

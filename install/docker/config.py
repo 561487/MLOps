@@ -859,13 +859,13 @@ HUBSECRET_NAMESPACE=[PIPELINE_NAMESPACE,AUTOML_NAMESPACE,NOTEBOOK_NAMESPACE,SERV
 
 # notebook使用的镜像
 NOTEBOOK_IMAGES=[
-    ['ccr.ccs.tencentyun.com/cube-studio/notebook:vscode-ubuntu-cpu-base', 'vscode（cpu）'],
-    ['ccr.ccs.tencentyun.com/cube-studio/notebook:vscode-ubuntu-gpu-base', 'vscode（gpu）'],
-    ['ccr.ccs.tencentyun.com/cube-studio/notebook:jupyter-ubuntu22.04', 'jupyter（cpu）'],
-    ['ccr.ccs.tencentyun.com/cube-studio/notebook:jupyter-ubuntu22.04-cuda11.8.0-cudnn8','jupyter（gpu）'],
-    ['ccr.ccs.tencentyun.com/cube-studio/notebook:jupyter-ubuntu-bigdata', 'jupyter（bigdata）'],
-    ['ccr.ccs.tencentyun.com/cube-studio/notebook:jupyter-ubuntu-machinelearning', 'jupyter（machinelearning）'],
-    ['ccr.ccs.tencentyun.com/cube-studio/notebook:jupyter-ubuntu-deeplearning', 'jupyter（deeplearning）'],
+    ['10.121.177.20:8082/notebook/notebook:vscode-ubuntu-cpu-base', 'vscode（cpu）'],
+    ['10.121.177.20:8082/notebook/notebook:vscode-ubuntu-gpu-base', 'vscode（gpu）'],
+    ['10.121.177.20:8082/notebook/notebook:jupyter-ubuntu22.04', 'jupyter（cpu）'],
+    ['10.121.177.20:8082/notebook/notebook:jupyter-ubuntu22.04-cuda11.8.0-cudnn8','jupyter（gpu）'],
+    ['10.121.177.20:8082/notebook/notebook:jupyter-ubuntu-bigdata', 'jupyter（bigdata）'],
+    ['10.121.177.20:8082/notebook/notebook:jupyter-ubuntu-machinelearning', 'jupyter（machinelearning）'],
+    ['10.121.177.20:8082/notebook/notebook:jupyter-ubuntu-deeplearning', 'jupyter（deeplearning）'],
     ['10.121.177.20:8082/mlops/notebook:tensorboard-jupyter-cpu', 'jupyter-tensorboard（cpu）'],
     ['10.121.177.20:8082/mlops/notebook:tensorboard-jupyter-bigdata', 'jupyter-tensorboard（bigdata）'],
     ['10.121.177.20:8082/mlops/notebook:tensorboard-vscode-cpu', 'vscode-tensorboard（cpu）'],
