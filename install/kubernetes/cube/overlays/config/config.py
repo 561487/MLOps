@@ -911,6 +911,8 @@ PROMETHEUS_BASE_URL = _normalize_prometheus_url(
 PROMETHEUS_QUERY_TIMEOUT = int(os.environ.get("PROMETHEUS_QUERY_TIMEOUT", "10"))
 INFERENCE_MONITOR_SUMMARY_CACHE_TTL = int(os.environ.get("INFERENCE_MONITOR_SUMMARY_CACHE_TTL", "10"))
 INFERENCE_MONITOR_TIMESERIES_CACHE_TTL = int(os.environ.get("INFERENCE_MONITOR_TIMESERIES_CACHE_TTL", "30"))
+# 固定计算窗口（秒）：Counter rate 和 Histogram quantile 的计算窗口，不随显示范围变化
+INFERENCE_MONITOR_CALCULATION_WINDOW_SECONDS = int(os.environ.get("INFERENCE_MONITOR_CALCULATION_WINDOW_SECONDS", "120"))
 # nni默认镜像
 NNI_IMAGES='ccr.ccs.tencentyun.com/cube-studio/nni:20240501'
 

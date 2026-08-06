@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Row, Col, Spin, Empty } from 'antd';
 import TitleHeader from '../../components/TitleHeader/TitleHeader';
-import FilterBar from './components/FilterBar';
+import FilterBar, { EngineFilter } from './components/FilterBar';
 import MetricCards from './components/MetricCards';
 import TrendCharts from './components/TrendCharts';
 import ServiceList from './components/ServiceList';
@@ -10,7 +10,7 @@ import { getMonitorDisplayStatus, DISPLAY_STATUS_CONFIG } from './status';
 import type { ServiceItem, SummaryResult, TimeRange, StatusFilter } from './types';
 import './InferenceMonitor.less';
 
-const SUPPORTED_ENGINES = ['vllm'];
+const SUPPORTED_ENGINES = ['vllm', 'sglang'];
 
 interface Props { breadcrumbs?: string[]; }
 
@@ -43,12 +43,23 @@ const InferenceMonitor: React.FC<Props> = ({ breadcrumbs }) => {
   const [forceRefresh, setForceRefresh] = useState(false);
 
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+  const [engineFilter, setEngineFilter] = useState<EngineFilter>('all');
   const [timeRange, setTimeRange] = useState<TimeRange>('6h');
   const [autoRefresh, setAutoRefresh] = useState(false);
   const refreshTimerRef = useRef<number | null>(null);
   const selectedServiceIdRef = useRef<number | null>(null);
   // 用 ref 避免定时器闭包持有旧的 selectedService
   const selectedServiceRef = useRef<ServiceItem | null>(null);
+
+  // 切换引擎时清空旧服务列表和选中状态
+  useEffect(() => {
+    setServices([]);
+    setSelectedService(null);
+    selectedServiceRef.current = null;
+    selectedServiceIdRef.current = null;
+    setSummary(null);
+    setSummaryError(null);
+  }, [engineFilter]);
 
   // 切换服务时清空上一个服务的 summary 和错误
   useEffect(() => {
@@ -57,17 +68,18 @@ const InferenceMonitor: React.FC<Props> = ({ breadcrumbs }) => {
   }, [selectedService?.service_id]);
 
   const loadServices = useCallback(async () => {
+    setServices([]);
     setLoading(true);
     try {
       const data = await fetchServices({
-        engine: 'vllm',
+        engine: engineFilter === 'all' ? undefined : engineFilter,
         status: statusFilter === 'all' ? undefined : statusFilter,
       });
       setServices(data.filter((s: ServiceItem) =>
         SUPPORTED_ENGINES.includes(String(s.service_type || '').toLowerCase())
       ));
-    } catch { /* silent */ } finally { setLoading(false); }
-  }, [statusFilter]);
+    } catch { setServices([]); } finally { setLoading(false); }
+  }, [statusFilter, engineFilter]);
 
   const loadSummaryFn = useCallback(async (serviceId: number, force?: boolean) => {
     setSummaryLoading(true);
@@ -159,6 +171,16 @@ const InferenceMonitor: React.FC<Props> = ({ breadcrumbs }) => {
   const monitorEnabled = isMonitorEnabled(selectedService);
   const disabledReason = getDisabledReason(selectedService);
 
+  // 从 summary 中提取 unsupported 指标集合
+  const unsupportedMetrics = React.useMemo(() => {
+    if (!summary?.metrics) return new Set<string>();
+    const s = new Set<string>();
+    for (const [key, val] of Object.entries(summary.metrics)) {
+      if (val.status === 'unsupported') s.add(key);
+    }
+    return s;
+  }, [summary]);
+
   return (
     <div className="fade-in h100 d-f fd-c inference-monitor">
       <TitleHeader
@@ -170,6 +192,7 @@ const InferenceMonitor: React.FC<Props> = ({ breadcrumbs }) => {
       <div className="mlr16 mb16 flex1" style={{ overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
         <FilterBar
           statusFilter={statusFilter} onStatusChange={setStatusFilter}
+          engineFilter={engineFilter} onEngineChange={setEngineFilter}
           timeRange={timeRange} onTimeRangeChange={setTimeRange}
           autoRefresh={autoRefresh} onAutoRefreshChange={setAutoRefresh}
           onRefresh={handleRefresh} loading={loading || refreshing}
@@ -179,13 +202,13 @@ const InferenceMonitor: React.FC<Props> = ({ breadcrumbs }) => {
             <ServiceList
               services={services} loading={loading}
               selectedServiceId={selectedService?.service_id || null}
-              onSelect={handleSelect}
+              onSelect={handleSelect} engineFilter={engineFilter}
             />
           </Col>
           <Col flex="1 1 0" style={{ minWidth: 0, overflow: 'auto' }}>
             {!selectedService ? (
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 300, background: '#fff', borderRadius: 4 }}>
-                <Empty description={vllmCount === 0 ? '当前没有可监控的 vLLM 推理服务' : '请选择左侧 vLLM 推理服务查看监控指标'} />
+                <Empty description={vllmCount === 0 ? '当前没有可监控的推理服务' : '请选择左侧推理服务查看监控指标'} />
               </div>
             ) : (
               <>
@@ -231,6 +254,7 @@ const InferenceMonitor: React.FC<Props> = ({ breadcrumbs }) => {
                       disabledReason={disabledReason}
                       refreshToken={refreshToken}
                       forceRefresh={forceRefresh}
+                      unsupportedMetrics={unsupportedMetrics}
                     />
                   </Spin>
                 )}

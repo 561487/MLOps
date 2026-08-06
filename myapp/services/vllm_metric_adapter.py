@@ -3,11 +3,21 @@ vLLM 指标 PromQL 适配器。
 所有 PromQL 使用 job + kubernetes_namespace + mlops_service_id 三重标签限定。
 """
 import math
-import time
 
-# 统计窗口常量
-SUMMARY_RATE_WINDOW = "5m"
-TIMESERIES_RATE_WINDOW = "5m"
+from myapp.services.inference_monitor_time_range import (
+    QueryWindow,
+    TIME_RANGE_SPECS,
+    resolve_query_window,
+)
+from myapp.services.inference_monitor_metric_utils import normalize_prometheus_matrix_values
+from myapp import conf
+
+# 固定计算窗口下限（秒）：摘要（instant）查询使用的窗口；范围查询改用
+# QueryWindow.calculation_window_seconds（>= display_step，避免大 step 漏短事件）
+# 可通过环境变量 INFERENCE_MONITOR_CALCULATION_WINDOW_SECONDS 覆盖
+CALCULATION_WINDOW_SECONDS = int(
+    conf.get("INFERENCE_MONITOR_CALCULATION_WINDOW_SECONDS", "120")
+)
 
 # 支持的指标白名单
 SUPPORTED_METRICS = {
@@ -63,76 +73,73 @@ def _label_filter(service_id, namespace, job="kubernetes-service-endpoints"):
     )
 
 
-def _build_histogram_quantile(quantile, metric_name, service_id, namespace, rate_window):
-    """构建 histogram_quantile PromQL"""
+def _instant_histogram_quantile(quantile, metric_name, service_id, namespace, raw_seconds):
+    """histogram 分位数（秒→毫秒仅此一次），基于固定短窗口的 bucket 速率"""
     labels = _label_filter(service_id, namespace)
     return (
         f"1000 * histogram_quantile({quantile}, "
         f"sum by (le) ("
-        f"rate({metric_name}_bucket{{{labels}}}[{rate_window}])"
+        f"rate({metric_name}_bucket{{{labels}}}[{raw_seconds}s])"
         f"))"
     )
 
 
-def _build_histogram_count(metric_name, service_id, namespace, rate_window):
+def _build_histogram_count(metric_name, service_id, namespace, raw_seconds):
     """构建 histogram _count 查询（用于判断是否有数据）"""
     labels = _label_filter(service_id, namespace)
     return (
-        f"sum(increase({metric_name}_count{{{labels}}}[{rate_window}]))"
+        f"sum(increase({metric_name}_count{{{labels}}}[{raw_seconds}s]))"
     )
 
 
-def _build_rate_sum(metric_name, service_id, namespace, rate_window):
-    """构建 sum(rate(...)) PromQL"""
+def _instant_counter_rate(metric_name, service_id, namespace, raw_seconds):
+    """Counter 真实瞬时速率，基于固定短窗口"""
     labels = _label_filter(service_id, namespace)
-    return f"sum(rate({metric_name}{{{labels}}}[{rate_window}]))"
+    return f"sum(rate({metric_name}{{{labels}}}[{raw_seconds}s]))"
 
 
-def _build_gauge_sum(metric_name, service_id, namespace):
+def _instant_gauge_sum(metric_name, service_id, namespace):
     """构建 sum(gauge) PromQL"""
     labels = _label_filter(service_id, namespace)
     return f"sum({metric_name}{{{labels}}})"
 
 
+def _bucket_peak(instant_expr, bucket_seconds, scrape_seconds):
+    """对瞬时表达式按展示桶取桶内峰值（max_over_time 子查询）。
+
+    只降低时间分辨率，不稀释短事件幅值。subquery 分辨率必须带时间单位。
+    桶内无样本时结果为 NaN/缺省，由 normalize 转为 null 断线，不补 0。
+    """
+    return f"max_over_time(({instant_expr})[{bucket_seconds}s:{scrape_seconds}s])"
+
+
 # ====== 瞬时查询 PromQL 构建 ======
 
 SUMMARY_PROMQL_BUILDERS = {
-    "ttft_p50": lambda sid, ns: _build_histogram_quantile(0.50, "vllm:time_to_first_token_seconds", sid, ns, SUMMARY_RATE_WINDOW),
-    "ttft_p95": lambda sid, ns: _build_histogram_quantile(0.95, "vllm:time_to_first_token_seconds", sid, ns, SUMMARY_RATE_WINDOW),
-    "ttft_p99": lambda sid, ns: _build_histogram_quantile(0.99, "vllm:time_to_first_token_seconds", sid, ns, SUMMARY_RATE_WINDOW),
-    "itl_p50": lambda sid, ns: _build_histogram_quantile(0.50, "vllm:time_per_output_token_seconds", sid, ns, SUMMARY_RATE_WINDOW),
-    "itl_p95": lambda sid, ns: _build_histogram_quantile(0.95, "vllm:time_per_output_token_seconds", sid, ns, SUMMARY_RATE_WINDOW),
-    "qps": lambda sid, ns: _build_rate_sum("vllm:request_success_total", sid, ns, SUMMARY_RATE_WINDOW),
-    "running_requests": lambda sid, ns: _build_gauge_sum("vllm:num_requests_running", sid, ns),
-    "waiting_requests": lambda sid, ns: _build_gauge_sum("vllm:num_requests_waiting", sid, ns),
-    "input_tokens_per_second": lambda sid, ns: _build_rate_sum("vllm:prompt_tokens_total", sid, ns, SUMMARY_RATE_WINDOW),
-    "output_tokens_per_second": lambda sid, ns: _build_rate_sum("vllm:generation_tokens_total", sid, ns, SUMMARY_RATE_WINDOW),
+    "ttft_p50": lambda sid, ns: _instant_histogram_quantile(0.50, "vllm:time_to_first_token_seconds", sid, ns, CALCULATION_WINDOW_SECONDS),
+    "ttft_p95": lambda sid, ns: _instant_histogram_quantile(0.95, "vllm:time_to_first_token_seconds", sid, ns, CALCULATION_WINDOW_SECONDS),
+    "ttft_p99": lambda sid, ns: _instant_histogram_quantile(0.99, "vllm:time_to_first_token_seconds", sid, ns, CALCULATION_WINDOW_SECONDS),
+    "itl_p50": lambda sid, ns: _instant_histogram_quantile(0.50, "vllm:inter_token_latency_seconds", sid, ns, CALCULATION_WINDOW_SECONDS),
+    "itl_p95": lambda sid, ns: _instant_histogram_quantile(0.95, "vllm:inter_token_latency_seconds", sid, ns, CALCULATION_WINDOW_SECONDS),
+    "qps": lambda sid, ns: _instant_counter_rate("vllm:request_success_total", sid, ns, CALCULATION_WINDOW_SECONDS),
+    "running_requests": lambda sid, ns: _instant_gauge_sum("vllm:num_requests_running", sid, ns),
+    "waiting_requests": lambda sid, ns: _instant_gauge_sum("vllm:num_requests_waiting", sid, ns),
+    "input_tokens_per_second": lambda sid, ns: _instant_counter_rate("vllm:prompt_tokens_total", sid, ns, CALCULATION_WINDOW_SECONDS),
+    "output_tokens_per_second": lambda sid, ns: _instant_counter_rate("vllm:generation_tokens_total", sid, ns, CALCULATION_WINDOW_SECONDS),
 }
 
 # 瞬时查询对应的 _count 检查（仅 histogram 指标需要）
 SUMMARY_COUNT_BUILDERS = {
-    "ttft_p50": lambda sid, ns: _build_histogram_count("vllm:time_to_first_token_seconds", sid, ns, SUMMARY_RATE_WINDOW),
-    "ttft_p95": lambda sid, ns: _build_histogram_count("vllm:time_to_first_token_seconds", sid, ns, SUMMARY_RATE_WINDOW),
-    "ttft_p99": lambda sid, ns: _build_histogram_count("vllm:time_to_first_token_seconds", sid, ns, SUMMARY_RATE_WINDOW),
-    "itl_p50": lambda sid, ns: _build_histogram_count("vllm:time_per_output_token_seconds", sid, ns, SUMMARY_RATE_WINDOW),
-    "itl_p95": lambda sid, ns: _build_histogram_count("vllm:time_per_output_token_seconds", sid, ns, SUMMARY_RATE_WINDOW),
+    "ttft_p50": lambda sid, ns: _build_histogram_count("vllm:time_to_first_token_seconds", sid, ns, CALCULATION_WINDOW_SECONDS),
+    "ttft_p95": lambda sid, ns: _build_histogram_count("vllm:time_to_first_token_seconds", sid, ns, CALCULATION_WINDOW_SECONDS),
+    "ttft_p99": lambda sid, ns: _build_histogram_count("vllm:time_to_first_token_seconds", sid, ns, CALCULATION_WINDOW_SECONDS),
+    "itl_p50": lambda sid, ns: _build_histogram_count("vllm:inter_token_latency_seconds", sid, ns, CALCULATION_WINDOW_SECONDS),
+    "itl_p95": lambda sid, ns: _build_histogram_count("vllm:inter_token_latency_seconds", sid, ns, CALCULATION_WINDOW_SECONDS),
 }
 
 
 # ====== 范围查询 PromQL 构建 ======
-
-TIMESERIES_PROMQL_BUILDERS = {
-    "ttft_p50": lambda sid, ns: _build_histogram_quantile(0.50, "vllm:time_to_first_token_seconds", sid, ns, TIMESERIES_RATE_WINDOW),
-    "ttft_p95": lambda sid, ns: _build_histogram_quantile(0.95, "vllm:time_to_first_token_seconds", sid, ns, TIMESERIES_RATE_WINDOW),
-    "ttft_p99": lambda sid, ns: _build_histogram_quantile(0.99, "vllm:time_to_first_token_seconds", sid, ns, TIMESERIES_RATE_WINDOW),
-    "itl_p50": lambda sid, ns: _build_histogram_quantile(0.50, "vllm:time_per_output_token_seconds", sid, ns, TIMESERIES_RATE_WINDOW),
-    "itl_p95": lambda sid, ns: _build_histogram_quantile(0.95, "vllm:time_per_output_token_seconds", sid, ns, TIMESERIES_RATE_WINDOW),
-    "qps": lambda sid, ns: _build_rate_sum("vllm:request_success_total", sid, ns, TIMESERIES_RATE_WINDOW),
-    "running_requests": lambda sid, ns: _build_gauge_sum("vllm:num_requests_running", sid, ns),
-    "waiting_requests": lambda sid, ns: _build_gauge_sum("vllm:num_requests_waiting", sid, ns),
-    "input_tokens_per_second": lambda sid, ns: _build_rate_sum("vllm:prompt_tokens_total", sid, ns, TIMESERIES_RATE_WINDOW),
-    "output_tokens_per_second": lambda sid, ns: _build_rate_sum("vllm:generation_tokens_total", sid, ns, TIMESERIES_RATE_WINDOW),
-}
+# 所有 PromQL 由 _get_timeseries_with_qw() 根据 QueryWindow 动态构建
 
 
 def build_batch_up_query():
@@ -227,28 +234,52 @@ def get_summary_metrics(prom_client, service_id, namespace):
     return result
 
 
-def get_timeseries_metrics(prom_client, service_id, namespace, metric_names, range_str):
+def get_timeseries_metrics(prom_client, service_id, namespace, metric_names, qw: QueryWindow):
     """
     获取多个指标的时间序列数据。
-    返回: {
-        metric_name: [{timestamp, value}, ...]
-    }
+    qw: 统一 QueryWindow — 由 Service 层通过 resolve_query_window() 生成，
+        所有引擎共用，Adapter 内部不再调用 time.time()。
+    返回: (data_dict, query_window_api_dict)
     """
-    if range_str not in ALLOWED_RANGES:
-        raise ValueError(f"Unsupported range: {range_str}")
+    return _get_timeseries_with_qw(prom_client, service_id, namespace, metric_names, qw)
 
-    step = RANGE_STEP_MAP[range_str]
-    range_seconds = _range_to_seconds(range_str)
-    end = int(time.time())
-    start = end - range_seconds
+
+def _get_timeseries_with_qw(prom_client, service_id, namespace, metric_names, qw: QueryWindow):
+    """使用统一 QueryWindow 构建 PromQL 并返回 (data, query_window_api_dict)。
+
+    关键：真实指标在固定 raw_calculation_window 上计算，长窗口只对瞬时曲线
+    做 display_bucket 桶内峰值降采样（max_over_time 子查询），
+    同一事件在 5m~3d 各窗口中的幅值保持一致，只有时间分辨率变化。
+    """
+    raw = qw.raw_calculation_window_seconds
+    bucket = qw.display_bucket_seconds
+    scrape = qw.scrape_interval_seconds
+    # display step 仅用于 Prometheus query_range 的 step 参数（数据点密度）
+    step_s = str(qw.display_step_seconds)
+
+    def peak(expr):
+        return _bucket_peak(expr, bucket, scrape)
+
+    # 动态构建 PromQL（固定 raw 窗口 + 展示桶峰值）
+    _qw_builders = {
+        "ttft_p50": lambda: peak(_instant_histogram_quantile(0.50, "vllm:time_to_first_token_seconds", service_id, namespace, raw)),
+        "ttft_p95": lambda: peak(_instant_histogram_quantile(0.95, "vllm:time_to_first_token_seconds", service_id, namespace, raw)),
+        "ttft_p99": lambda: peak(_instant_histogram_quantile(0.99, "vllm:time_to_first_token_seconds", service_id, namespace, raw)),
+        "itl_p50":  lambda: peak(_instant_histogram_quantile(0.50, "vllm:inter_token_latency_seconds", service_id, namespace, raw)),
+        "itl_p95":  lambda: peak(_instant_histogram_quantile(0.95, "vllm:inter_token_latency_seconds", service_id, namespace, raw)),
+        "qps":      lambda: peak(_instant_counter_rate("vllm:request_success_total", service_id, namespace, raw)),
+        "running_requests": lambda: peak(_instant_gauge_sum("vllm:num_requests_running", service_id, namespace)),
+        "waiting_requests": lambda: peak(_instant_gauge_sum("vllm:num_requests_waiting", service_id, namespace)),
+        "input_tokens_per_second":  lambda: peak(_instant_counter_rate("vllm:prompt_tokens_total", service_id, namespace, raw)),
+        "output_tokens_per_second": lambda: peak(_instant_counter_rate("vllm:generation_tokens_total", service_id, namespace, raw)),
+    }
 
     result = {}
     for metric_name in metric_names:
-        if metric_name not in TIMESERIES_PROMQL_BUILDERS:
+        if metric_name not in _qw_builders:
             continue
-        promql = TIMESERIES_PROMQL_BUILDERS[metric_name](str(service_id), namespace)
         try:
-            data = prom_client.range_query(promql, start, end, step)
+            data = prom_client.range_query(_qw_builders[metric_name](), qw.start_seconds, qw.end_seconds, step_s)
         except Exception:
             result[metric_name] = []
             continue
@@ -257,34 +288,7 @@ def get_timeseries_metrics(prom_client, service_id, namespace, metric_names, ran
             result[metric_name] = []
             continue
 
-        values = data[0].get("values", [])
-        points = []
-        for ts, val in values:
-            v = prom_client._safe_float(val)
-            # Prometheus 返回 Unix 秒级时间戳，前端 ECharts time 轴需要毫秒
-            ts_float = prom_client._safe_float(ts)
-            if ts_float is None or ts_float <= 0 or not math.isfinite(ts_float):
-                continue
-            # 校验时间戳在合理范围内（查询窗口 ±1 天）
-            if ts_float < start - 86400 or ts_float > end + 86400:
-                continue
-            timestamp_ms = int(ts_float * 1000)
-            points.append({
-                "timestamp_ms": timestamp_ms,
-                "value": v,
-            })
-        result[metric_name] = points
+        result[metric_name] = normalize_prometheus_matrix_values(data[0].get("values", []))
 
-    return result
+    return result, qw.to_api_dict()
 
-
-def _range_to_seconds(range_str):
-    """将范围字符串转为秒数"""
-    if range_str.endswith("m"):
-        return int(range_str[:-1]) * 60
-    elif range_str.endswith("h"):
-        return int(range_str[:-1]) * 3600
-    elif range_str.endswith("d"):
-        return int(range_str[:-1]) * 86400
-    else:
-        return int(range_str)

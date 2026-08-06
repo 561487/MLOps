@@ -1676,6 +1676,20 @@ class K8s():
     # 创建pod
     # @pysnooper.snoop()
     def create_service(self,namespace,name,username,ports,selector,service_type='ClusterIP',external_ip=None,annotations=None,load_balancer_ip=None,external_traffic_policy=None,disable_load_balancer=False,metadata_labels=None):
+        import logging
+        _log = logging.getLogger(__name__)
+        import traceback
+        # 获取调用栈信息用于日志
+        _stack = traceback.extract_stack()
+        _caller = "unknown"
+        for _frame in reversed(_stack):
+            if 'view_inferenceserving' in _frame.filename:
+                _caller = f"{_frame.filename.split('/')[-1]}:{_frame.lineno}:{_frame.name}"
+                break
+            elif 'job-template' in _frame.filename:
+                _caller = f"pipeline:{_frame.filename.split('/')[-1]}:{_frame.lineno}"
+                break
+
         selector_labels = dict(selector or {})
         extra_labels = {
             str(key): str(value)
@@ -1693,6 +1707,18 @@ class K8s():
                 f"{sorted(conflicting_keys)}"
             )
         svc_labels = {**selector_labels, **extra_labels}
+
+        # 结构化日志：记录每次 create_service 调用的完整参数
+        _log.info(
+            "INFERENCE_MONITOR_CREATE_SERVICE_TRACE caller=%s namespace=%s name=%s "
+            "selector=%s metadata_labels_arg=%s annotations_arg=%s "
+            "final_labels=%s final_annotations=%s has_mlops=%s",
+            _caller, namespace, name,
+            selector_labels, extra_labels, annotations,
+            {k:v for k,v in svc_labels.items() if 'mlops' in k},
+            {k:v for k,v in (annotations or {}).items() if 'prometheus' in k},
+            'mlops_engine' in svc_labels,
+        )
 
         svc_metadata = v1_object_meta.V1ObjectMeta(name=name, namespace=namespace, labels=svc_labels,annotations=annotations)
         service_ports=[]
