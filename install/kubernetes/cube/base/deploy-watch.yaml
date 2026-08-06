@@ -48,11 +48,11 @@ spec:
       imagePullSecrets:
         - name: hubsecret
       containers:
-        - name: kubeflow-watch-workflow
-          image: ccr.ccs.tencentyun.com/cube-studio/kubeflow-dashboard
-          imagePullPolicy: Always  # IfNotPresent
+        - name: workflow-watcher
+          image: 10.121.177.20:8082/mlops/kubeflow-dashboard:v2.2-prod
+          imagePullPolicy: IfNotPresent
           workingDir: /home/myapp
-          command: ["supervisord", "-c", "/home/myapp/myapp/tools/supervisord.conf"]
+          command: ["python", "myapp/tools/watch_workflow.py"]
           env:
           - name: REDIS_HOST
             valueFrom:

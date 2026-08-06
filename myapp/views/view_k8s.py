@@ -351,45 +351,38 @@ class K8s_View(BaseMyappView):
                 return {
                     "message": _('您暂无权限查看此pod日志，仅管理员和创建者可以查看'),
                 }
-        # 打开iframe页面
-        host_url = "//"+ conf.get("CLUSTERS", {}).get(cluster_name, {}).get("HOST", request.host).split('|')[-1]
-
-        if '127.0.0.1' in request.host or 'localhost' in request.host:
-            return redirect(host_url+f'{self.route_base}/web/log/{cluster_name}/{namespace}/{pod_name}{("/"+container_name) if container_name else ""}')
-
-        pod_url = host_url + conf.get('K8S_DASHBOARD_USER','/k8s/dashboard/user1/') + "#/log/%s/%s/pod?namespace=%s&container=%s" % (namespace, pod_name, namespace, container_name if container_name else pod_name)
-        print(pod_url)
+        # 获取当前pod状态用于页面展示
         kubeconfig = all_clusters[cluster_name].get('KUBECONFIG', '')
-
         k8s_client = K8s(kubeconfig)
         pod = k8s_client.get_pods(namespace=namespace, pod_name=pod_name)
+        pod_status = 'Unknown'
         if pod:
             pod = pod[0]
-            if pod['status']=='Running' or pod['status']=='Succeeded':
-                flash(__("当前pod状态：")+'%s' % pod['status'], category='warning')
-            # if pod['status']=='Failed':
-            #     # 获取错误码
-            #     flash('当前pod状态：%s' % pod['status'], category='warning')
+            pod_status = pod.get('status', 'Unknown')
+            if pod_status == 'Running' or pod_status == 'Succeeded':
+                flash(__("当前pod状态：") + '%s' % pod_status, category='warning')
             else:
                 events = k8s_client.get_pod_event(namespace=namespace, pod_name=pod_name)
                 if events:
-                    event = events[-1]  # 获取最后一个
-                    message = event.get('message','')
+                    event = events[-1]
+                    message = event.get('message', '')
                     if message:
-                        flash(__("当前pod状态：")+'%s，%s' % (pod['status'],message), category='warning')
+                        flash(__("当前pod状态：") + '%s，%s' % (pod_status, message), category='warning')
                 else:
-                    flash(__("当前pod状态：")+'%s' % pod['status'], category='warning')
+                    flash(__("当前pod状态：") + '%s' % pod_status, category='warning')
+
+        # 使用 read_log API 渲染日志（避免跨主机 iframe 的 cookie 401 问题）
         data = {
-            "url": pod_url,
-            "target": 'div.kd-scroll-container',  # kd-logs-container  :nth-of-type(0)
-            "delay": 100,
-            "loading": True
+            "read_log_url": "/k8s/read/log/%s/%s/%s/%s" % (
+                cluster_name, namespace, pod_name,
+                container_name if container_name else "main"),
+            "cluster_name": cluster_name,
+            "namespace_name": namespace,
+            "pod_name": pod_name,
+            "container_name": container_name if container_name else 'main',
+            "pod_status": pod_status,
         }
-        # 返回模板
-        if cluster_name == conf.get('ENVIRONMENT'):
-            return self.render_template('link.html', data=data)
-        else:
-            return self.render_template('external_link.html', data=data)
+        return self.render_template('pod_log.html', data=data)
 
     @expose_api(description="打开pod命令行界面",url="/web/debug/<cluster_name>/<namespace>/<pod_name>", methods=["GET", "POST"])
     @expose_api(description="打开pod命令行界面",url="/web/debug/<cluster_name>/<namespace>/<pod_name>/<container_name>", methods=["GET", "POST"])

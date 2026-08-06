@@ -3,10 +3,7 @@ import React from 'react';
 import { IRouterConfigPlusItem } from './api/interface/baseInterface';
 import { IAppMenuItem } from './api/interface/kubeflowInterface';
 import Page404 from './pages/Page404';
-import Cookies from 'js-cookie'
 import LoadingStar from './components/LoadingStar/LoadingStar';
-const userName = Cookies.get('myapp_username')
-const isAdmin = userName === 'admin'
 
 const LoadingComponent = () => {
     return <div className="d-f ac jc w100 h100">
@@ -202,10 +199,6 @@ export const routerConfigPlus: IRouterConfigPlusItem[] = [
     },
     { path: '*', element: <Page404 /> },
 ]
-
-// if (isAdmin) {
-//     routerConfigPlus.push(...securitySettingConfig)
-// }
 
 export const formatRoute = (data: IAppMenuItem[]): IRouterConfigPlusItem[] => {
     // console.log(data)

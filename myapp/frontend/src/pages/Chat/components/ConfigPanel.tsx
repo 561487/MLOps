@@ -22,6 +22,7 @@ import {
 import { SettingOutlined, SaveOutlined } from '@ant-design/icons';
 import { getAgentDetail, updateAgentConfig } from '../api';
 import type { IAgentItem, IAgentDetail, IConfigField } from '../types';
+import NotificationSettings from '../../NotificationSettings';
 
 const { Text } = Typography;
 const { TextArea } = Input;
@@ -74,7 +75,7 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({
 
   // 打开时加载AI助手详情
   useEffect(() => {
-    if (visible && agent) {
+    if (visible && agent && agent.name !== 'dingtalk') {
       loadDetail(agent.name);
     }
   }, [visible, agent?.name]);
@@ -150,6 +151,25 @@ const ConfigPanel: React.FC<ConfigPanelProps> = ({
       setSaving(false);
     }
   };
+
+  if (agent?.name === 'dingtalk') {
+    return (
+      <Drawer
+        title={
+          <Space>
+            <SettingOutlined />
+            <span>{agent.label || agent.name}</span>
+          </Space>
+        }
+        placement="right"
+        width={760}
+        open={visible}
+        onClose={onClose}
+      >
+        <NotificationSettings />
+      </Drawer>
+    );
+  }
 
   return (
     <Drawer

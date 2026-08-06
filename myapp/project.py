@@ -27,8 +27,11 @@ def push_admin(message):
 
 
 # 推送消息给用户的函数
-def push_message(receivers, message, link=None):
-    pass
+def push_message(receivers, message, link=None, event_type='platform.message', dedup_key=None):
+    from myapp.tools.dingtalk_notifier import send_dingtalk_message
+    return send_dingtalk_message(
+        receivers, message, link, event_type=event_type, dedup_key=dedup_key
+    )
 
 # 模型市场内部 API 地址（后端容器内调用平台已有 API）
 MODEL_MARKET_INTERNAL_HOST = "http://127.0.0.1"

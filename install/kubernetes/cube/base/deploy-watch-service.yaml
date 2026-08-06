@@ -2,20 +2,20 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: kubeflow-dashboard-worker
+  name: watch-service
   namespace: infra
   labels:
-    app: kubeflow-dashboard-worker
+    app: watch-service
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: kubeflow-dashboard-worker
+      app: watch-service
   template:
     metadata:
-      name: kubeflow-dashboard-worker
+      name: watch-service
       labels:
-        app: kubeflow-dashboard-worker
+        app: watch-service
     spec:
       affinity:
         nodeAffinity:
@@ -43,24 +43,16 @@ spec:
         - name: kubernetes-config
           configMap:
             name: kubernetes-config
-        - name: infra-kubeflow
-          persistentVolumeClaim:
-            claimName: infra-kubeflow
+
       serviceAccountName: kubeflow-dashboard
       imagePullSecrets:
         - name: hubsecret
       containers:
-        - name: kubeflow-dashboard-worker
-          image: ccr.ccs.tencentyun.com/cube-studio/kubeflow-dashboard
+        - name: watch-service
+          image: 10.121.177.20:8082/mlops/kubeflow-dashboard:v2.2-prod
           imagePullPolicy: IfNotPresent
-          command: ["bash","-c",'celery --app=myapp.tasks.celery_app:celery_app worker --loglevel=info --pool=prefork -Ofair -c 20 -n worker@%h']
-          resources:       
-            limits:
-              cpu: 6
-              memory: 6Gi
-            requests:
-              cpu: 10m
-              memory: 100Mi
+          workingDir: /home/myapp
+          command: ["python", "myapp/tools/watch_service.py"]
           env:
           - name: REDIS_HOST
             valueFrom:
@@ -101,13 +93,10 @@ spec:
               mountPath: /etc/localtime
             - name: kubernetes-config
               mountPath: /home/myapp/kubeconfig
-            - name: infra-kubeflow
-              mountPath: /data/k8s/kubeflow/
-
-#          livenessProbe:
-#            failureThreshold: 1
-#            exec:
-#              command: ["bash","-c","hour=`date +%H`; if [ $hour -eq 03 ]; then exit 1; fi"]
-#            initialDelaySeconds: 3600
-#            periodSeconds: 3600
-#            timeoutSeconds: 3600
+          resources:
+            limits:
+              cpu: 4
+              memory: 4Gi
+            requests:
+              cpu: 10m
+              memory: 100Mi

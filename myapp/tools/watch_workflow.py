@@ -11,6 +11,7 @@ import math
 from myapp.utils.py.py_k8s import check_status_time, K8s
 from myapp.utils.py.py_prometheus import Prometheus
 from myapp.project import push_message
+from myapp.tools.workflow_failure_detail import collect_failure_detail, format_failure_detail
 from myapp import app
 from myapp.models.model_job import (
     Pipeline,
@@ -81,13 +82,36 @@ def deliver_message(workflow, dbsession):
                 '%Y-%m-%d %H:%M:%S')
         help_url='http://%s/pipeline_modelview/api/web/pod/%s'%(conf.get('HOST'),pipeline_id)
         message = "workflow: %s \npipeline: %s(%s) \nnamespace: %s\nstatus: % s \nstart_time: %s\nfinish_time: %s\n" % (workflow.name,info_json.get('pipeline_name',''),info_json.get('describe',''),workflow.namespace,workflow.status,start_time,finish_time)
+        failure_detail = {}
+        if workflow.status in ('Failed', 'Error'):
+            tail_lines = int(conf.get('WORKFLOW_FAILURE_LOG_TAIL_LINES', 50))
+            max_chars = int(conf.get('WORKFLOW_FAILURE_LOG_MAX_CHARS', 2000))
+            failure_detail = collect_failure_detail(workflow, tail_lines, max_chars)
+            # Logs may contain emoji and secrets; use them in memory only.
+            info_json['failure_detail'] = {
+                key: value for key, value in failure_detail.items() if key != 'log'
+            }
+            workflow.info_json = json.dumps(info_json, indent=4, ensure_ascii=False)
+            dbsession.commit()
+            message += '\n' + format_failure_detail(failure_detail, tail_lines) + '\n'
         message+='\n'
-        link={
-            __("pod详情"):help_url
-        }
+        link={}
+
+        if failure_detail.get('pod'):
+            link[__("查看 Pod 日志")] = 'http://%s/k8s/web/log/%s/%s/%s/main' % (
+                conf.get('HOST'), workflow.cluster, workflow.namespace,
+                failure_detail['pod'])
         if message:
             logging.info(message)
-            push_message(receivers, message, link)
+            event_type = 'workflow.%s' % workflow.status.lower()
+            dedup_key = '%s:%s:%s:%s' % (
+                workflow.cluster, workflow.namespace, workflow.name, workflow.status
+            )
+            push_message(
+                receivers, message, link,
+                event_type=event_type,
+                dedup_key=dedup_key,
+            )
 
 
 # 保存workflow记录
@@ -117,6 +141,21 @@ def save_workflow(crd, dbsession):
         workflow.spec = json.dumps(crd['spec'], indent=4, ensure_ascii=False)
         workflow.status_more = json.dumps(crd['status_more'], indent=4, ensure_ascii=False)
         workflow.cluster = cluster
+        # Workflow records are often created by the platform before the K8s
+        # watcher sees them. Always refresh notification metadata for existing
+        # rows, otherwise alert_status/has_push stay empty and no event is sent.
+        try:
+            info_json = json.loads(workflow.info_json or '{}')
+        except (TypeError, ValueError):
+            info_json = {}
+        info_json.update({
+            "pipeline_name": pipeline.name,
+            "describe": pipeline.describe,
+            "run_id": run_id,
+            "alert_status": alert_status,
+        })
+        info_json.setdefault("has_push", "")
+        workflow.info_json = json.dumps(info_json, indent=4, ensure_ascii=False)
         dbsession.commit()
 
     else:
@@ -396,7 +435,7 @@ def deal_event(event, workflow_info, namespace):
             workflow = save_workflow(back_object, dbsession)
             if workflow:
                 if workflow.status == 'Suspended':
-                    continue  # Suspended 状态不推送告警、不采集监控
+                    return  # Suspended 状态不推送告警、不采集监控
                 
                 has_push = check_has_push(back_object, dbsession)
                 if not has_push:
