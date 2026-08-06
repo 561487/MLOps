@@ -1,4 +1,4 @@
-# docker build --network=host -t ccr.ccs.tencentyun.com/cube-studio/notebook:vscode-ubuntu-cpu-base -f Dockerfile-cpu-base .
+# docker build --network=host -t 10.121.177.20:8082/notebook/notebook:vscode-ubuntu-cpu-base -f Dockerfile-cpu-base .
 
 FROM ccr.ccs.tencentyun.com/cube-studio/theia-python:latest
 

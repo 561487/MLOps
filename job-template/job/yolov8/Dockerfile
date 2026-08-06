@@ -1,4 +1,4 @@
-FROM ccr.ccs.tencentyun.com/cube-studio/ubuntu-gpu:cuda11.8.0-cudnn8-python3.9
+FROM 10.121.177.20:8082/mlops/ubuntu-gpu:cuda11.8.0-cudnn8-python3.9
 #COPY sources.list /etc/apt/sources.list
 RUN apt update -y
 WORKDIR /yolov8

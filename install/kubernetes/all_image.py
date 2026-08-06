@@ -3,7 +3,7 @@ import os,re
 # 所需要的所有镜像
 kubeflow = [
     'mysql:8.0.32',  # 数据库
-    'ccr.ccs.tencentyun.com/cube-studio/redis:7.4',  # 缓存
+    '10.121.177.20:8082/notebook/redis:7.4',  # 缓存
     "busybox:1.36.0",
     "kubeflow/training-operator:v1-8a066f9",  # 分布式训练
     'alpine:3.10',
@@ -11,7 +11,7 @@ kubeflow = [
 
 kubernetes_dashboard = [
     'kubernetesui/dashboard:v2.6.1',  # k8s dashboard
-    'ccr.ccs.tencentyun.com/cube-studio/k8s-dashboard:v2.6.1',
+    '10.121.177.20:8082/notebook/k8s-dashboard:v2.6.1',
     'kubernetesui/metrics-scraper:v1.0.8',  # k8s dashboard 上的指标监控
 ]
 
@@ -26,11 +26,11 @@ new_prometheus = [
 
     'quay.io/prometheus-operator/prometheus-config-reloader:v0.46.0',  # prometheus配置翻译
     "quay.io/prometheus-operator/prometheus-operator:v0.46.0",  # prometheus 部署工具
-    'ccr.ccs.tencentyun.com/cube-studio/kube-rbac-proxy:0.14.1',  # 指标
+    '10.121.177.20:8082/notebook/kube-rbac-proxy:0.14.1',  # 指标
     'carlosedp/addon-resizer:v1.8.4',  # 指标
 
     'grafana/grafana:9.5.20',  # 监控看板
-    "ccr.ccs.tencentyun.com/cube-studio/prometheus-adapter:v0.9.1",  # peometheus指标翻译为自定义指标
+    "10.121.177.20:8082/notebook/prometheus-adapter:v0.9.1",  # peometheus指标翻译为自定义指标
 ]
 
 istio = [
@@ -54,16 +54,16 @@ cube_studio = [
     'ccr.ccs.tencentyun.com/cube-studio/kubeflow-dashboard-frontend:2026.03.01',
     'ccr.ccs.tencentyun.com/cube-studio/kubeflow-dashboard:2026.03.01',
     # notebook基础镜像
-    'ccr.ccs.tencentyun.com/cube-studio/notebook:vscode-ubuntu-cpu-base',
-    'ccr.ccs.tencentyun.com/cube-studio/notebook:vscode-ubuntu-gpu-base',
-    'ccr.ccs.tencentyun.com/cube-studio/notebook:jupyter-ubuntu22.04',
-    'ccr.ccs.tencentyun.com/cube-studio/notebook:jupyter-ubuntu22.04-cuda11.8.0-cudnn8',
-    'ccr.ccs.tencentyun.com/cube-studio/notebook:jupyter-ubuntu-cpu-1.0.0',
-    'ccr.ccs.tencentyun.com/cube-studio/notebook:jupyter-ubuntu-bigdata',
-    'ccr.ccs.tencentyun.com/cube-studio/notebook:jupyter-ubuntu-machinelearning',
-    'ccr.ccs.tencentyun.com/cube-studio/notebook:jupyter-ubuntu-deeplearning',
+    '10.121.177.20:8082/notebook/notebook:vscode-ubuntu-cpu-base',
+    '10.121.177.20:8082/notebook/notebook:vscode-ubuntu-gpu-base',
+    '10.121.177.20:8082/notebook/notebook:jupyter-ubuntu22.04',
+    '10.121.177.20:8082/notebook/notebook:jupyter-ubuntu22.04-cuda11.8.0-cudnn8',
+    '10.121.177.20:8082/notebook/notebook:jupyter-ubuntu-cpu-1.0.0',
+    '10.121.177.20:8082/notebook/notebook:jupyter-ubuntu-bigdata',
+    '10.121.177.20:8082/notebook/notebook:jupyter-ubuntu-machinelearning',
+    '10.121.177.20:8082/notebook/notebook:jupyter-ubuntu-deeplearning',
     # 超参搜索的镜像
-    'ccr.ccs.tencentyun.com/cube-studio/nni:20240501',
+    '10.121.177.20:8082/notebook/nni:20240501',
     # 内部服务镜像
     "phpmyadmin:5.2.1",
     # "ccr.ccs.tencentyun.com/cube-studio/patrikx3:latest",
@@ -93,17 +93,17 @@ cube_studio = [
     # 'ccr.ccs.tencentyun.com/cube-studio/tfserving:2.6.5',
     # 'ccr.ccs.tencentyun.com/cube-studio/tfserving:2.5.4-gpu',
     # 'ccr.ccs.tencentyun.com/cube-studio/tfserving:2.5.4',
-    'ccr.ccs.tencentyun.com/cube-studio/tfserving:2.3.4',
+    '10.121.177.20:8082/notebook/tfserving:2.3.4',
     # 'ccr.ccs.tencentyun.com/cube-studio/tritonserver:21.12-py3',
     # 'ccr.ccs.tencentyun.com/cube-studio/tritonserver:21.09-py3',
-    'ccr.ccs.tencentyun.com/cube-studio/tritonserver:22.07-py3',
-    'ccr.ccs.tencentyun.com/cube-studio/torchserve:0.7.1-cpu',
+    '10.121.177.20:8082/notebook/tritonserver:22.07-py3',
+    '10.121.177.20:8082/notebook/torchserve:0.7.1-cpu',
     # 'ccr.ccs.tencentyun.com/cube-studio/torchserve:0.9.0-gpu',
     # 'ccr.ccs.tencentyun.com/cube-studio/torchserve:0.9.0-cpu',
     # 'ccr.ccs.tencentyun.com/cube-studio/torchserve:0.8.2-gpu',
     # 'ccr.ccs.tencentyun.com/cube-studio/torchserve:0.8.2-cpu',
     # 'ccr.ccs.tencentyun.com/cube-studio/torchserve:0.7.1-gpu',
-    'ccr.ccs.tencentyun.com/cube-studio/torchserve:0.7.1-cpu'
+    # 'ccr.ccs.tencentyun.com/cube-studio/torchserve:0.7.1-cpu'
     # 'ccr.ccs.tencentyun.com/cube-studio/onnxruntime:latest',
     # 'ccr.ccs.tencentyun.com/cube-studio/onnxruntime:latest-cuda',
 ]
@@ -115,7 +115,7 @@ user_image = [
     '10.121.177.20:8082/notebook/docker:23.0.4',
 
     # 用户可能使用的基础镜像
-    'ccr.ccs.tencentyun.com/cube-studio/ubuntu-gpu:cuda11.8.0-cudnn8-python3.9',
+    '10.121.177.20:8082/mlops/ubuntu-gpu:cuda11.8.0-cudnn8-python3.9',
 
 ]
 
