@@ -19,6 +19,7 @@ configMapGenerator:
   - REDIS_PASSWORD=admin
   - MYSQL_SERVICE=mysql+pymysql://root:admin@10.121.177.221:3306/kubeflow?charset=utf8mb4
   - ENVIRONMENT=DEV
+  - PROMETHEUS_BASE_URL=http://prometheus-k8s.monitoring:9090
 
 
 vars:
@@ -39,7 +40,7 @@ images:
   newTag: v1.8-prod
 - name: ccr.ccs.tencentyun.com/cube-studio/kubeflow-dashboard-frontend
   newName: 10.121.177.20:8082/mlops/kubeflow-dashboard-frontend
-  newTag: v1.8-prod
+  newTag: v2.2-prod
 
 
 # kustomize build . | kubectl apply -f -
