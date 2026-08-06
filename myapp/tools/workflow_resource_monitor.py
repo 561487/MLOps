@@ -113,7 +113,11 @@ def monitor_once(v1):
 def main():
     cluster=os.getenv('ENVIRONMENT','dev').lower()
     kube=(app.config.get('CLUSTERS',{}).get(cluster,{}) or {}).get('KUBECONFIG')
-    config.load_kube_config(config_file=kube); v1=client.CoreV1Api()
+    if kube and os.path.exists(kube) and ''.join(open(kube).readlines()).strip():
+        config.load_kube_config(config_file=kube)
+    else:
+        config.load_incluster_config()
+    v1=client.CoreV1Api()
     while True:
         try:
             with app.app_context(): monitor_once(v1)

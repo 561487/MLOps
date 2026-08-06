@@ -49,7 +49,7 @@ spec:
         - name: hubsecret
       containers:
         - name: watch-service
-          image: ccr.ccs.tencentyun.com/cube-studio/kubeflow-dashboard
+          image: 10.121.177.20:8082/mlops/kubeflow-dashboard:v2.2-prod
           imagePullPolicy: Always
           workingDir: /home/myapp
           command: ["python", "myapp/tools/watch_service.py"]
