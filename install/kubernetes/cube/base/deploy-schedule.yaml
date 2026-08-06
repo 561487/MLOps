@@ -46,7 +46,7 @@ spec:
       containers:
         - name: kubeflow-dashboard-schedule
           image: ccr.ccs.tencentyun.com/cube-studio/kubeflow-dashboard
-          imagePullPolicy: Always
+          imagePullPolicy: IfNotPresent
           command: ["bash","-c",'celery --app=myapp.tasks.celery_app:celery_app beat --loglevel=info']
           resources:       
             limits:

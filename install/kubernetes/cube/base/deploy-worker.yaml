@@ -52,7 +52,7 @@ spec:
       containers:
         - name: kubeflow-dashboard-worker
           image: ccr.ccs.tencentyun.com/cube-studio/kubeflow-dashboard
-          imagePullPolicy: Always
+          imagePullPolicy: IfNotPresent
           command: ["bash","-c",'celery --app=myapp.tasks.celery_app:celery_app worker --loglevel=info --pool=prefork -Ofair -c 20 -n worker@%h']
           resources:       
             limits:

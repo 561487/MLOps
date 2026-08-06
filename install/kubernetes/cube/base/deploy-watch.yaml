@@ -50,7 +50,7 @@ spec:
       containers:
         - name: workflow-watcher
           image: 10.121.177.20:8082/mlops/kubeflow-dashboard:v2.2-prod
-          imagePullPolicy: Always
+          imagePullPolicy: IfNotPresent
           workingDir: /home/myapp
           command: ["python", "myapp/tools/watch_workflow.py"]
           env:
