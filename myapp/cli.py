@@ -751,6 +751,7 @@ def init():
                             chat.service_config = json.dumps(data.get('service_config', {}), indent=4, ensure_ascii=False)
                             chat.owner = data.get('owner', 'admin')
                             chat.expand = json.dumps(data.get('expand', {}), indent=4,ensure_ascii=False)
+                            chat.agent_category = data.get('agent_category', 'robot')
 
                             if not chat.id:
                                 db.session.add(chat)

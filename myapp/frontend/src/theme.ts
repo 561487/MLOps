@@ -2,7 +2,18 @@ interface IThemeConfig {
     [key: string]: string
 }
 
+const baseLightTheme = {
+    '--app-bg': '#f5f7fb',
+    '--app-surface': '#ffffff',
+    '--app-surface-elevated': '#ffffff',
+    '--app-text': '#1f2329',
+    '--app-text-secondary': '#4e5969',
+    '--app-border': '#e5e6eb',
+    '--app-hover': '#f2f6ff',
+};
+
 const star: IThemeConfig = {
+    ...baseLightTheme,
     '--ant-primary-color': '#1E1653',
     '--ant-primary-color-hover': '#1E1653',
     '--ant-primary-color-active': '#096dd9',
@@ -47,6 +58,7 @@ const star: IThemeConfig = {
 };
 
 const blue: IThemeConfig = {
+    ...baseLightTheme,
     '--ant-primary-color': '#1672fa',
     '--ant-primary-color-hover': '#1672fa',
     '--ant-primary-color-active': '#096dd9',
@@ -91,17 +103,57 @@ const blue: IThemeConfig = {
 };
 
 const dark: IThemeConfig = {
-    '--ant-primary-color': 'darkgray',
+    '--app-bg': '#111827',
+    '--app-surface': '#172033',
+    '--app-surface-elevated': '#202b40',
+    '--app-text': '#f3f7ff',
+    '--app-text-secondary': '#a9b7cc',
+    '--app-border': '#314057',
+    '--app-hover': '#213653',
+    '--ant-primary-color': '#5ec7ff',
+    '--ant-primary-color-hover': '#7bd4ff',
+    '--ant-primary-color-active': '#2fa7e8',
+    '--ant-primary-color-outline': 'rgba(94, 199, 255, 0.22)',
+    '--ant-primary-1': 'rgba(94, 199, 255, 0.16)',
+    '--ant-primary-2': '#174d6b',
+    '--ant-primary-3': '#226f95',
+    '--ant-primary-4': '#35a5d4',
+    '--ant-primary-5': '#5ec7ff',
+    '--ant-primary-6': '#5ec7ff',
+    '--ant-primary-7': '#8adfff',
+    '--ant-link': '#79d2ff',
 };
 
 const themesCollection: Record<TThemeType, IThemeConfig> = { star, dark, blue };
 
 export type TThemeType = 'dark' | 'blue' | 'star'
 
-export const setTheme = (theme: TThemeType) => {
+export const THEME_STORAGE_KEY = 'myapp-theme'
+
+export const isThemeType = (theme?: string | null): theme is TThemeType => {
+    return theme === 'dark' || theme === 'blue' || theme === 'star'
+}
+
+export const getInitialTheme = (defaultTheme: TThemeType): TThemeType => {
+    const storedTheme = window.localStorage.getItem(THEME_STORAGE_KEY)
+
+    if (isThemeType(storedTheme)) {
+        return storedTheme
+    }
+
+    return defaultTheme
+}
+
+export const setTheme = (theme: TThemeType, persist = false) => {
     const nextTheme = themesCollection[theme];
 
     Object.keys(nextTheme).forEach((key) => {
         document.documentElement.style.setProperty(key, nextTheme[key]);
     });
+
+    document.documentElement.setAttribute('data-theme', theme);
+
+    if (persist) {
+        window.localStorage.setItem(THEME_STORAGE_KEY, theme);
+    }
 };

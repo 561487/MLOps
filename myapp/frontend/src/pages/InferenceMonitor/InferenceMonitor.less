@@ -3,3 +3,57 @@
     padding: 12px;
   }
 }
+
+/* 趋势图统一网格布局 */
+.trend-charts-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+  align-items: stretch;
+
+  .trend-chart-card {
+    min-width: 0;
+    height: 310px;
+    display: flex;
+    flex-direction: column;
+
+    > .ant-card-head {
+      flex: 0 0 auto;
+    }
+
+    > .ant-card-body {
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      padding: 8px 12px 4px !important;
+    }
+  }
+
+  /* 图表内容容器：填满 Card Body + 最小高度回退 */
+  .trend-chart-content {
+    flex: 1 1 auto;
+    min-height: 220px;
+    width: 100%;
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* unsupported 空状态：与正常图表等高 */
+  .trend-chart-empty {
+    flex: 1 1 auto;
+    min-height: 220px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+}
+
+/* ---- 响应式：窄屏一列 ---- */
+@media (max-width: 1100px) {
+  .trend-charts-grid {
+    grid-template-columns: 1fr;
+  }
+}

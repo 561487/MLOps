@@ -1,13 +1,13 @@
 /**
  * Chat 模块类型定义
  * ====================
- * 定义智能体、会话、消息、配置字段等核心类型
+ * 定义AI助手、会话、消息、配置字段等核心类型
  */
 
-/** 智能体分类枚举 */
+/** AI助手分类枚举 */
 export type AgentCategory = 'robot' | 'knowledge_base' | 'agent';
 
-/** 智能体列表项（不含敏感凭证） */
+/** AI助手列表项（不含敏感凭证） */
 export interface IAgentItem {
   name: string;
   label: string;
@@ -32,7 +32,7 @@ export interface IConfigField {
   options?: { label: string; value: string }[];
 }
 
-/** 智能体详情（含凭证和配置字段） */
+/** AI助手详情（含凭证和配置字段） */
 export interface IAgentDetail extends IAgentItem {
   serviceType: string;
   serviceConfig: Record<string, any>;

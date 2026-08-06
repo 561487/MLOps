@@ -15,13 +15,13 @@ import {
 } from "react-router-dom";
 import cookies from 'js-cookie';
 import { handleTips } from './api';
-import { setTheme } from './theme';
+import { getInitialTheme, setTheme } from './theme';
 import LoadingStar from './components/LoadingStar/LoadingStar';
 import globalConfig from './global.config';
 
 Spin.setDefaultIndicator(<LoadingStar />)
 
-setTheme(globalConfig.theme)
+setTheme(getInitialTheme(globalConfig.theme))
 
 let isLogin = false
 const userName = cookies.get('myapp_username')

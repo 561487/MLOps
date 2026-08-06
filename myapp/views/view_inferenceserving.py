@@ -15,6 +15,15 @@ from flask_babel import gettext as __
 from flask_babel import lazy_gettext as _
 from flask_appbuilder.actions import action
 from myapp import app, appbuilder, db, event_logger
+from myapp.services.inference_monitor_metadata import (
+    resolve_engine_type,
+    resolve_metrics_endpoint,
+    build_inference_monitor_metadata,
+    validate_inference_monitor_metadata,
+)
+from myapp.services.inference_monitor_service import (
+    ensure_inference_monitor_registration,
+)
 import re
 from kubernetes.client import ApiException
 import pytz
@@ -80,7 +89,7 @@ INFERNENCE_CONFIGMAP={
 INFERNENCE_COMMAND={
     "ml-server": "mlserver start /mnt/storage/models-storage/models/$model_name",
     "vllm": "python3 -m vllm.entrypoints.openai.api_server --trust-remote-code --model $model_path --host 0.0.0.0 --port 8000 --served-model-name $model_name",
-    "sglang": "python3 -m sglang.launch_server --trust-remote-code --model-path $model_path --host 0.0.0.0 --port 30000 --served-model-name $model_name",
+    "sglang": "python3 -m sglang.launch_server --trust-remote-code --model-path $model_path --host 0.0.0.0 --port 30000 --served-model-name $model_name --enable-metrics",
     "tfserving":"/usr/bin/tf_serving_entrypoint.sh --model_config_file=/config/models.config --monitoring_config_file=/config/monitoring.config --platform_config_file=/config/platform.config --rest_api_num_threads=300 --enable_batching=true",
     "torch-server":"cp $model_path /models/$model_name.mar && torchserve --start --model-store /models/ --models $model_name=$model_name.mar --ts-config=/config/config.properties --foreground",
     "triton-server":'tritonserver --model-repository=/models/ --strict-model-config=true --log-verbose=1',
@@ -101,6 +110,7 @@ INFERNENCE_PORTS={
 INFERNENCE_METRICS={
     "vllm": "8000:/metrics",
     "vllm-distributed": "8000:/metrics",
+    "sglang": "30000:/metrics",
     "tfserving":'8501:/metrics',
     "torch-server":"8082:/metrics",
     "triton-server":"8002:/metrics"
@@ -1230,6 +1240,11 @@ output %s
         name = service.name
         command = service.command
         command = command.replace('$model_path', model_path).replace('$model_name', service.model_name).replace('$model_verison',service.model_version).replace("{{creator}}", service.created_by.username)
+        # 清理反斜杠续行符：\<newline> 和 \   （多行命令粘贴后残留的反斜杠+缩进空格）
+        import re
+        command = re.sub(r'\\\s*\n\s*', ' ', command)  # \<newline><spaces> → 单个空格
+        command = re.sub(r'\\\s{2,}', ' ', command)    # \   → 单个空格（残留的粘贴格式）
+        command = command.strip()
 
         deployment_replicas = service.min_replicas
         if stag == 'debug':
@@ -1368,26 +1383,40 @@ output %s
         except Exception as e:
             flash('deploymnet:' + str(e), 'warning')
 
-        # 监控
-        if service.metrics:
-            annotations = {
-                "prometheus.io/scrape": "true",
-                "prometheus.io/port": service.metrics.split(":")[0],
-                "prometheus.io/path": service.metrics.split(":")[1]
-            }
-        else:
-            annotations = {}
+        # 推理监控：使用统一 metadata 构造入口（零依赖模块顶部导入，不会 ImportError）
+        import logging
+        _mon_log = logging.getLogger(__name__)
 
-        # 推理监控：为受支持的引擎添加 mlops 监控 labels（仅内部 Service）
-        MONITORED_ENGINE_TYPES = {"vllm"}
-        monitoring_labels = {}
-        if service.service_type in MONITORED_ENGINE_TYPES:
-            monitoring_labels = {
-                "mlops-monitoring": "true",
-                "mlops_engine": service.service_type,
-                "mlops_service_name": name,
-                "mlops_service_id": str(service.id),
-            }
+        ep = resolve_metrics_endpoint(service)
+        if resolve_engine_type(service.service_type) is not None:
+            if ep.get("port"):
+                metrics_value = f"{ep['port']}:{ep['path']}"
+                if not service.metrics or not service.metrics.strip():
+                    service.metrics = metrics_value
+
+        annotations, monitoring_labels = build_inference_monitor_metadata(
+            service.id, str(name), service.service_type,
+            metrics_port=ep.get("port") if ep.get("port") else None,
+            metrics_path=ep.get("path") if ep.get("path") else None,
+        )
+
+        # 结构化日志：记录每次 vLLM/SGLang 部署的 metadata 构建结果
+        _mon_log.info(
+            "INFERENCE_DEPLOY_MONITOR_TRACE service_id=%s service_name=%s service_type=%s "
+            "resolved_engine=%s metrics_endpoint=%s annotations=%s monitoring_labels=%s k8s_name=%s",
+            service.id, str(name), service.service_type,
+            resolve_engine_type(service.service_type),
+            f"{ep.get('port')}:{ep.get('path')}",
+            annotations, monitoring_labels, name,
+        )
+
+        # 校验 metadata 完整性：受监控引擎的 metadata 不完整时记录错误但允许部署继续
+        missing = validate_inference_monitor_metadata(annotations, monitoring_labels)
+        if missing:
+            _mon_log.error(
+                "INFERENCE_DEPLOY_MONITOR_MISSING service_id=%s engine=%s missing=%s",
+                service.id, service.service_type, missing,
+            )
 
         # print('deploy service')
         disable_load_balancer = True if 'disable_load_balancer=true' in pod_env.lower().replace(' ','') else False
@@ -1401,6 +1430,26 @@ output %s
             disable_load_balancer=disable_load_balancer,
             metadata_labels=monitoring_labels,
         )
+
+        # 部署后强制校验：确认 K8s Service 确实包含监控 metadata
+        if resolve_engine_type(service.service_type) is not None:
+            try:
+                reg_result = ensure_inference_monitor_registration(service)
+                if reg_result.get("action") == "patched":
+                    _mon_log.warning(
+                        "INFERENCE_DEPLOY_POST_FIX service_id=%s action=patched detail=%s",
+                        service.id, reg_result.get("detail", ""),
+                    )
+                elif reg_result.get("action") == "error":
+                    _mon_log.error(
+                        "INFERENCE_DEPLOY_POST_ERROR service_id=%s error=%s",
+                        service.id, reg_result.get("detail", ""),
+                    )
+            except Exception as _reg_err:
+                _mon_log.error(
+                    "INFERENCE_DEPLOY_POST_EXCEPTION service_id=%s error=%s",
+                    service.id, str(_reg_err),
+                )
 
         # 如果域名配置的gateway，就用这个
         host = service.name + "." + service.project.cluster.get('SERVICE_DOMAIN', conf.get('SERVICE_DOMAIN', ''))

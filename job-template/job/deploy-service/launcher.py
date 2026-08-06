@@ -69,6 +69,18 @@ def deploy(**kwargs):
     # print(res.content)
     if res.status_code==200:
 
+        # 推理监控：根据引擎类型自动填充默认 metrics（Pipeline 路径兜底）
+        INFERENCE_METRICS_DEFAULTS = {
+            "vllm": "8000:/metrics",
+            "sglang": "30000:/metrics",
+        }
+        st = kwargs.get('service_type', '')
+        if not kwargs.get('metrics', '').strip():
+            kwargs['metrics'] = INFERENCE_METRICS_DEFAULTS.get(st, '')
+        if not kwargs.get('health', '').strip():
+            if st == 'sglang':
+                kwargs['health'] = '30000:/health'
+
         payload = {
             'model_name': kwargs['model_name'],
             'model_version': kwargs['model_version'],
@@ -127,7 +139,16 @@ def deploy(**kwargs):
             url = host + "/inferenceservice_modelview/api/deploy/prod/%s"%new_service['id']
             res = requests.get(url,headers=headers, allow_redirects=False)
             if res.status_code==302 or res.status_code==200:
-                print('部署成功')
+                # 检查是否为登录重定向（部署失败）
+                location = res.headers.get('Location', '')
+                if '/login' in location or res.status_code != 302:
+                    if res.status_code == 200:
+                        print('部署成功')
+                    else:
+                        print(f'部署异常: 302 → {location}')
+                        exit(1)
+                else:
+                    print('部署成功')
             else:
                 print(res.content)
                 print('部署失败')
