@@ -1,0 +1,7 @@
+torch==2.5.1
+transformers==4.46.3
+accelerate==1.1.1
+librosa==0.10.2.post1
+soundfile==0.12.1
+fastapi==0.115.5
+uvicorn==0.32.1
