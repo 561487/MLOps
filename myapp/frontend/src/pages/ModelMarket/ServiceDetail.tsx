@@ -1,8 +1,8 @@
-// 模型市场推理服务体验页 - 含目标检测框可视化
+// 模型市场推理服务体验页 - 支持目标检测和语音识别
 import React, { useEffect, useState, useCallback, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import {
-  Tabs, Button, Upload, Image, Descriptions, Alert, Spin,
+  Tabs, Button, Upload, Descriptions, Alert, Spin,
   message, Card, Tag, Statistic, Row, Col, Modal, Select
 } from 'antd';
 import { CloudUploadOutlined, CopyOutlined, PlayCircleOutlined, DeleteOutlined } from '@ant-design/icons';
@@ -12,7 +12,12 @@ interface ServiceInfo {
   market_service_id?: number;
   service_id?: number;
   service_name?: string;
+  model_id?: number;
   model_name?: string;
+  display_name?: string;
+  task_type?: string;
+  demo_input_type?: string;
+  demo_output_type?: string;
   model_version?: string;
   model_path?: string;
   status?: string;
@@ -49,11 +54,12 @@ const ServiceDetail: React.FC = () => {
   const [confidenceThreshold, setConfidenceThreshold] = useState<number>(0.5);
   const [latency, setLatency] = useState<number>(0);
   const [imageUrl, setImageUrl] = useState<string>('');
-  const [displayImageUrl, setDisplayImageUrl] = useState<string>('');
   const [fileObj, setFileObj] = useState<File | null>(null);
+  const [audioLanguage, setAudioLanguage] = useState<string>('auto');
   const [apiExample, setApiExample] = useState<any>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
+  const isAudio = service?.task_type === 'speech_recognition' || service?.demo_input_type === 'audio';
 
   const loadService = useCallback(async () => {
     try {
@@ -80,12 +86,14 @@ const ServiceDetail: React.FC = () => {
 
   useEffect(() => {
     if (!marketServiceId) return;
-    loadService();
-    loadStats();
+    if (!predicting) {
+      loadService();
+      loadStats();
+    }
     loadApiExample();
-    const timer = setInterval(() => { loadService(); loadStats(); }, 5000);
-    return () => clearInterval(timer);
-  }, [marketServiceId, loadService, loadStats, loadApiExample]);
+    const timer = predicting ? undefined : setInterval(() => { loadService(); loadStats(); }, 5000);
+    return () => { if (timer) clearInterval(timer); };
+  }, [marketServiceId, loadService, loadStats, loadApiExample, predicting]);
 
   // Extract detection boxes from result, handling nested data structures
   const extractDetections = useCallback((resultData: any): DetectionBox[] => {
@@ -198,15 +206,21 @@ const ServiceDetail: React.FC = () => {
   }, [drawBoxes]);
 
   const handlePredict = useCallback(async () => {
-    if (!fileObj) { message.warning('请先上传图片'); return; }
+    if (!fileObj) { message.warning(isAudio ? '请先上传音频' : '请先上传图片'); return; }
     setPredicting(true);
     setResult(null);
     setRawDetections([]);
     try {
       const formData = new FormData();
       formData.append('file', fileObj);
+      if (isAudio) {
+        formData.append('language', audioLanguage);
+        formData.append('timestamps', 'true');
+      }
       const start = Date.now();
-      const res = await (axios.post(`/model_market/api/services/${marketServiceId}/predict`, formData, { timeout: 30000 }) as any);
+      const res = await (axios.post(`/model_market/api/services/${marketServiceId}/predict`, formData, {
+        timeout: isAudio ? 300000 : 30000,
+      }) as any);
       setLatency(Date.now() - start);
       const body = (res.data || res);
       const inner = body.data || body;
@@ -216,11 +230,8 @@ const ServiceDetail: React.FC = () => {
       // inner contains: { result, latency_ms, endpoint, predict_url, message }
       const predictionResult = inner.result || inner;
       setResult(predictionResult);
-      // Extract all detections (unfiltered)
-      const boxes = extractDetections(inner);
-      setRawDetections(boxes);
-      // Show success/failure message from backend
-      if (inner.message && inner.message.indexOf('未检测到目标') >= 0) {
+      setRawDetections(isAudio ? [] : extractDetections(inner));
+      if (inner.message && (isAudio || inner.message.indexOf('未检测到目标') >= 0)) {
         message.info(inner.message);
       }
       loadStats();
@@ -229,7 +240,7 @@ const ServiceDetail: React.FC = () => {
     } finally {
       setPredicting(false);
     }
-  }, [marketServiceId, fileObj, loadStats, extractDetections]);
+  }, [marketServiceId, fileObj, loadStats, extractDetections, isAudio, audioLanguage]);
 
   const handleUpload = useCallback((file: File) => {
     setFileObj(file);
@@ -239,7 +250,6 @@ const ServiceDetail: React.FC = () => {
     reader.onload = (e) => {
       const dataUrl = e.target?.result as string;
       setImageUrl(dataUrl);
-      setDisplayImageUrl(dataUrl);
     };
     reader.readAsDataURL(file);
     return false;
@@ -248,8 +258,6 @@ const ServiceDetail: React.FC = () => {
   const handleImageLoad = useCallback(() => {
     drawBoxes();
   }, [drawBoxes]);
-
-  const navigate = useNavigate();
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text).then(() => message.success('已复制'));
@@ -272,10 +280,9 @@ const ServiceDetail: React.FC = () => {
             throw new Error(body.message || '卸载失败');
           }
           message.success('服务已卸载');
-          // Navigate back to deploy tab — hardcode model_id=1 for YOLOv8
-          // In a full implementation this would be fetched from the service info
           setTimeout(() => {
-            window.location.href = '/frontend/service/model_market_group/detail/1?tab=deploy';
+            const modelId = service?.model_id;
+            window.location.href = modelId ? `/frontend/service/model_market_group/detail/${modelId}?tab=deploy` : '/frontend/service/model_market_group';
           }, 1000);
         } catch (err: any) {
           message.error(err?.response?.data?.message || err?.message || '卸载失败');
@@ -300,7 +307,7 @@ const ServiceDetail: React.FC = () => {
       {loading ? <Spin size="large" style={{ display: 'block', marginTop: 100 }} /> : (
         <>
           <Card style={{ marginBottom: 16 }}>
-            <h2 style={{ margin: 0 }}>YOLOv8 目标识别推理服务</h2>
+            <h2 style={{ margin: 0 }}>{service?.display_name || service?.model_name || '模型'}推理服务</h2>
             <Descriptions size="small" column={{ xs: 1, sm: 2 }} style={{ marginTop: 12 }}>
               <Descriptions.Item label="服务名称">{service?.service_name || '-'}</Descriptions.Item>
               <Descriptions.Item label="模型版本">{modelVersionDisplay}</Descriptions.Item>
@@ -331,13 +338,38 @@ const ServiceDetail: React.FC = () => {
               children: (
                 <div>
                   <div style={{ marginBottom: 8, color: '#888', fontSize: 12 }}>
-                    建议上传包含 person / car / dog / bus / bottle 等 COCO 常见目标的图片进行测试。
+                    {isAudio
+                      ? '支持 WAV、MP3、M4A、FLAC、OGG 和 WebM，单个文件不超过 100 MB、时长不超过 10 分钟。'
+                      : '建议上传包含 person / car / dog / bus / bottle 等 COCO 常见目标的图片进行测试。'}
                   </div>
-                  <Upload beforeUpload={handleUpload} showUploadList={false} accept="image/*">
-                    <Button icon={<CloudUploadOutlined />}>上传图片</Button>
+                  {isAudio && (
+                    <div style={{ marginBottom: 12 }}>
+                      <span style={{ marginRight: 8, color: '#666' }}>音频语言：</span>
+                      <Select
+                        value={audioLanguage}
+                        onChange={setAudioLanguage}
+                        style={{ width: 140 }}
+                        options={[
+                          { value: 'auto', label: '自动识别' },
+                          { value: 'zh', label: '中文' },
+                          { value: 'en', label: '英语' },
+                          { value: 'ja', label: '日语' },
+                          { value: 'ko', label: '韩语' },
+                        ]}
+                      />
+                    </div>
+                  )}
+                  <Upload beforeUpload={handleUpload} showUploadList={false} accept={isAudio ? 'audio/*,.m4a' : 'image/*'}>
+                    <Button icon={<CloudUploadOutlined />}>{isAudio ? '上传音频' : '上传图片'}</Button>
                   </Upload>
 
-                  {imageUrl && (
+                  {isAudio && imageUrl && (
+                    <div style={{ marginTop: 12 }}>
+                      <audio controls src={imageUrl} style={{ width: '100%', maxWidth: 600 }} />
+                    </div>
+                  )}
+
+                  {!isAudio && imageUrl && (
                     <div style={{ position: 'relative', display: 'inline-block', margin: '12px 0', maxWidth: '100%' }}>
                       <img
                         ref={imgRef}
@@ -363,8 +395,35 @@ const ServiceDetail: React.FC = () => {
                     </Button>
                   </div>
 
+                  {isAudio && result && (
+                    <Card title="识别结果" style={{ marginTop: 12 }}>
+                      <div style={{ fontSize: 16, lineHeight: 1.8, whiteSpace: 'pre-wrap' }}>
+                        {result.text || '未识别到文本'}
+                      </div>
+                      <div style={{ marginTop: 8, color: '#888', fontSize: 12 }}>
+                        语言：{result.language || audioLanguage}；音频时长：{result.duration_seconds ?? '-'} 秒；请求耗时：{latency} ms
+                      </div>
+                      {Array.isArray(result.segments) && result.segments.length > 0 && (
+                        <div style={{ marginTop: 16 }}>
+                          <strong>分段时间轴</strong>
+                          {result.segments.map((segment: any, index: number) => (
+                            <div key={index} style={{ padding: '6px 0', borderBottom: '1px solid #f0f0f0' }}>
+                              <code style={{ marginRight: 8 }}>[{segment.start ?? '-'}s - {segment.end ?? '-'}s]</code>
+                              {segment.text}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {result.text && (
+                        <Button size="small" icon={<CopyOutlined />} style={{ marginTop: 12 }} onClick={() => copyToClipboard(result.text)}>
+                          复制文本
+                        </Button>
+                      )}
+                    </Card>
+                  )}
+
                   {/* Confidence threshold selector */}
-                  {result && (
+                  {!isAudio && result && (
                     <div style={{ marginTop: 12, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                       <span style={{ fontSize: 13, color: '#666' }}>置信度阈值：</span>
                       <Select
@@ -387,7 +446,7 @@ const ServiceDetail: React.FC = () => {
                   )}
 
                   {/* No raw detections at all */}
-                  {result && !hasRawDetections && (
+                  {!isAudio && result && !hasRawDetections && (
                     <Alert
                       type="info"
                       showIcon
