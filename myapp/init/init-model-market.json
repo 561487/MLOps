@@ -106,16 +106,26 @@
     "support_develop": true,
     "support_finetune": false,
     "support_deploy": true,
-    "model_path": "/models/whisper-base",
+    "model_path": "/whisper/models/whisper-base",
     "default_version": "v1",
-    "python_version": "3.10",
+    "python_version": "3.9",
     "cuda_version": "11.8",
-    "notebook_image": "10.121.177.20:8082/mlops/ubuntu-gpu:20.04-cuda11.8.0-cudnn8",
-    "inference_image": "10.121.177.20:8082/mlops/ubuntu-gpu:20.04-cuda11.8.0-cudnn8",
+    "notebook_image": "10.121.177.20:8082/mlops/whisper-notebook:20260811",
+    "inference_image": "10.121.177.20:8082/mlops/whisper:20260811",
     "default_cpu": "4",
     "default_memory": "8G",
     "default_gpu": "1",
     "default_ports": "8000",
+    "volume_mount": "kubeflow-user-workspace(pvc):/mnt,dshm(emptyDir):/dev/shm",
+    "command": "python server.py",
+    "env_json": {
+      "MODELPATH": "/whisper/models/whisper-base",
+      "WORKING_DIR": "/whisper",
+      "MAX_AUDIO_MB": "100",
+      "MAX_AUDIO_SECONDS": "600"
+    },
+    "notebook_template": "whisper-dev",
+    "deploy_template": "whisper",
     "demo_input_type": "audio",
     "demo_output_type": "text",
     "api_schema_json": {
@@ -124,12 +134,30 @@
           "name": "audio",
           "type": "audio",
           "label": "上传音频",
-          "required": true
+          "required": true,
+          "accept": ".wav,.mp3,.m4a,.flac,.ogg,.webm"
+        },
+        {
+          "name": "language",
+          "type": "select",
+          "label": "音频语言",
+          "options": ["auto", "zh", "en", "ja", "ko"],
+          "default": "auto",
+          "required": false
+        },
+        {
+          "name": "timestamps",
+          "type": "select",
+          "label": "输出时间戳",
+          "options": ["true", "false"],
+          "default": "true",
+          "required": false
         }
       ],
       "output": {
         "type": "text",
-        "description": "识别文本"
+        "fields": ["text", "language", "duration_seconds", "segments"],
+        "description": "识别文本及分段时间戳"
       }
     },
     "status": "online"

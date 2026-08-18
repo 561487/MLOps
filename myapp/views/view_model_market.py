@@ -109,6 +109,12 @@ def get_notebook_jupyter_url(notebook, fallback_url):
         raw_url = notebook.name_url
         url = extract_href_from_html(raw_url)
         if url:
+            # The cluster host differs from the Docker frontend host in the
+            # development deployment. Use the same-origin Nginx /notebook/
+            # proxy so the browser keeps the Cube Studio login cookie.
+            notebook_path_at = url.find("/notebook/")
+            if notebook_path_at >= 0:
+                return url[notebook_path_at:]
             return url
     except Exception:
         pass
@@ -209,16 +215,23 @@ def build_notebook_kwargs(model, params):
 
     env = model.env()
     env.update(params.get("env") or {})
+    # InferenceService 会为同一模型生成唯一版本号，容器路由必须使用同一版本。
+
+    requested_image = params.get("image")
+    # A model-detail page opened before the Notebook image was updated can still
+    # submit the inference image. Never use that image for a development Pod.
+    if not requested_image or requested_image == model.inference_image:
+        requested_image = model.notebook_image
 
     kwargs = {
         "name": name,
         "describe": f"模型市场一键开发：{model.display_name}",
-        "images": params.get("image") or model.notebook_image,
+        "images": requested_image,
         "resource_cpu": normalize_resource_value(params.get("cpu"), model.default_cpu),
         "resource_memory": normalize_memory(params.get("memory"), model.default_memory),
         "resource_gpu": normalize_resource_value(params.get("gpu"), model.default_gpu),
         "volume_mount": params.get("volume_mount") or model.volume_mount or "",
-        "working_dir": params.get("working_dir") or "/mnt",
+        "working_dir": params.get("working_dir") or params.get("work_dir") or "/mnt",
         "expand": json_dumps({
             "source": "model_market",
             "model_market_id": model.id,
@@ -286,6 +299,9 @@ def build_inference_kwargs(model, params):
 
     env = model.env()
     env.update(params.get("env") or {})
+    env.setdefault("KUBEFLOW_MODEL_NAME", model.name)
+    # Keep the container route aligned with the generated InferenceService version.
+    env["KUBEFLOW_MODEL_VERSION"] = mv
 
     kwargs = {
         "name": name,
@@ -300,7 +316,7 @@ def build_inference_kwargs(model, params):
         "resource_memory": normalize_memory(params.get("memory"), model.default_memory),
         "resource_gpu": normalize_resource_value(params.get("gpu"), model.default_gpu),
         "ports": str(params.get("ports") or model.default_ports),
-        "volume_mount": params.get("volume_mount") or "dshm(emptyDir):/dev/shm,mnt(emptyDir):/mnt",  # /mnt to skip project PVC
+        "volume_mount": params.get("volume_mount") or model.volume_mount or "dshm(emptyDir):/dev/shm,mnt(emptyDir):/mnt",
         "command": params.get("command") or model.command or "",
         "env": json_dumps(env),
         "model_status": "offline",
@@ -382,10 +398,11 @@ class ModelMarketApiView(BaseView):
             return fail("模型不存在", code=404, http_status=404)
 
         # Base model: use pre-configured inference parameters
-        base_image = model.inference_image or "10.121.177.20:8082/mlops/yolov8:20250801"
-        base_model_path = "/yolov8/yolov8n.pt"
+        model_env = model.env()
+        base_image = model.inference_image or ""
+        base_model_path = model.model_path or ""
         base_command = model.command or "python server.py"
-        base_workdir = "/yolov8"
+        base_workdir = model_env.get("WORKING_DIR") or "/"
 
         versions = [{
             "version": "base",
@@ -395,7 +412,7 @@ class ModelMarketApiView(BaseView):
             "image": base_image,
             "command": base_command,
             "working_dir": base_workdir,
-            "deployable": True,
+            "deployable": bool(base_image and base_model_path),
         }]
 
         # Collect finetuned versions from successful finetune actions
@@ -569,6 +586,13 @@ class ModelMarketApiView(BaseView):
         # ---- 名称去重 ----
         raw_name = (params.get("name") or "").strip()
         if raw_name:
+            # Notebook names are reused as Pod, container and Service names.
+            # Normalize user-friendly names such as "8.11" to DNS-1123 labels.
+            import re
+            raw_name = re.sub(r"[^a-z0-9-]+", "-", raw_name.lower())
+            raw_name = re.sub(r"-+", "-", raw_name).strip("-")[:54].rstrip("-")
+            if not raw_name:
+                return fail("开发环境名称至少需要包含一个字母或数字", code=422, http_status=422)
             # 用户指定了名称 → 检查是否已存在
             exists = db.session.execute(
                 db.text("SELECT id FROM notebook WHERE name = :name LIMIT 1"),
@@ -1020,7 +1044,8 @@ class ModelMarketApiView(BaseView):
             model_version = params.get("model_version") or "base"
             image = _safe_param(params, "image") or model.inference_image
             command = _safe_param(params, "command") or model.command or "python server.py"
-            working_dir = _safe_param(params, "working_dir") or "/yolov8"
+            model_env = model.env()
+            working_dir = _safe_param(params, "working_dir") or model_env.get("WORKING_DIR") or "/"
 
             is_finetune = model_version.startswith("finetune") or "finetune" in str(model_version)
 
@@ -1042,11 +1067,11 @@ class ModelMarketApiView(BaseView):
                     image = model.inference_image or "10.121.177.20:8082/mlops/yolov8:20250801"
                 print(f"[model_market deploy] finetune: model_path={model_path} image={image} command={command} workdir={working_dir}")
             else:
-                # Base model: use known good defaults
-                if not model_path or not model_path.lower().endswith('.pt'):
-                    model_path = "/yolov8/yolov8n.pt"
+                # Base models may be a file (.pt/.mar) or a directory (Hugging Face/CT2).
+                if not model_path:
+                    return fail("基础模型路径未配置", code=400, http_status=400)
                 if not image:
-                    image = model.inference_image or "10.121.177.20:8082/mlops/yolov8:20250801"
+                    return fail("推理镜像未配置", code=400, http_status=400)
                 print(f"[model_market deploy] base: model_path={model_path} image={image}")
 
             kwargs = build_inference_kwargs(model, params)
@@ -1078,8 +1103,13 @@ class ModelMarketApiView(BaseView):
                 mobile_demo_url=f"/model-market/demo/mobile/{service_id}",
                 api_schema_json=model.api_schema_json,
                 extra_json=json_dumps({
+                    "model_id": model.id,
+                    "model_name": model.name,
                     "model_version": model_version,
                     "model_path": model_path,
+                    "task_type": model.task_type,
+                    "demo_input_type": model.demo_input_type,
+                    "demo_output_type": model.demo_output_type,
                     "call_count": 0, "success_count": 0, "failed_count": 0,
                 }),
                 created_by=get_user_id(),
@@ -1286,6 +1316,7 @@ class ModelMarketApiView(BaseView):
             if endpoint_ready and resolved_endpoint:
                 # Health check: confirm the service responds to HTTP
                 health_ok = False
+                health_timed_out = False
                 health_msg = ""
                 try:
                     import requests as req_lib
@@ -1299,6 +1330,7 @@ class ModelMarketApiView(BaseView):
                 except req_lib.exceptions.ConnectionError as ce:
                     health_msg = f"connection refused: {ce}"
                 except req_lib.exceptions.Timeout:
+                    health_timed_out = True
                     health_msg = "health check timeout"
                 except Exception as he:
                     health_msg = f"health check error: {he}"
@@ -1317,6 +1349,14 @@ class ModelMarketApiView(BaseView):
                     extra["health_check"] = health_msg
                     market_service.extra_json = json_dumps(extra)
                     db.session.commit()
+                elif health_timed_out and market_service.service_status == "Ready":
+                    # A CPU-bound inference can temporarily occupy a single-worker
+                    # model server. Keep an already healthy, running Pod Ready while
+                    # that request is in flight instead of disabling the UI.
+                    status = "Ready"
+                    ready = True
+                    service_ready = True
+                    message = "服务正在处理推理请求"
                 else:
                     status = "Deploying"
                     ready = False
@@ -1341,17 +1381,24 @@ class ModelMarketApiView(BaseView):
 
         # Build predict_url for frontend
         extra_json = json.loads(market_service.extra_json or "{}")
+        market_model = db.session.query(ModelMarketModel).get(market_service.model_id)
         model_version = extra_json.get("model_version", "v1")
-        model_name = extra_json.get("model_name", "yolov8")
+        model_name = extra_json.get("model_name") or (market_model.name if market_model else "")
         real_endpoint = resolved_endpoint or market_service.endpoint or ""
         predict_url = ""
-        if real_endpoint and model_version:
+        if real_endpoint and model_name and model_version:
             predict_url = real_endpoint.rstrip("/") + "/v1/models/{}/versions/{}/predict".format(model_name, model_version)
 
         return ok({
             "market_service_id": market_service.id,
             "service_id": market_service.service_id,
             "service_name": market_service.service_name,
+            "model_id": market_service.model_id,
+            "model_name": model_name,
+            "display_name": market_model.display_name if market_model else model_name,
+            "task_type": market_model.task_type if market_model else extra_json.get("task_type", ""),
+            "demo_input_type": market_model.demo_input_type if market_model else extra_json.get("demo_input_type", ""),
+            "demo_output_type": market_model.demo_output_type if market_model else extra_json.get("demo_output_type", ""),
             "model_version": model_version,
             "status": status,
             "ready": ready,
@@ -1399,6 +1446,10 @@ class ModelMarketApiView(BaseView):
                 code=503, http_status=503,
             )
 
+        market_model = db.session.query(ModelMarketModel).get(market_service.model_id)
+        task_type = market_model.task_type if market_model else ""
+        input_type = market_model.demo_input_type if market_model else "image"
+
         try:
 
             # Forward the request
@@ -1415,46 +1466,62 @@ class ModelMarketApiView(BaseView):
             import base64 as _b64
             extra = json.loads(market_service.extra_json or "{}")
             model_version = extra.get("model_version")
-            model_name = extra.get("model_name", "yolov8")
+            model_name = extra.get("model_name") or (market_model.name if market_model else "yolov8")
 
+            # The deployment record version can differ from the route exposed by
+            # older images. Prefer the actual OpenAPI route so existing services
+            # continue working without a destructive redeploy.
+            try:
+                openapi_url = endpoint.rstrip("/") + "/openapi.json"
+                oa_resp = requests.get(openapi_url, timeout=10)
+                if oa_resp.status_code == 200:
+                    oa = oa_resp.json()
+                    for path_key in (oa.get("paths") or {}):
+                        if "/predict" in path_key:
+                            parts = path_key.strip("/").split("/")
+                            try:
+                                vidx = parts.index("versions")
+                                model_version = parts[vidx + 1]
+                                model_name = parts[parts.index("models") + 1] if "models" in parts else model_name
+                                break
+                            except (ValueError, IndexError):
+                                pass
+            except Exception:
+                pass
             if not model_version:
-                # Fallback: try to discover version from /openapi.json
-                try:
-                    openapi_url = endpoint.rstrip("/") + "/openapi.json"
-                    oa_resp = requests.get(openapi_url, timeout=10)
-                    if oa_resp.status_code == 200:
-                        oa = oa_resp.json()
-                        for path_key in (oa.get("paths") or {}):
-                            if "/predict" in path_key:
-                                # e.g. /v1/models/yolov8/versions/v1-1781506088/predict
-                                parts = path_key.strip("/").split("/")
-                                try:
-                                    vidx = parts.index("versions")
-                                    model_version = parts[vidx + 1]
-                                    model_name = parts[parts.index("models") + 1] if "models" in parts else model_name
-                                    break
-                                except (ValueError, IndexError):
-                                    pass
-                except Exception:
-                    pass
-                if not model_version:
-                    model_version = "v1"
+                model_version = "v1"
 
             predict_path = "/v1/models/{}/versions/{}/predict".format(model_name, model_version)
             predict_url = endpoint.rstrip("/") + predict_path
 
             json_body = None
             if files:
+                payload_name = "audio" if input_type == "audio" else "image"
+                if market_model:
+                    schema_inputs = (market_model.api_schema() or {}).get("input") or []
+                    file_inputs = [
+                        item for item in schema_inputs
+                        if item.get("type") in ("audio", "image", "file")
+                    ]
+                    if file_inputs:
+                        payload_name = file_inputs[0].get("name") or payload_name
                 for key in files:
                     _, content, _ = files[key]
-                    json_body = {"image": _b64.b64encode(content).decode()}
+                    if input_type == "audio" and len(content) > 100 * 1024 * 1024:
+                        return fail("音频文件不能超过 100 MB", code=413, http_status=413)
+                    json_body = {payload_name: _b64.b64encode(content).decode()}
                     break
+                if json_body is not None:
+                    for key in request.form:
+                        json_body[key] = request.form.get(key)
             elif json_data:
                 json_body = json_data
+
+            upstream_timeout = 300 if input_type == "audio" else 60
             if json_body:
-                resp = requests.post(predict_url, json=json_body, timeout=(5, 60))
+                resp = requests.post(predict_url, json=json_body, timeout=(5, upstream_timeout))
             else:
-                resp = requests.post(predict_url, timeout=(5, 60))
+                resp = requests.post(predict_url, timeout=(5, upstream_timeout))
 
             latency_ms = int((_time.time() - start) * 1000)
 
@@ -1464,9 +1531,13 @@ class ModelMarketApiView(BaseView):
             except Exception:
                 result_obj = resp.text
 
-            # If result is a dict with detection fields, normalize field names for frontend compatibility
-            # (the real service returns "xywhns" = normalized xywh, not "xywhs")
-            if isinstance(result_obj, dict):
+            if task_type == "speech_recognition" and isinstance(result_obj, dict):
+                message = (
+                    "识别成功" if result_obj.get("text")
+                    else "识别成功，未识别到文本"
+                )
+            elif isinstance(result_obj, dict):
+                # Detection services return normalized xywh in "xywhns".
                 # Preserve both xywhns (original) and map to xywhs for backward compatibility
                 if "xywhns" in result_obj and "xywhs" not in result_obj:
                     result_obj["xywhs"] = result_obj["xywhns"]
@@ -1537,19 +1608,31 @@ class ModelMarketApiView(BaseView):
         if not market_service:
             return fail("服务不存在", code=404, http_status=404)
 
+        market_model = db.session.query(ModelMarketModel).get(market_service.model_id)
+        is_audio = bool(market_model and market_model.demo_input_type == "audio")
+        file_name = "your_audio.mp3" if is_audio else "your_image.jpg"
         origin = request.host_url.rstrip("/")
         predict_url = f"{origin}/model_market/api/services/{market_service_id}/predict"
 
         curl_cmd = (
             f'curl -X POST "{predict_url}" '
-            f'-F "file=@your_image.jpg"'
+            f'-F "file=@{file_name}"'
         )
+        if is_audio:
+            curl_cmd += ' -F "language=auto" -F "timestamps=true"'
         python_code = (
             f"import requests\n\n"
             f"url = '{predict_url}'\n"
-            f"with open('your_image.jpg', 'rb') as f:\n"
-            f"    resp = requests.post(url, files={{'file': f}})\n"
+            f"with open('{file_name}', 'rb') as f:\n"
+            f"    resp = requests.post(url, files={{'file': f}}"
+            + (", data={'language': 'auto', 'timestamps': 'true'}" if is_audio else "")
+            + ")\n"
             f"print(resp.json())"
+        )
+        sample_result = (
+            {"text": "识别文本", "language": "auto", "duration_seconds": 3.2, "segments": []}
+            if is_audio else
+            {"labels": [], "scores": [], "xywhns": [], "xywhs": [], "orig_shape": [], "names": []}
         )
 
         return ok({
@@ -1561,11 +1644,11 @@ class ModelMarketApiView(BaseView):
             "sample_response": {
                 "code": 0,
                 "data": {
-                    "result": {"labels": [], "scores": [], "xywhns": [], "xywhs": [], "orig_shape": [], "names": []},
+                    "result": sample_result,
                     "latency_ms": 123,
                     "endpoint": "...",
                     "predict_url": "...",
-                    "message": "推理成功",
+                    "message": "识别成功" if is_audio else "推理成功",
                 }
             }
         })
@@ -1672,41 +1755,6 @@ class ModelMarketApiView(BaseView):
             "ready": ready,
             "jupyter_url": jupyter_url,
             "message": message or f"当前状态: {pod_status}",
-        })
-
-    # ---- API 示例 ----
-    @expose("/services/<int:market_service_id>/api-example", methods=["GET"])
-    def api_example(self, market_service_id):
-        market_service = db.session.query(ModelMarketService).get(market_service_id)
-        if not market_service:
-            return fail("服务不存在", code=404, http_status=404)
-
-        url = f"/model_market/api/services/{market_service.id}/predict"
-
-        return ok({
-            "curl": f"""curl -X POST {url} \\
-  -H "Content-Type: application/json" \\
-  -d '{{"image":"base64_or_image_url"}}'""",
-            "python": f"""import requests
-
-resp = requests.post(
-    "{url}",
-    json={{"image": "base64_or_image_url"}}
-)
-print(resp.json())
-""",
-            "sdk": f"""from ops_sdk.core.client import Client, ClientConfig
-from ops_sdk.model_market import ModelMarketClient
-
-client = Client(ClientConfig(base_url="http://127.0.0.1"))
-market = ModelMarketClient(client)
-
-result = market.predict(
-    market_service_id={market_service.id},
-    payload={{"image": "base64_or_image_url"}}
-)
-print(result)
-"""
         })
 
     # ---- 服务指标 ----

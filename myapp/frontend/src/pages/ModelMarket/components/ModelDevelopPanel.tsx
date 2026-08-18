@@ -198,8 +198,11 @@ const ModelDevelopPanel: React.FC<Props> = ({ model }) => {
         cuda_version: '11.8', cpu: 2, memory: 4, gpu: 0,
         work_dir: `/workspace/${model.name}`, mount_demo: true,
       }}>
-        <Form.Item label="开发环境名称" name="name" rules={[{ required: true }]}>
-          <Input placeholder="自动生成或输入自定义名称" />
+        <Form.Item label="开发环境名称" name="name" rules={[
+          { required: true },
+          { pattern: /^[a-z0-9][a-z0-9-]{0,53}$/, message: '仅支持小写字母、数字和连字符，最长 54 位' },
+        ]}>
+          <Input placeholder="例如 whisper-dev-01" />
         </Form.Item>
         <Form.Item label="基础镜像" name="image">
           <Input placeholder={model.notebook_image || '请输入镜像地址'} />

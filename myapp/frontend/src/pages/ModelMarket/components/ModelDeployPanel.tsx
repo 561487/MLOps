@@ -71,6 +71,32 @@ const ModelDeployPanel: React.FC<Props> = ({ model, onServiceStateChange }) => {
 
   useEffect(() => { checkActiveService(); }, [checkActiveService]);
 
+  // A newly-created market service is not marked Ready until the backend
+  // status endpoint performs its Pod, Service and HTTP health checks.
+  // Poll that endpoint while deploying, then reload the persisted state.
+  const activeMarketServiceId = activeService?.market_service_id;
+  const activeServiceReady = activeService?.ready;
+  useEffect(() => {
+    if (!activeMarketServiceId || activeServiceReady) return;
+
+    let cancelled = false;
+    const refreshStatus = async () => {
+      try {
+        await axios.get(`/model_market/api/services/${activeMarketServiceId}/status`);
+        if (!cancelled) await checkActiveService();
+      } catch {
+        // Keep polling: transient API/K8s failures are expected during startup.
+      }
+    };
+
+    refreshStatus();
+    const timer = window.setInterval(refreshStatus, 5000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [activeMarketServiceId, activeServiceReady, checkActiveService]);
+
   const handleSubmit = useCallback(async () => {
     try {
       const values = await form.validateFields();
@@ -95,13 +121,18 @@ const ModelDeployPanel: React.FC<Props> = ({ model, onServiceStateChange }) => {
       }
 
       // Use version metadata directly (not model defaults)
-      const modelPath = selectedVersion?.model_path || (isFinetune ? '' : '/yolov8/yolov8n.pt');
-      const deployImage = values.image || selectedVersion?.image || model.inference_image || '10.121.177.20:8082/mlops/yolov8:20250801';
+      const modelPath = selectedVersion?.model_path || (isFinetune ? '' : model.model_path || '');
+      const deployImage = values.image || selectedVersion?.image || model.inference_image || '';
       const deployCommand = selectedVersion?.command || 'python server.py';
-      const deployWorkdir = selectedVersion?.working_dir || '/yolov8';
+      const deployWorkdir = selectedVersion?.working_dir || '/';
 
-      if (isFinetune && !modelPath) {
-        message.error('微调模型未找到可部署权重文件，请开启自动注册模型或手动注册模型后再部署。');
+      if (!modelPath) {
+        message.error('模型路径未配置，无法创建推理服务。');
+        setLoading(false);
+        return;
+      }
+      if (!deployImage) {
+        message.error('推理镜像未配置，无法创建推理服务。');
         setLoading(false);
         return;
       }

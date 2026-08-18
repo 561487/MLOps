@@ -1,0 +1,13 @@
+ARG BASE_IMAGE=10.121.177.20:8082/mlops/whisper:20260811
+FROM ${BASE_IMAGE}
+
+RUN pip install --no-cache-dir \
+    jupyterlab==4.2.5 \
+    ipywidgets==8.1.5 \
+    --index-url https://mirrors.aliyun.com/pypi/simple
+
+WORKDIR /mnt
+
+# The platform supplies the JupyterLab command when it creates the Notebook Pod.
+ENTRYPOINT []
+CMD ["bash"]
