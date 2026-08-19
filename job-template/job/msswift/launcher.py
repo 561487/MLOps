@@ -328,7 +328,6 @@ def make_pytorchjob(name, num_workers, image, command):
         pod_spec['template']['spec']['containers'][0]['resources']['limits'][GPU_RESOURCE_NAME] = int(gpu_num)
         pod_spec['template']['spec']['nodeSelector'].pop('cpu', None)
         pod_spec['template']['spec']['nodeSelector']['gpu'] = 'true'
-        pod_spec['template']['spec']['nodeSelector']['mps'] = 'false'
 
     if RDMA_RESOURCE_NAME and RDMA_RESOURCE and int(RDMA_RESOURCE):
         pod_spec['template']['spec']['containers'][0]['resources']['requests'][RDMA_RESOURCE_NAME] = int(RDMA_RESOURCE)
@@ -539,7 +538,7 @@ def hf_training_argv(args, subcommand):
     argv = ["swift", subcommand]
     tuner_type = 'lora' if args.train_type == 'qlora' else args.train_type
     argv.extend(["--model", args.model, "--dataset", args.dataset,
-                 "--output_dir", args.save_path, "--train_type", tuner_type,
+                 "--output_dir", args.save_path, "--tuner_type", tuner_type,
                  "--num_train_epochs", str(args.num_epochs), "--learning_rate", str(args.learning_rate),
                  "--max_length", str(args.max_length), "--torch_dtype", "bfloat16",
                  "--gradient_checkpointing", "true", "--save_only_model", args.save_only_model])
