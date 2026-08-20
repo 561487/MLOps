@@ -1,6 +1,12 @@
 #!/bin/bash
 set -ex
-IMAGE=${IMAGE:-10.121.177.20:8082/mlops/msswift-base:20260819-qwen35-v4}
+
+REGISTRY="10.121.177.20:8082"
+PROJECT="mlops"
+IMAGE_NAME="msswift-base"
+IMAGE_VERSION="4.5.0-py311-cu128-r1"
+IMAGE="${REGISTRY}/${PROJECT}/${IMAGE_NAME}:${IMAGE_VERSION}"
+
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 docker build --network=host -t "${IMAGE}" -f - "${SCRIPT_DIR}" <<'EOF'
@@ -14,7 +20,7 @@ RUN pip check
 EOF
 
 docker push "${IMAGE}"
-echo "Built and pushed: ${IMAGE}"
+echo "Published: ${IMAGE}"
 
 
 
