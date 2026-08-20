@@ -1,7 +1,12 @@
 #!/bin/bash
 set -ex
 
-IMAGE=${IMAGE:-10.121.177.20:8082/mlops/msswift:20260819-qwen35-v4}
+REGISTRY="10.121.177.20:8082"
+PROJECT="mlops"
+IMAGE_NAME="msswift"
+IMAGE_VERSION="4.5.0-py311-cu128-r1"
+IMAGE="${REGISTRY}/${PROJECT}/${IMAGE_NAME}:${IMAGE_VERSION}"
+
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 
@@ -12,4 +17,4 @@ docker build \
   "${REPO_ROOT}"
 
 docker push "${IMAGE}"
-echo "Built and pushed: ${IMAGE}"
+echo "Published: ${IMAGE}"
