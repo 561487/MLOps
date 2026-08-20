@@ -84,7 +84,7 @@ def process(job_type, config):
         cmd_train = [
             'accelerate', 'launch',
             '--config_file', os.path.join(parent_dir, 'configs/accelerate_config/muti_gpu.yaml'),
-            os.path.join(script_dir, 'kd/train.py'),
+            os.path.join(script_dir, 'kd/train_v2.py'),
             '--config', config
         ]
         cmd_train = ' '.join(cmd_train)
@@ -113,7 +113,7 @@ def process(job_type, config):
             cmd_train = [
                 'accelerate', 'launch',
                 '--config_file', os.path.join(parent_dir, 'configs/accelerate_config/muti_gpu.yaml'),
-                os.path.join(script_dir, 'kd/train.py'),
+                os.path.join(script_dir, 'kd/train_v2.py'),
                 '--config', config
             ]
             cmd_train = ' '.join(cmd_train)

@@ -4,13 +4,23 @@
 # rebuild 耗时：
 #   只改 launcher.py / chat_template → ~5 秒
 #   改 easydistill_src               → ~30 秒
-FROM 10.121.177.20:8082/mlops/model-distillation:20260704-v5
+FROM modelscope-registry.cn-hangzhou.cr.aliyuncs.com/modelscope-repo/modelscope:ubuntu22.04-cuda12.8.1-py311-torch2.9.0-vllm0.13.0-modelscope1.33.0-swift3.12.5
 
 LABEL maintainer="cube-studio"
-LABEL description="Model Distillation Node - EasyDistill (CUDA 12.1, train-only)"
+LABEL description="Model Distillation Node - EasyDistill (CUDA 12.8, Qwen3.5 text)"
 
 # ── SwanLab 监控依赖 ──
-RUN pip3 install --no-cache-dir "swanlab>=0.8.4" psutil
+ARG TRANSFORMERS_VERSION="5.9.0"
+ARG TRL_VERSION="0.27.0"
+RUN pip3 uninstall -y ms-swift vllm lmdeploy evalscope peft || true
+RUN pip3 install --no-cache-dir --timeout 120 --retries 5 --upgrade \
+    "transformers==${TRANSFORMERS_VERSION}" "trl==${TRL_VERSION}" \
+    "accelerate>=1.10,<2" "datasets>=4,<5" \
+    "qwen-vl-utils>=0.0.14" "swanlab>=0.8.4"
+
+# Qwen3.5 Gated DeltaNet optional CUDA kernels are intentionally not compiled
+# in the base image: Transformers provides a portable PyTorch fallback.
+RUN python3 -c "import torch, torchvision, transformers; print(torch.__version__, torchvision.__version__, transformers.__version__)"
 
 # ── EasyDistill 源码（偶尔变）──
 COPY job-template/job/model-distillation/easydistill_src /opt/easydistill/

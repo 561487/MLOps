@@ -5668,7 +5668,7 @@
   },
   "model-distillation": {
     "project_name": "模型处理",
-    "image_name": "10.121.177.20:8082/mlops/model-distillation:20260717-swanlab-monitor-v1",
+    "image_name": "10.121.177.20:8082/mlops/model-distillation:5.9.0-py311-cu128-r1",
     "gitpath": "/job-template/job/model-distillation",
     "image_describe": "大模型蒸馏",
     "job_template_name": "model-distillation",
@@ -5779,6 +5779,24 @@
           "require": 0,
           "default": "0.5",
           "describe": "0~1，0=纯软标签，1=纯硬标签，仅白盒模式生效",
+          "editable": 1,
+          "item_type": "str"
+        },
+        "--top_k_logits": {
+          "type": "str",
+          "label": "Teacher Top-K Logits",
+          "require": 0,
+          "default": "128",
+          "describe": "白盒蒸馏每个token保留的Teacher logits数量，越大越精确但文件更大",
+          "editable": 1,
+          "item_type": "str"
+        },
+        "--max_seq_length": {
+          "type": "str",
+          "label": "最大序列长度",
+          "require": 0,
+          "default": "512",
+          "describe": "Teacher和Student统一使用的最大token长度",
           "editable": 1,
           "item_type": "str"
         },
@@ -9751,7 +9769,7 @@
   },
  "msswift": {
     "project_name": "分布式加速",
-    "image_name": "10.121.177.20:8082/mlops/msswift:20260721-monitor-v3",
+    "image_name": "10.121.177.20:8082/mlops/msswift:4.5.0-py311-cu128-r3",
     "gitpath": "/job-template/job/msswift",
     "image_describe": "ms-swift 分布式训练镜像（预置 CUDA + torch + deepspeed + swift）",
     "job_template_name": "msswift",
@@ -9785,9 +9803,9 @@
           "item_type": "str",
           "label": "模型",
           "require": 1,
-          "default": "Qwen/Qwen3-8B",
-          "placeholder": "Qwen/Qwen3-8B",
-          "describe": "ModelScope 模型名或 PVC 路径。ms-swift 默认从 ModelScope 下载，国内直连速度快",
+          "default": "Qwen/Qwen3.5-2B",
+          "placeholder": "Qwen/Qwen3.5-2B",
+          "describe": "ModelScope 模型名或 PVC 路径。当前镜像已支持 Qwen3.5；ms-swift 默认从 ModelScope 下载",
           "editable": 1
         },
         "--dataset": {
