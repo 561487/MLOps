@@ -241,6 +241,134 @@ def generate_teacher_logits(teacher_path, data_path, logits_path, max_length=512
     print(f'Teacher logits 生成完成: {logits_path}')
     return teacher_vocab_size
 
+def generate_teacher_logits_v2(
+    teacher_path,
+    data_path,
+    logits_path,
+    max_length=512,
+    max_samples=0,
+    top_k=128,
+):
+    """Write sparse raw Teacher logits keyed by stable sample_id."""
+    import hashlib
+    import jsonlines
+    import torch
+    from datasets import load_dataset
+    from transformers import AutoModelForCausalLM, AutoTokenizer
+
+    def config_vocab_size(config):
+        value = getattr(config, "vocab_size", None)
+        if value is None and getattr(config, "text_config", None) is not None:
+            value = getattr(config.text_config, "vocab_size", None)
+        if value is None:
+            raise ValueError("Teacher 配置缺少 vocab_size/text_config.vocab_size")
+        return int(value)
+
+    def tokenizer_fingerprint(tokenizer):
+        digest = hashlib.sha256()
+        for token, token_id in sorted(tokenizer.get_vocab().items(), key=lambda item: item[1]):
+            digest.update(str(token_id).encode("ascii"))
+            digest.update(b"\0")
+            digest.update(token.encode("utf-8"))
+            digest.update(b"\0")
+        return digest.hexdigest()
+
+    tokenizer = AutoTokenizer.from_pretrained(teacher_path, trust_remote_code=True)
+    if tokenizer.chat_template is None:
+        fallback = os.path.join(SCRIPT_DIR, "chat_template", "chat_template_kd.jinja")
+        tokenizer.chat_template = open(fallback, encoding="utf-8").read()
+    if tokenizer.pad_token is None:
+        tokenizer.pad_token = tokenizer.eos_token
+
+    if torch.cuda.is_available() and torch.cuda.is_bf16_supported():
+        dtype = torch.bfloat16
+    elif torch.cuda.is_available():
+        dtype = torch.float16
+    else:
+        dtype = torch.float32
+
+    try:
+        model = AutoModelForCausalLM.from_pretrained(
+            teacher_path,
+            trust_remote_code=True,
+            dtype=dtype,
+            device_map="auto",
+            low_cpu_mem_usage=True,
+        )
+    except (KeyError, ValueError) as exc:
+        raise RuntimeError(
+            "无法加载 Teacher；Qwen3.5 需要 Transformers 5.9+ 的 CausalLM 权重映射"
+        ) from exc
+
+    model.eval()
+    teacher_vocab_size = config_vocab_size(model.config)
+    top_k = min(int(top_k), teacher_vocab_size)
+    dataset = load_dataset(
+        detect_data_format(data_path),
+        data_files=data_path,
+        split="train",
+    )
+    if max_samples > 0:
+        dataset = dataset.select(range(min(max_samples, len(dataset))))
+    inst_col, out_col = auto_detect_columns(dataset)
+
+    print(
+        f"生成稀疏 Teacher logits: samples={len(dataset)}, "
+        f"max_length={max_length}, top_k={top_k}"
+    )
+    with jsonlines.open(logits_path, "w") as writer:
+        for sample_id, example in enumerate(dataset):
+            text = format_sample_with_tokenizer(
+                tokenizer,
+                example.get(inst_col, ""),
+                example.get(out_col, ""),
+            )
+            inputs = tokenizer(
+                text,
+                return_tensors="pt",
+                max_length=max_length,
+                truncation=True,
+                padding=False,
+                add_special_tokens=False,
+            )
+            with torch.inference_mode():
+                outputs = model(
+                    input_ids=inputs["input_ids"].to(model.device),
+                    attention_mask=inputs["attention_mask"].to(model.device),
+                )
+            topk_logits, topk_indices = torch.topk(
+                outputs.logits[0].float(),
+                k=top_k,
+                dim=-1,
+            )
+            writer.write({
+                "sample_id": sample_id,
+                "topk_indices": topk_indices.cpu().tolist(),
+                "topk_logits": topk_logits.cpu().tolist(),
+            })
+            if sample_id == 0 or (sample_id + 1) % 10 == 0:
+                print(f"  Teacher logits: {sample_id + 1}/{len(dataset)}")
+
+    with open(logits_path + ".meta.json", "w", encoding="utf-8") as handle:
+        json.dump(
+            {
+                "format_version": 2,
+                "vocab_size": teacher_vocab_size,
+                "tokenizer_fingerprint": tokenizer_fingerprint(tokenizer),
+                "top_k": top_k,
+                "max_length": int(max_length),
+            },
+            handle,
+            ensure_ascii=False,
+            indent=2,
+        )
+
+    del model
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+    return teacher_vocab_size
+
+
 
 # ---------------------------------------------------------------------------
 # EasyDistill 配置构建
@@ -274,7 +402,7 @@ def build_config(args, teacher_path, student_path, data_path, work_dir, template
             "num_train_epochs": int(args.epochs),
             "per_device_train_batch_size": int(args.batch_size),
             "gradient_accumulation_steps": 8,
-            "max_length": 512,
+            "max_length": int(args.max_seq_length),
             "save_steps": 1000,
             "logging_steps": 1,
             # SwanLab is managed by the outer TrainingMonitor. EasyDistill
@@ -294,8 +422,9 @@ def build_config(args, teacher_path, student_path, data_path, work_dir, template
         kd_ratio = round(1.0 - float(args.alpha), 2)
         config["distillation"] = {
             "kd_ratio": kd_ratio,
-            "max_seq_length": 512,
+            "max_seq_length": int(args.max_seq_length),
             "distillation_type": "forward_kld",
+            "temperature": float(args.temperature),
         }
 
     if args.data_synthesis == 'true':
@@ -362,6 +491,8 @@ def main():
     arg_parser.add_argument('--max_samples', type=str, default='0')
     arg_parser.add_argument('--data_synthesis', type=str, default='false')
     arg_parser.add_argument('--temperature', type=str, default='4.0')
+    arg_parser.add_argument('--top_k_logits', type=str, default='128')
+    arg_parser.add_argument('--max_seq_length', type=str, default='512')
     arg_parser.add_argument('--alpha', type=str, default='0.5')
     arg_parser.add_argument('--epochs', type=str, default='3')
     arg_parser.add_argument('--batch_size', type=str, default='4')
@@ -428,11 +559,12 @@ def main():
         # ----- 4. 白盒: 预计算 Teacher logits -----
         if args.distill_type == 'whitebox':
             logits_path = os.path.join(work_dir, 'teacher_logits.jsonl')
-            generate_teacher_logits(
+            generate_teacher_logits_v2(
                 teacher_path=teacher_path,
                 data_path=limited_data_path,
                 logits_path=logits_path,
-                max_length=512,
+                max_length=int(args.max_seq_length),
+                top_k=int(args.top_k_logits),
                 max_samples=0,  # 数据已在 limited_data_path 中截断
             )
 
