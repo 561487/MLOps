@@ -5668,7 +5668,7 @@
   },
   "model-distillation": {
     "project_name": "模型处理",
-    "image_name": "10.121.177.20:8082/mlops/model-distillation:20260820-qwen35-v1",
+    "image_name": "10.121.177.20:8082/mlops/model-distillation:5.9.0-py311-cu128-r1",
     "gitpath": "/job-template/job/model-distillation",
     "image_describe": "大模型蒸馏",
     "job_template_name": "model-distillation",
