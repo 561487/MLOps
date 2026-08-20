@@ -1,4 +1,4 @@
-# 基础镜像由 build_base.sh 构建，包含 PyTorch、DeepSpeed、ms-swift、Megatron 与运行依赖
+# 基础镜像由 base/build.sh 构建，包含 PyTorch、DeepSpeed、ms-swift、Megatron 与运行依赖
 FROM 10.121.177.20:8082/mlops/msswift-base:4.5.0-py311-cu128-r2
 COPY job-template/job/msswift/launcher.py /mnt/
 COPY job-template/job/msswift/swift_training_wrapper.py /mnt/
