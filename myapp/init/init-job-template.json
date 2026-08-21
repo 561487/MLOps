@@ -5903,7 +5903,7 @@
   },
   "llama-factory": {
     "project_name": "模型处理",
-    "image_name": "10.121.177.20:8082/mlops/llama_factory:0.9.5-py313-cu128-r1",
+    "image_name": "10.121.177.20:8082/mlops/llama_factory:0.9.5-py313-cu128-r4",
     "gitpath": "/job-template/job/llama_factory",
     "image_describe": "llama-factory微调",
     "job_template_name": "llama-factory",

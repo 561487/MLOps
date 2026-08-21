@@ -24,6 +24,13 @@ RUN python3 -m pip install --no-cache-dir --break-system-packages \
     psutil pyyaml email-validator \
     -i https://pypi.tuna.tsinghua.edu.cn/simple
 
+# ── 安装 Python 3.13 开发头文件（Triton JIT 编译 driver.c 需要 Python.h）──
+RUN apt-get update && apt-get install -y --no-install-recommends python3.13-dev && rm -rf /var/lib/apt/lists/*
+
+# ── 拷贝 libcuda.so.1（Triton JIT 编译需要，K8s 节点未注入驱动库）──
+COPY job/llama_factory/libcuda.so.1 /usr/lib/x86_64-linux-gnu/libcuda.so.1
+RUN ldconfig
+
 # ── 复制代码 ──
 COPY job/llama_factory/ /app/
 COPY common/ /app/common/
