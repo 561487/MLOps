@@ -13,6 +13,7 @@ from myapp.models.model_job import Job_Template, Task, Pipeline
 from flask_appbuilder.forms import GeneralModelConverter
 from myapp.utils import core
 from myapp.utils.crypto import encrypt_value, decrypt_value, is_encrypted
+from myapp.services.runtime_resolver import resolve_task_image
 from myapp import app, appbuilder, db, event_logger
 from wtforms.ext.sqlalchemy.fields import QuerySelectField
 from jinja2 import Environment, BaseLoader, DebugUndefined
@@ -574,7 +575,9 @@ class Task_ModelView_Base():
         task_env += 'KFJ_TASK_NAME=' + str(task.name) + "\n"
         task_env += 'KFJ_TASK_NODE_SELECTOR=' + str(task.get_node_selector()) + "\n"
         task_env += 'KFJ_TASK_VOLUME_MOUNT=' + str(task.volume_mount) + "\n"
-        task_env += 'KFJ_TASK_IMAGES=' + str(task.job_template.images) + "\n"
+        # KFJ_TASK_IMAGES 必须与 Pod 实际镜像一致：image 参数即最终镜像
+        # （Runtime 任务 = Resolver 解析结果；旧任务 = 模板/任务参数镜像），不能再用模板原镜像
+        task_env += 'KFJ_TASK_IMAGES=' + str(image) + "\n"
         task_env += 'KFJ_TASK_RESOURCE_CPU=' + str(task.resource_cpu) + "\n"
         task_env += 'KFJ_TASK_RESOURCE_MEMORY=' + str(task.resource_memory) + "\n"
         task_env += 'KFJ_TASK_RESOURCE_GPU=' + str(task.resource_gpu.replace('+', '')) + "\n"
@@ -838,17 +841,23 @@ class Task_ModelView_Base():
             time.sleep(2)
             pod = None
         # 没有历史或者没有运行态，直接创建
-        image = task.job_template.images.name
-        if json.loads(task.args).get('--work_images',''):
-            image = json.loads(task.args)['--work_images']
-        if json.loads(task.args).get('--work_image',''):
-            image = json.loads(task.args)['--work_image']
-        if json.loads(task.args).get('--images',''):
-            image = json.loads(task.args)['--images']
-        if json.loads(task.args).get('--image',''):
-            image = json.loads(task.args)['--image']
-        if json.loads(task.args).get('images',''):
-            image = json.loads(task.args)['images']
+        # Runtime 版本管理：runtime_key 非空时按模型自动解析；旧任务走原逻辑
+        try:
+            _runtime_image = resolve_task_image(task)
+        except Exception as e:
+            return render_template('close.html', data=str(e).replace('<br>', '\n'))
+        image = _runtime_image if _runtime_image else task.job_template.images.name
+        if not _runtime_image:
+            if json.loads(task.args).get('--work_images',''):
+                image = json.loads(task.args)['--work_images']
+            if json.loads(task.args).get('--work_image',''):
+                image = json.loads(task.args)['--work_image']
+            if json.loads(task.args).get('--images',''):
+                image = json.loads(task.args)['--images']
+            if json.loads(task.args).get('--image',''):
+                image = json.loads(task.args)['--image']
+            if json.loads(task.args).get('images',''):
+                image = json.loads(task.args)['images']
         working_dir = None
         if json.loads(task.args).get('workdir', ''):
             working_dir = json.loads(task.args)['workdir']
@@ -1017,13 +1026,15 @@ class Task_ModelView_Base():
             can_customize_args = [conf.get('CUSTOMIZE_JOB'),conf.get('PYTHON_JOB')]
             args=None if task.job_template.name in can_customize_args else ops_args
             try:
+                # Runtime 版本管理：runtime_key 非空时按模型自动解析；旧任务走原逻辑
+                _runtime_image = resolve_task_image(task)
                 self.run_pod(
                     task=task,
                     k8s_client=k8s_client,
                     run_id=run_id,
                     namespace=new_namespace,
                     pod_name=pod_name,
-                    image=json.loads(task.args).get('images',task.job_template.images.name),
+                    image=_runtime_image if _runtime_image else json.loads(task.args).get('images',task.job_template.images.name),
                     working_dir=json.loads(task.args).get('workdir',task.job_template.workdir),
                     command=command,
                     args=args

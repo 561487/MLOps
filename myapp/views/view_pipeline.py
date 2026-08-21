@@ -14,6 +14,7 @@ from sqlalchemy.exc import InvalidRequestError
 from myapp.models.model_job import Job_Template
 from myapp.models.model_job import Task, Pipeline, Workflow, RunHistory
 from myapp.models.model_job import TaskTemplateType, LogicalNodeType
+from myapp.services.runtime_resolver import resolve_task_image
 from myapp.models.model_team import Project
 from myapp.views.view_team import Project_Join_Filter
 from flask_appbuilder.actions import action
@@ -334,6 +335,15 @@ def dag_to_pipeline(pipeline, dbsession, workflow_label=None, **kwargs):
                 # args_values = template_str(args_values) if re.match('\{\{.*\}\}',args_values) else args_values
                 ops_args.append('%s' % str(args_values))  # 这里应该对不同类型的参数名称做不同的参数处理，比如bool型，只有参数，没有值
 
+        # Runtime 版本管理：job_template.runtime_key 非空时按模型自动解析镜像；
+        # 未纳入管理（runtime_key 为空）的任务返回 None，走原逻辑，行为完全不变。
+        # final_image 必须在构建环境变量之前确定，保证 KFJ_TASK_IMAGES == Pod 实际镜像
+        runtime_image = resolve_task_image(task, task_args)
+        images = runtime_image if runtime_image else task.job_template.images.name
+        # 未纳入 Runtime 管理的旧任务：如果任务参数配置了images，那直接用任务参数的镜像
+        if not runtime_image and task_args.get('images', ''):
+            images = task_args.get('images')
+
         # 设置环境变量
         container_envs = []
         if task.job_template.env:
@@ -354,7 +364,7 @@ def dag_to_pipeline(pipeline, dbsession, workflow_label=None, **kwargs):
         container_envs.append(("KFJ_TASK_NODE_SELECTOR", str(task.get_node_selector())))
         runtime_volume_mount = core.merge_volume_mount(task.volume_mount, pipeline_volume_mount)
         container_envs.append(("KFJ_TASK_VOLUME_MOUNT", str(runtime_volume_mount)))
-        container_envs.append(("KFJ_TASK_IMAGES", str(task.job_template.images)))
+        container_envs.append(("KFJ_TASK_IMAGES", str(images)))
         container_envs.append(("KFJ_TASK_RESOURCE_CPU", str(task.resource_cpu)))
         container_envs.append(("KFJ_TASK_RESOURCE_MEMORY", str(task.resource_memory)))
         container_envs.append(("KFJ_TASK_RESOURCE_GPU", str(task.resource_gpu)))
@@ -496,7 +506,7 @@ def dag_to_pipeline(pipeline, dbsession, workflow_label=None, **kwargs):
         if task_command:
             command = task_command
 
-        images = task.job_template.images.name
+        # 注：runtime_image/images 已在环境变量构建前解析（见前文），此处仅处理命令与输出参数
         command = command.split(' ') if command else []
         command = [com for com in command if com]
         arguments = ops_args
@@ -510,10 +520,6 @@ def dag_to_pipeline(pipeline, dbsession, workflow_label=None, **kwargs):
                         "name": param_name,
                         "valueFrom": {"path": file_path}
                     })
-
-        # 如果模板配置了images参数，那直接用模板的这个参数
-        if json.loads(task.args).get('images',''):
-            images = json.loads(task.args).get('images')
 
         # 自定义节点 (CUSTOMIZE_JOB)
         if task.template_type == TaskTemplateType.CUSTOMIZE:

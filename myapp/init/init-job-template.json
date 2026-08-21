@@ -5028,6 +5028,7 @@
   "deepspeed": {
     "project_name": "分布式加速",
     "image_name": "10.121.177.20:8082/mlops/deepspeed:20260716-cuda121-ds0144-hf4442-r3",
+    "runtime_key": "deepspeed",
     "gitpath": "/job-template/job/deepspeed",
     "image_describe": "deepspeed 分布式训练",
     "job_template_name": "deepspeed",
@@ -9649,6 +9650,7 @@
   "model-quantize": {
     "project_name": "模型处理",
     "image_name": "10.121.177.20:8082/mlops/gptqmodel:3.3.0",
+    "runtime_key": "gptqmodel",
     "gitpath": "/job-template/job/llm_quantize",
     "image_describe": "LLM量化(GPTQModel/AutoAWQ/BnB)",
     "job_template_name": "model-quantize",

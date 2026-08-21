@@ -10,6 +10,7 @@ from sqlalchemy import (
     Boolean,
     Text,
     Enum,
+    UniqueConstraint,
 )
 import numpy
 import random
@@ -97,6 +98,16 @@ class Images(Model,AuditMixinNullable,MyappModelBase):
     dockerfile=Column(Text,comment='dockerfile')
     gitpath=Column(String(200),comment='git地址')
 
+    # 模型 Runtime 元数据（Runtime 版本并入镜像管理，镜像管理 = 镜像资产唯一来源）
+    # 普通镜像（PCA/LightGBM/数据处理等）：runtime_key/runtime_version 为空，不纳入 Runtime 版本管理
+    runtime_key = Column(String(100), nullable=True, index=True, comment='模型Runtime类型，如 msswift/gptqmodel（空=普通镜像，不纳入Runtime版本管理）')
+    runtime_version = Column(String(100), nullable=True, comment='Runtime版本，如 3.12.5-r1（普通镜像为空）')
+    runtime_enabled = Column(Boolean, nullable=False, default=True, comment='是否允许新任务使用（false仅停用，镜像保留）')
+
+    __table_args__ = (
+        # 同一 Runtime 类型同一版本只允许一个镜像（MySQL 唯一约束对 NULL 不冲突，普通镜像不受影响）
+        UniqueConstraint('runtime_key', 'runtime_version', name='uq_runtime_key_version'),
+    )
 
     @property
     def images_url(self):
@@ -118,6 +129,7 @@ class Job_Template(Model,AuditMixinNullable,MyappModelBase):
     )
     name = Column(String(500), nullable=False,unique=True,comment='英文名')
     version = Column(Enum('Release','Alpha',name='version'),nullable=False,default='Release',comment='版本')
+    runtime_key = Column(String(100), nullable=True, comment='模型Runtime类型，如 msswift/gptqmodel（空=不纳入Runtime版本管理，使用images_id对应镜像）')
     images_id = Column(Integer, ForeignKey('images.id'),comment='镜像id')
     images = relationship(
         Images, foreign_keys=[images_id], lazy='selectin'
@@ -170,6 +182,7 @@ class Job_Template(Model,AuditMixinNullable,MyappModelBase):
         return Job_Template(
             name=self.name,
             version=self.version,
+            runtime_key=self.runtime_key,
             project_id=self.project_id,
             images_id=self.images_id,
             describe=self.describe,
@@ -564,6 +577,7 @@ class Task(Model,ImportMixin,AuditMixinNullable,MyappModelBase):
     retry = Column(Integer, nullable=False,default=0,comment='重试次数')
     outputs = Column(Text,default='{}',comment='task的输出，会将输出复制到minio上 ')   #   {'prediction': '/output.txt'}
     monitoring = Column(Text,default='{}',comment='该任务的监控信息')  #
+    runtime_image = Column(String(500), nullable=True, comment='任务创建时解析得到的最终镜像（Runtime版本管理，历史任务重跑不重新解析）')
     expand = Column(Text(65536), default='',comment='扩展参数')
     skip = Column(Boolean,name='skip',default=False,comment='是否跳过',quote=True)  #
     export_parent = "pipeline"

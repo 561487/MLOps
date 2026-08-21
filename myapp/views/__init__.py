@@ -37,6 +37,7 @@ from . import view_model_market
 from . import view_training_monitor
 from . import view_notification
 from . import view_inference_monitor
+from . import view_runtime
 
 # ========== 🆕 Chat API v2.0 Blueprint ==========
 from . import view_chat_v2
