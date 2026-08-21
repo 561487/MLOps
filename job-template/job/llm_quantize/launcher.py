@@ -343,7 +343,9 @@ def quantize_gptq(model_path, output, bits, group_size, dataset, nsamples):
     texts = _load_calib_text(dataset, nsamples)
     _emit("quantize", "开始 GPTQ 量化", method="gptq", bits=bits,
           group_size=group_size, samples=len(texts))
-    model.quantize(texts, batch_size=2)
+    # batch_size=1：batch>1 时校准数据按批 pad 成 [B, S] 2D attention_mask，
+    # 在 Qwen3.5 sdpa 路径上触发 2D mask 广播错误（见 r2 构建说明），逐样本校准避免该问题
+    model.quantize(texts, batch_size=1)
     _emit("save_model", "保存 GPTQ 量化模型", method="gptq", output=output)
     os.makedirs(output, exist_ok=True)
     model.save(output)

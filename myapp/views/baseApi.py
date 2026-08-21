@@ -346,6 +346,10 @@ class MyappModelRestApi(ModelRestApi):
     enable_echart = False
     pre_upload = None
     set_columns_related = None
+    # 字段级联配置（前端 ADUGTemplate 据此实现下拉联动，如 Runtime类型→镜像过滤）：
+    # { '联动名': {'src_columns': ['runtime_key'], 'des_columns': ['images'],
+    #    'related': [{'src_value': ['msswift'], 'des_value': ['msswift / 3.12.5-r1 / harbor:xxx', ...]}] } }
+    column_related = {}
     echart_option = None
     alert_config = {}
     expand_columns = {}
@@ -534,6 +538,15 @@ class MyappModelRestApi(ModelRestApi):
     # 将列宽信息加入
     def merge_cols_width(self, response, **kwargs):
         response[API_COLS_WIDTH_RIS_KEY] = self.cols_width
+
+    # 将字段级联配置加入（前端 ADUGTemplate 据此实现下拉联动；默认空，页面按需配置）。
+    # 支持 dict 或方法两种形态：方法惰性求值（每次 _info 请求实时构建，不污染 import 阶段；
+    # 注意不能用 @property —— _init_properties 的 dir/getattr 会对所有属性求值）
+    def merge_column_related(self, response, **kwargs):
+        cr = getattr(self, 'column_related', {})
+        if callable(cr):
+            cr = cr()
+        response['column_related'] = cr or {}
 
     # 将是否批量导入加入
     def merge_ops_data(self, response, **kwargs):
@@ -988,6 +1001,7 @@ class MyappModelRestApi(ModelRestApi):
     @expose("/_info", methods=["GET"])
     @merge_response_func(merge_more_info, 'more_info')
     @merge_response_func(merge_ops_data, API_IMPORT_DATA_RIS_KEY)
+    @merge_response_func(merge_column_related, 'column_related')
     @merge_response_func(merge_exist_add_args, API_EXIST_ADD_ARGS_RIS_KEY)
     @merge_response_func(merge_cols_width, API_COLS_WIDTH_RIS_KEY)
     @merge_response_func(merge_base_permissions, API_PERMISSIONS_RIS_KEY)

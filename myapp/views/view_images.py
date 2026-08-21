@@ -8,10 +8,11 @@ from myapp.views.baseSQLA import MyappSQLAInterface as SQLAInterface
 from flask_babel import gettext as __
 from flask_babel import lazy_gettext as _
 from myapp.models.model_job import Repository,Images
+from myapp.models.model_runtime import RUNTIME_KEY_CHOICES
 from myapp.views.view_team import Creator_Filter, Project_Join_Filter, Project_Filter
 from myapp import app, appbuilder, db, event_logger
-from wtforms.validators import DataRequired, Length, Regexp
-from wtforms import StringField, SelectField
+from wtforms.validators import DataRequired, Length, Optional, Regexp
+from wtforms import BooleanField, StringField, SelectField
 import pysnooper
 import json
 from flask import redirect, flash
@@ -162,10 +163,13 @@ class Images_ModelView_Base():
     search_columns = ['created_by', 'project', 'repository', 'name', 'describe']
     base_order = ('id', 'desc')
     order_columns = ['id']
-    add_columns = ['project','repository', 'name', 'describe', 'dockerfile', 'gitpath']
+    add_columns = ['project','repository', 'name', 'describe', 'dockerfile', 'gitpath', 'runtime_key', 'runtime_version', 'runtime_enabled']
     edit_columns = add_columns
     spec_label_columns={
-        "project": _("功能分类")
+        "project": _("功能分类"),
+        "runtime_key": _('Runtime类型'),
+        "runtime_version": _('Runtime版本'),
+        "runtime_enabled": _('允许新任务使用'),
     }
     add_form_query_rel_fields = {
         "project": [["name", Project_Filter, 'job-template']]
@@ -193,7 +197,25 @@ class Images_ModelView_Base():
             default='',
             widget=BS3TextFieldWidget(),
             validators=[Regexp('^[\x00-\x7F]*$')]
-        )
+        ),
+        "runtime_key": SelectField(
+            _('Runtime类型'),
+            description=_('仅大模型 Runtime 镜像需要选择；普通镜像留空'),
+            choices=[['', _('（普通镜像）')]] + [[k, k] for k in RUNTIME_KEY_CHOICES],
+            validators=[Optional()],
+        ),
+        "runtime_version": StringField(
+            _('Runtime版本'),
+            description=_('例如 3.12.5-r1；普通镜像留空'),
+            default='',
+            widget=BS3TextFieldWidget(),
+            validators=[Optional(), Length(1, 100)],
+        ),
+        "runtime_enabled": BooleanField(
+            _('允许新任务使用'),
+            description=_('关闭后新任务不可使用，历史任务不受影响'),
+            default=True,
+        ),
     }
 
     edit_form_extra_fields = add_form_extra_fields
@@ -204,6 +226,16 @@ class Images_ModelView_Base():
             return False
         return True
     check_delete_permission = check_edit_permission
+
+    # Runtime 字段归一化：普通镜像留空 → 存 NULL（不参与 Runtime 版本管理）
+    def pre_add(self, item):
+        if item.runtime_key in (None, ''):
+            item.runtime_key = None
+        if item.runtime_version in (None, ''):
+            item.runtime_version = None
+
+    def pre_update(self, item):
+        self.pre_add(item)
 
 
 
