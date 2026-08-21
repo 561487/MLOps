@@ -1,0 +1,15 @@
+FROM 10.121.177.20:8082/mlops/llama_factory:0.9.5-py313-cu128-r3
+
+# Triton 3.7.1 JIT 编译 driver.c 需要 Python.h（由 libpython3.13-dev 提供）
+# apt 索引 Packages.xz 因镜像同步导致 Hash Sum mismatch，
+# 改为直接下载 .deb 并解包头文件到 /usr/include，完全绕过 apt 索引
+RUN set -e; \
+    for mirror in mirrors.aliyun.com mirrors.ustc.edu.cn mirrors.huaweicloud.com; do \
+        if curl -fsSL --retry 3 --retry-delay 2 -o /tmp/pydev.deb \
+            "http://${mirror}/debian/pool/main/p/python3.13/libpython3.13-dev_3.13.5-2%2bdeb13u4_amd64.deb"; then \
+            break; \
+        fi; \
+    done; \
+    dpkg-deb -x /tmp/pydev.deb / && \
+    rm -f /tmp/pydev.deb && \
+    test -f /usr/include/python3.13/Python.h
