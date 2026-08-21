@@ -1120,10 +1120,6 @@ class K8s():
             nodeSelector['gpu-type'] = gpu_type
         if gpu_num >= 1 or shared_count:
             nodeSelector['gpu'] = 'true'
-        if gpu_num >= 1:
-            nodeSelector['mps'] = 'false'
-        if shared_count:
-            nodeSelector['mps'] = 'true'
         if 1 > gpu_num > 0:
             nodeSelector['vgpu'] = 'true'
 

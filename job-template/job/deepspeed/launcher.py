@@ -12,6 +12,8 @@ import threading
 import time
 import uuid
 
+from job.pkgs.k8s.affinity import build_pod_anti_affinity
+
 
 CRD_INFO = {
     "group": "kubeflow.org",
@@ -329,22 +331,10 @@ def _base_pod_spec(name, args, ctx, command):
                 "imagePullSecrets": ctx["hubsecret"],
                 "nodeSelector": copy.deepcopy(ctx["node_selector"]),
                 "affinity": {
-                    "podAntiAffinity": {
-                        "preferredDuringSchedulingIgnoredDuringExecution": [
-                            {
-                                "weight": 5,
-                                "podAffinityTerm": {
-                                    "topologyKey": "kubernetes.io/hostname",
-                                    "labelSelector": {
-                                        "matchLabels": {
-                                            "component": name,
-                                            "type": "deepspeed",
-                                        }
-                                    },
-                                },
-                            }
-                        ]
-                    }
+                    "podAntiAffinity": build_pod_anti_affinity(
+                        {"component": name, "type": "deepspeed"},
+                        args.num_worker,
+                    )
                 },
                 "containers": [container],
             },
@@ -362,7 +352,6 @@ def apply_accelerator_resources(pod_spec, ctx):
         container["resources"]["limits"][ctx["gpu_resource_name"]] = gpu_num
         node_selector.pop("cpu", None)
         node_selector["gpu"] = "true"
-        node_selector["mps"] = "false"
     elif gpu_num == 0:
         container["env"].append(
             {"name": "NVIDIA_VISIBLE_DEVICES", "value": "none"}

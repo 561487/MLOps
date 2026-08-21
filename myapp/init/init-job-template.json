@@ -224,10 +224,7 @@
           "item_type": "str",
           "label": "去重方法",
           "require": 1,
-          "choice": [
-            "exact",
-            "fuzzy"
-          ],
+          "choice": ["exact", "fuzzy"],
           "range": "",
           "default": "exact",
           "placeholder": "",
@@ -251,11 +248,7 @@
           "item_type": "str",
           "label": "保留策略",
           "require": 1,
-          "choice": [
-            "first",
-            "last",
-            "false"
-          ],
+          "choice": ["first", "last", "false"],
           "range": "",
           "default": "first",
           "placeholder": "",
@@ -326,11 +319,7 @@
           "item_type": "str",
           "label": "删除维度",
           "require": 1,
-          "choice": [
-            "column",
-            "row",
-            "both"
-          ],
+          "choice": ["column", "row", "both"],
           "range": "",
           "default": "both",
           "placeholder": "",
@@ -425,13 +414,7 @@
           "item_type": "str",
           "label": "检测策略",
           "require": 1,
-          "choice": [
-            "missing_rate",
-            "dominant",
-            "unique",
-            "variance",
-            "all"
-          ],
+          "choice": ["missing_rate", "dominant", "unique", "variance", "all"],
           "range": "",
           "default": "all",
           "placeholder": "",
@@ -641,12 +624,7 @@
           "item_type": "str",
           "label": "统计类型",
           "require": 1,
-          "choice": [
-            "basic",
-            "distribution",
-            "missing",
-            "full"
-          ],
+          "choice": ["basic", "distribution", "missing", "full"],
           "range": "",
           "default": "full",
           "placeholder": "",
@@ -717,12 +695,7 @@
           "item_type": "str",
           "label": "检测方法",
           "require": 1,
-          "choice": [
-            "zscore",
-            "iqr",
-            "isolation_forest",
-            "percentile"
-          ],
+          "choice": ["zscore", "iqr", "isolation_forest", "percentile"],
           "range": "",
           "default": "zscore",
           "placeholder": "",
@@ -941,12 +914,7 @@
           "item_type": "str",
           "label": "组合类型",
           "require": 1,
-          "choice": [
-            "arithmetic",
-            "polynomial",
-            "custom",
-            "all_pairs"
-          ],
+          "choice": ["arithmetic", "polynomial", "custom", "all_pairs"],
           "range": "",
           "default": "arithmetic",
           "placeholder": "",
@@ -970,12 +938,7 @@
           "item_type": "str",
           "label": "运算符",
           "require": 0,
-          "choice": [
-            "add",
-            "sub",
-            "mul",
-            "div"
-          ],
+          "choice": ["add", "sub", "mul", "div"],
           "range": "",
           "default": "add",
           "placeholder": "",
@@ -1183,10 +1146,7 @@
           "item_type": "str",
           "label": "乘积类型",
           "require": 1,
-          "choice": [
-            "vector",
-            "dataframe"
-          ],
+          "choice": ["vector", "dataframe"],
           "range": "",
           "default": "vector",
           "placeholder": "",
@@ -1257,10 +1217,7 @@
           "item_type": "str",
           "label": "合并类型",
           "require": 1,
-          "choice": [
-            "union",
-            "join"
-          ],
+          "choice": ["union", "join"],
           "range": "",
           "default": "union",
           "placeholder": "",
@@ -1284,12 +1241,7 @@
           "item_type": "str",
           "label": "Join方式",
           "require": 0,
-          "choice": [
-            "inner",
-            "left",
-            "right",
-            "outer"
-          ],
+          "choice": ["inner", "left", "right", "outer"],
           "range": "",
           "default": "inner",
           "placeholder": "",
@@ -1675,12 +1627,7 @@
           "item_type": "str",
           "label": "编码类型",
           "require": 1,
-          "choice": [
-            "hash",
-            "frequency",
-            "target",
-            "one_hot"
-          ],
+          "choice": ["hash", "frequency", "target", "one_hot"],
           "range": "",
           "default": "one_hot",
           "placeholder": "",
@@ -1867,12 +1814,7 @@
           "item_type": "str",
           "label": "目标类型",
           "require": 0,
-          "choice": [
-            "float64",
-            "int64",
-            "str",
-            "category"
-          ],
+          "choice": ["float64", "int64", "str", "category"],
           "range": "",
           "default": "float64",
           "placeholder": "",
@@ -2003,12 +1945,7 @@
           "item_type": "str",
           "label": "拆分类型",
           "require": 1,
-          "choice": [
-            "column_split",
-            "column_group",
-            "row_split",
-            "svd"
-          ],
+          "choice": ["column_split", "column_group", "row_split", "svd"],
           "range": "",
           "default": "row_split",
           "placeholder": "",
@@ -2175,10 +2112,7 @@
           "item_type": "str",
           "label": "降维方法",
           "require": 1,
-          "choice": [
-            "pca",
-            "chi2"
-          ],
+          "choice": ["pca", "chi2"],
           "range": "",
           "default": "pca",
           "placeholder": "",
@@ -2295,12 +2229,7 @@
           "item_type": "str",
           "label": "采样类型",
           "require": 1,
-          "choice": [
-            "random",
-            "stratified",
-            "oversampling",
-            "undersampling"
-          ],
+          "choice": ["random", "stratified", "oversampling", "undersampling"],
           "range": "",
           "default": "random",
           "placeholder": "",
@@ -2409,13 +2338,7 @@
           "item_type": "str",
           "label": "归一化方法",
           "require": 1,
-          "choice": [
-            "zscore",
-            "minmax",
-            "maxabs",
-            "robust",
-            "l2"
-          ],
+          "choice": ["zscore", "minmax", "maxabs", "robust", "l2"],
           "range": "",
           "default": "zscore",
           "placeholder": "",
@@ -2510,12 +2433,7 @@
           "item_type": "str",
           "label": "离散化方法",
           "require": 1,
-          "choice": [
-            "equal_width",
-            "equal_freq",
-            "kmeans",
-            "custom"
-          ],
+          "choice": ["equal_width", "equal_freq", "kmeans", "custom"],
           "range": "",
           "default": "equal_width",
           "placeholder": "",
@@ -2629,10 +2547,7 @@
           "item_type": "str",
           "label": "数据集的来源",
           "require": 1,
-          "choice": [
-            "当前平台",
-            "modelscope"
-          ],
+          "choice": ["当前平台", "modelscope"],
           "range": "",
           "default": "当前平台",
           "placeholder": "",
@@ -2713,11 +2628,7 @@
           "item_type": "str",
           "label": "模型来源",
           "require": 1,
-          "choice": [
-            "模型管理",
-            "推理服务",
-            "modelscope"
-          ],
+          "choice": ["模型管理", "推理服务", "modelscope"],
           "range": "",
           "default": "模型管理",
           "placeholder": "",
@@ -2765,11 +2676,7 @@
           "item_type": "str",
           "label": "模型状态",
           "require": 1,
-          "choice": [
-            "online",
-            "offline",
-            "test"
-          ],
+          "choice": ["online", "offline", "test"],
           "range": "",
           "default": "online",
           "placeholder": "",
@@ -2923,7 +2830,7 @@
   },
   "volcanojob": {
     "project_name": "数据处理工具",
-    "image_name": "10.121.177.20:8082/mlops/volcano:20250801",
+    "image_name": "10.121.177.20:8082/mlops/volcano:20260821",
     "gitpath": "/job-template/job/volcano",
     "image_describe": "有序分布式任务",
     "job_template_name": "volcanojob",
@@ -3298,10 +3205,7 @@
           "item_type": "str",
           "label": "任务类型",
           "require": 0,
-          "choice": [
-            "classification",
-            "regression"
-          ],
+          "choice": ["classification", "regression"],
           "range": "",
           "default": "classification",
           "placeholder": "classification",
@@ -3363,11 +3267,7 @@
           "item_type": "str",
           "label": "分类算法",
           "require": 0,
-          "choice": [
-            "auto",
-            "SAMME",
-            "SAMME.R"
-          ],
+          "choice": ["auto", "SAMME", "SAMME.R"],
           "range": "",
           "default": "auto",
           "placeholder": "auto",
@@ -3379,12 +3279,7 @@
           "item_type": "str",
           "label": "回归损失",
           "require": 0,
-          "choice": [
-            "auto",
-            "linear",
-            "square",
-            "exponential"
-          ],
+          "choice": ["auto", "linear", "square", "exponential"],
           "range": "",
           "default": "auto",
           "placeholder": "auto",
@@ -3531,10 +3426,7 @@
           "item_type": "str",
           "label": "任务类型",
           "require": 0,
-          "choice": [
-            "classification",
-            "regression"
-          ],
+          "choice": ["classification", "regression"],
           "range": "",
           "default": "classification",
           "placeholder": "classification",
@@ -3779,10 +3671,7 @@
           "item_type": "str",
           "label": "任务类型",
           "require": 0,
-          "choice": [
-            "classification",
-            "regression"
-          ],
+          "choice": ["classification", "regression"],
           "range": "",
           "default": "classification",
           "placeholder": "classification",
@@ -3841,10 +3730,7 @@
           "item_type": "str",
           "label": "节点切分策略",
           "require": 0,
-          "choice": [
-            "best",
-            "random"
-          ],
+          "choice": ["best", "random"],
           "range": "",
           "default": "best",
           "placeholder": "best",
@@ -3904,10 +3790,7 @@
           "item_type": "str",
           "label": "分类类别权重",
           "require": 0,
-          "choice": [
-            "",
-            "balanced"
-          ],
+          "choice": ["", "balanced"],
           "range": "",
           "default": "",
           "placeholder": "balanced",
@@ -4018,10 +3901,7 @@
           "item_type": "str",
           "label": "任务类型",
           "require": 0,
-          "choice": [
-            "classification",
-            "regression"
-          ],
+          "choice": ["classification", "regression"],
           "range": "",
           "default": "classification",
           "placeholder": "classification",
@@ -4171,11 +4051,7 @@
           "item_type": "str",
           "label": "设备类型",
           "require": 0,
-          "choice": [
-            "auto",
-            "cpu",
-            "cuda"
-          ],
+          "choice": ["auto", "cpu", "cuda"],
           "range": "",
           "default": "auto",
           "placeholder": "auto",
@@ -4234,10 +4110,7 @@
           "item_type": "str",
           "label": "任务类型",
           "require": 0,
-          "choice": [
-            "classification",
-            "regression"
-          ],
+          "choice": ["classification", "regression"],
           "range": "",
           "default": "classification",
           "placeholder": "classification",
@@ -4297,10 +4170,7 @@
           "item_type": "str",
           "label": "搜索方法",
           "require": 0,
-          "choice": [
-            "random",
-            "grid"
-          ],
+          "choice": ["random", "grid"],
           "range": "",
           "default": "random",
           "placeholder": "random",
@@ -4433,10 +4303,7 @@
           "item_type": "str",
           "label": "任务类型",
           "require": 0,
-          "choice": [
-            "classification",
-            "regression"
-          ],
+          "choice": ["classification", "regression"],
           "range": "",
           "default": "classification",
           "placeholder": "classification",
@@ -4508,12 +4375,7 @@
           "item_type": "str",
           "label": "Tuner 类型",
           "require": 0,
-          "choice": [
-            "TPE",
-            "Random",
-            "Anneal",
-            "GridSearch"
-          ],
+          "choice": ["TPE", "Random", "Anneal", "GridSearch"],
           "range": "",
           "default": "TPE",
           "placeholder": "TPE",
@@ -4637,11 +4499,7 @@
           "item_type": "str",
           "label": "设备类型",
           "require": 0,
-          "choice": [
-            "auto",
-            "cpu",
-            "cuda"
-          ],
+          "choice": ["auto", "cpu", "cuda"],
           "range": "",
           "default": "auto",
           "placeholder": "auto",
@@ -4702,10 +4560,7 @@
           "item_type": "str",
           "label": "任务类型",
           "require": 0,
-          "choice": [
-            "classification",
-            "regression"
-          ],
+          "choice": ["classification", "regression"],
           "range": "",
           "default": "classification",
           "placeholder": "classification",
@@ -4817,7 +4672,7 @@
   },
   "tfjob": {
     "project_name": "深度学习",
-    "image_name": "10.121.177.20:8082/mlops/tf:20230801",
+    "image_name": "10.121.177.20:8082/mlops/tf:20260821",
     "gitpath": "/job-template/job/tf",
     "image_describe": "tf 分布式训练",
     "job_template_name": "tfjob",
@@ -4887,7 +4742,7 @@
   },
   "pytorchjob": {
     "project_name": "深度学习",
-    "image_name": "10.121.177.20:8082/mlops/pytorch:20250801",
+    "image_name": "10.121.177.20:8082/mlops/pytorch:20260820",
     "gitpath": "/job-template/job/pytorch",
     "image_describe": "pytorch分布式训练",
     "job_template_name": "pytorchjob",
@@ -4957,7 +4812,7 @@
   },
   "paddlejob": {
     "project_name": "深度学习",
-    "image_name": "10.121.177.20:8082/mlops/paddle-job:20260720",
+    "image_name": "10.121.177.20:8082/mlops/paddle-job:20260821",
     "gitpath": "/job-template/job/paddle",
     "image_describe": "paddle分布式训练",
     "job_template_name": "paddlejob",
@@ -5049,11 +4904,7 @@
           "item_type": "str",
           "label": "训练模式",
           "require": 1,
-          "choice": [
-            "finetune",
-            "pretrain",
-            "custom"
-          ],
+          "choice": ["finetune", "pretrain", "custom"],
           "range": "",
           "default": "finetune",
           "placeholder": "",
@@ -5308,10 +5159,7 @@
           "item_type": "str",
           "label": "启用LoRA",
           "require": 1,
-          "choice": [
-            "false",
-            "true"
-          ],
+          "choice": ["false", "true"],
           "range": "",
           "default": "false",
           "placeholder": "",
@@ -5375,12 +5223,7 @@
           "item_type": "str",
           "label": "ZeRO阶段",
           "require": 1,
-          "choice": [
-            "0",
-            "1",
-            "2",
-            "3"
-          ],
+          "choice": ["0", "1", "2", "3"],
           "range": "",
           "default": "2",
           "placeholder": "",
@@ -5392,11 +5235,7 @@
           "item_type": "str",
           "label": "训练精度",
           "require": 1,
-          "choice": [
-            "fp16",
-            "bf16",
-            "fp32"
-          ],
+          "choice": ["fp16", "bf16", "fp32"],
           "range": "",
           "default": "fp16",
           "placeholder": "",
@@ -5432,11 +5271,7 @@
           "item_type": "str",
           "label": "优化器Offload",
           "require": 1,
-          "choice": [
-            "none",
-            "cpu",
-            "nvme"
-          ],
+          "choice": ["none", "cpu", "nvme"],
           "range": "",
           "default": "none",
           "placeholder": "",
@@ -5448,11 +5283,7 @@
           "item_type": "str",
           "label": "参数Offload",
           "require": 1,
-          "choice": [
-            "none",
-            "cpu",
-            "nvme"
-          ],
+          "choice": ["none", "cpu", "nvme"],
           "range": "",
           "default": "none",
           "placeholder": "",
@@ -5514,10 +5345,7 @@
           "item_type": "str",
           "label": "追加配置参数",
           "require": 1,
-          "choice": [
-            "true",
-            "false"
-          ],
+          "choice": ["true", "false"],
           "range": "",
           "default": "true",
           "placeholder": "",
@@ -5529,10 +5357,7 @@
           "item_type": "str",
           "label": "配置参数名",
           "require": 1,
-          "choice": [
-            "deepspeed",
-            "deepspeed_config"
-          ],
+          "choice": ["deepspeed", "deepspeed_config"],
           "range": "",
           "default": "deepspeed",
           "placeholder": "",
@@ -5591,12 +5416,7 @@
           "item_type": "str",
           "label": "目标格式",
           "require": 1,
-          "choice": [
-            "onnx",
-            "tensorrt",
-            "torchscript",
-            "gguf"
-          ],
+          "choice": ["onnx", "tensorrt", "torchscript", "gguf"],
           "range": "",
           "default": "onnx",
           "placeholder": "",
@@ -5621,10 +5441,7 @@
           "label": "ONNX Opset 版本",
           "require": 0,
           "choice": [],
-          "range": [
-            11,
-            21
-          ],
+          "range": [11, 21],
           "default": 17,
           "step": 1,
           "placeholder": "",
@@ -5636,10 +5453,7 @@
           "item_type": "str",
           "label": "启用 FP16",
           "require": 0,
-          "choice": [
-            "true",
-            "false"
-          ],
+          "choice": ["true", "false"],
           "range": "",
           "default": "true",
           "placeholder": "",
@@ -5651,13 +5465,7 @@
           "item_type": "str",
           "label": "GGUF 量化类型",
           "require": 0,
-          "choice": [
-            "f16",
-            "f32",
-            "q8_0",
-            "q4_0",
-            "q4_k_m"
-          ],
+          "choice": ["f16", "f32", "q8_0", "q4_0", "q4_k_m"],
           "range": "",
           "default": "f16",
           "placeholder": "",
@@ -5719,10 +5527,7 @@
           "type": "str",
           "label": "蒸馏类型",
           "require": 1,
-          "choice": [
-            "whitebox",
-            "blackbox"
-          ],
+          "choice": ["whitebox", "blackbox"],
           "default": "whitebox",
           "describe": "whitebox=白盒(KL散度匹配，需Teacher权重)；blackbox=黑盒(SFT蒸馏，仅需Teacher API)",
           "editable": 1,
@@ -5754,10 +5559,7 @@
           "type": "str",
           "label": "启用数据合成",
           "require": 0,
-          "choice": [
-            "false",
-            "true"
-          ],
+          "choice": ["false", "true"],
           "default": "false",
           "describe": "使用EasyDistill内置数据合成扩充训练数据",
           "editable": 1,
@@ -6228,7 +6030,7 @@
       }
     }
   },
- "model-offline-predict": {
+  "model-offline-predict": {
     "project_name": "模型服务化",
     "image_name": "10.121.177.20:8082/mlops/offline-predict-launcher:20260714",
     "gitpath": "/job-template/job/offline-predict",
@@ -6693,11 +6495,7 @@
           "label": "训练精度",
           "require": 0,
           "editable": 1,
-          "choice": [
-            "bf16-true",
-            "bf16-mixed",
-            "32-true"
-          ],
+          "choice": ["bf16-true", "bf16-mixed", "32-true"],
           "range": "",
           "default": "bf16-true",
           "placeholder": "",
@@ -6724,10 +6522,7 @@
           "require": 0,
           "choice": [],
           "editable": 1,
-          "range": [
-            512,
-            131072
-          ],
+          "range": [512, 131072],
           "default": 4096,
           "step": 512,
           "placeholder": "",
@@ -6766,10 +6561,7 @@
           "require": 0,
           "choice": [],
           "editable": 1,
-          "range": [
-            1,
-            512
-          ],
+          "range": [1, 512],
           "default": 4,
           "step": 1,
           "placeholder": "",
@@ -6782,10 +6574,7 @@
           "require": 0,
           "choice": [],
           "editable": 1,
-          "range": [
-            1,
-            65536
-          ],
+          "range": [1, 65536],
           "default": 64,
           "step": 8,
           "placeholder": "",
@@ -6810,10 +6599,7 @@
           "require": 0,
           "choice": [],
           "editable": 1,
-          "range": [
-            0,
-            100000
-          ],
+          "range": [0, 100000],
           "default": 2000,
           "step": 100,
           "placeholder": "",
@@ -6826,10 +6612,7 @@
           "require": 0,
           "choice": [],
           "editable": 1,
-          "range": [
-            0.0,
-            10.0
-          ],
+          "range": [0.0, 10.0],
           "default": 1.0,
           "step": 0.1,
           "placeholder": "",
@@ -6842,10 +6625,7 @@
           "require": 0,
           "choice": [],
           "editable": 1,
-          "range": [
-            100,
-            100000
-          ],
+          "range": [100, 100000],
           "default": 1000,
           "step": 100,
           "placeholder": "",
@@ -6858,10 +6638,7 @@
           "require": 0,
           "choice": [],
           "editable": 1,
-          "range": [
-            1,
-            10000
-          ],
+          "range": [1, 10000],
           "default": 10,
           "step": 1,
           "placeholder": "",
@@ -6899,7 +6676,7 @@
 
   "media-download": {
     "project_name": "视频处理",
-    "image_name": "10.121.177.20:8082/mlops/video-audio:20250301",
+    "image_name": "10.121.177.20:8082/mlops/video-audio:20260821",
     "gitpath": "/job-template/job/video-audio",
     "image_describe": "分布式媒体文件处理",
     "job_template_name": "media-download",
@@ -6932,9 +6709,7 @@
           "item_type": "str",
           "label": "下载类型",
           "require": 1,
-          "choice": [
-            "url"
-          ],
+          "choice": ["url"],
           "range": "",
           "default": "url",
           "placeholder": "",
@@ -7224,10 +6999,7 @@
           "item_type": "str",
           "label": "去除空值",
           "require": 0,
-          "choice": [
-            "true",
-            "false"
-          ],
+          "choice": ["true", "false"],
           "default": "true",
           "describe": "是否去除空值/空白行",
           "editable": 1
@@ -7237,10 +7009,7 @@
           "item_type": "str",
           "label": "去重",
           "require": 0,
-          "choice": [
-            "true",
-            "false"
-          ],
+          "choice": ["true", "false"],
           "default": "true",
           "describe": "是否去除完全重复的行（整条记录完全相同的去重）",
           "editable": 1
@@ -7309,10 +7078,7 @@
           "item_type": "str",
           "label": "目标语言",
           "require": 0,
-          "choice": [
-            "zh",
-            "none"
-          ],
+          "choice": ["zh", "none"],
           "range": "",
           "default": "zh",
           "placeholder": "",
@@ -7923,11 +7689,7 @@
           "item_type": "str",
           "label": "去噪方法",
           "require": 0,
-          "choice": [
-            "gaussian",
-            "median",
-            "bilateral"
-          ],
+          "choice": ["gaussian", "median", "bilateral"],
           "range": "",
           "default": "gaussian",
           "placeholder": "gaussian",
@@ -8145,11 +7907,7 @@
           "item_type": "str",
           "label": "标准化模式",
           "require": 0,
-          "choice": [
-            "minmax",
-            "imagenet",
-            "none"
-          ],
+          "choice": ["minmax", "imagenet", "none"],
           "range": "",
           "default": "minmax",
           "placeholder": "minmax",
@@ -8185,10 +7943,7 @@
           "item_type": "str",
           "label": "保存格式",
           "require": 0,
-          "choice": [
-            "image",
-            "npy"
-          ],
+          "choice": ["image", "npy"],
           "range": "",
           "default": "image",
           "placeholder": "image",
@@ -8273,11 +8028,7 @@
           "item_type": "str",
           "label": "裁剪模式",
           "require": 0,
-          "choice": [
-            "center",
-            "box",
-            "ratio"
-          ],
+          "choice": ["center", "box", "ratio"],
           "range": "",
           "default": "center",
           "placeholder": "center",
@@ -8398,10 +8149,7 @@
           "item_type": "str",
           "label": "均衡化方法",
           "require": 0,
-          "choice": [
-            "clahe",
-            "global"
-          ],
+          "choice": ["clahe", "global"],
           "range": "",
           "default": "clahe",
           "placeholder": "clahe",
@@ -8510,13 +8258,7 @@
           "item_type": "str",
           "label": "源颜色空间",
           "require": 0,
-          "choice": [
-            "BGR",
-            "RGB",
-            "GRAY",
-            "HSV",
-            "LAB"
-          ],
+          "choice": ["BGR", "RGB", "GRAY", "HSV", "LAB"],
           "range": "",
           "default": "BGR",
           "placeholder": "BGR",
@@ -8528,13 +8270,7 @@
           "item_type": "str",
           "label": "目标颜色空间",
           "require": 0,
-          "choice": [
-            "BGR",
-            "RGB",
-            "GRAY",
-            "HSV",
-            "LAB"
-          ],
+          "choice": ["BGR", "RGB", "GRAY", "HSV", "LAB"],
           "range": "",
           "default": "GRAY",
           "placeholder": "GRAY",
@@ -8708,10 +8444,7 @@
           "item_type": "str",
           "label": "递归扫描",
           "require": 0,
-          "choice": [
-            "true",
-            "false"
-          ],
+          "choice": ["true", "false"],
           "range": "",
           "default": "true",
           "placeholder": "true",
@@ -8735,12 +8468,7 @@
           "item_type": "str",
           "label": "增强数据划分",
           "require": 0,
-          "choice": [
-            "train",
-            "valid",
-            "test",
-            "all"
-          ],
+          "choice": ["train", "valid", "test", "all"],
           "range": "",
           "default": "train",
           "placeholder": "train",
@@ -8778,10 +8506,7 @@
           "item_type": "str",
           "label": "随机加噪",
           "require": 0,
-          "choice": [
-            "true",
-            "false"
-          ],
+          "choice": ["true", "false"],
           "range": "",
           "default": "true",
           "placeholder": "true",
@@ -8805,10 +8530,7 @@
           "item_type": "str",
           "label": "语速扰动",
           "require": 0,
-          "choice": [
-            "true",
-            "false"
-          ],
+          "choice": ["true", "false"],
           "range": "",
           "default": "true",
           "placeholder": "true",
@@ -8844,10 +8566,7 @@
           "item_type": "str",
           "label": "音量扰动",
           "require": 0,
-          "choice": [
-            "true",
-            "false"
-          ],
+          "choice": ["true", "false"],
           "range": "",
           "default": "true",
           "placeholder": "true",
@@ -8883,10 +8602,7 @@
           "item_type": "str",
           "label": "保留原始样本",
           "require": 0,
-          "choice": [
-            "true",
-            "false"
-          ],
+          "choice": ["true", "false"],
           "range": "",
           "default": "true",
           "placeholder": "true",
@@ -8995,10 +8711,7 @@
           "item_type": "str",
           "label": "递归扫描",
           "require": 0,
-          "choice": [
-            "true",
-            "false"
-          ],
+          "choice": ["true", "false"],
           "range": "",
           "default": "true",
           "placeholder": "true",
@@ -9193,10 +8906,7 @@
           "item_type": "str",
           "label": "递归扫描",
           "require": 0,
-          "choice": [
-            "true",
-            "false"
-          ],
+          "choice": ["true", "false"],
           "range": "",
           "default": "true",
           "placeholder": "true",
@@ -9222,10 +8932,7 @@
           "item_type": "int",
           "label": "目标声道数",
           "require": 0,
-          "choice": [
-            "1",
-            "2"
-          ],
+          "choice": ["1", "2"],
           "range": "",
           "default": "1",
           "placeholder": "1",
@@ -9237,10 +8944,7 @@
           "item_type": "str",
           "label": "输出格式",
           "require": 0,
-          "choice": [
-            "wav",
-            "flac"
-          ],
+          "choice": ["wav", "flac"],
           "range": "",
           "default": "wav",
           "placeholder": "wav",
@@ -9252,10 +8956,7 @@
           "item_type": "str",
           "label": "音量归一化",
           "require": 0,
-          "choice": [
-            "true",
-            "false"
-          ],
+          "choice": ["true", "false"],
           "range": "",
           "default": "true",
           "placeholder": "true",
@@ -9279,10 +8980,7 @@
           "item_type": "str",
           "label": "裁剪静音",
           "require": 0,
-          "choice": [
-            "true",
-            "false"
-          ],
+          "choice": ["true", "false"],
           "range": "",
           "default": "true",
           "placeholder": "true",
@@ -9330,10 +9028,7 @@
           "item_type": "str",
           "label": "过滤损坏音频",
           "require": 0,
-          "choice": [
-            "true",
-            "false"
-          ],
+          "choice": ["true", "false"],
           "range": "",
           "default": "true",
           "placeholder": "true",
@@ -9428,10 +9123,7 @@
           "item_type": "str",
           "label": "模型类型",
           "require": 1,
-          "choice": [
-            "hf_chat",
-            "hf_base"
-          ],
+          "choice": ["hf_chat", "hf_base"],
           "range": "",
           "default": "hf_chat",
           "placeholder": "",
@@ -9528,10 +9220,7 @@
           "label": "GPU 数量",
           "require": 1,
           "choice": [],
-          "range": [
-            1,
-            8
-          ],
+          "range": [1, 8],
           "default": 1,
           "step": 1,
           "placeholder": "",
@@ -9544,10 +9233,7 @@
           "label": "Batch Size",
           "require": 0,
           "choice": [],
-          "range": [
-            1,
-            512
-          ],
+          "range": [1, 512],
           "default": 64,
           "step": 1,
           "placeholder": "",
@@ -9560,10 +9246,7 @@
           "label": "最大输入长度",
           "require": 0,
           "choice": [],
-          "range": [
-            128,
-            8192
-          ],
+          "range": [128, 8192],
           "default": 2048,
           "step": 128,
           "placeholder": "",
@@ -9576,10 +9259,7 @@
           "label": "最大输出长度",
           "require": 0,
           "choice": [],
-          "range": [
-            64,
-            4096
-          ],
+          "range": [64, 4096],
           "default": 512,
           "step": 64,
           "placeholder": "",
@@ -9592,10 +9272,7 @@
           "label": "Few-Shot 样本数",
           "require": 0,
           "choice": [],
-          "range": [
-            0,
-            10
-          ],
+          "range": [0, 10],
           "default": 0,
           "step": 1,
           "placeholder": "",
@@ -9608,10 +9285,7 @@
           "label": "每数据集样本数上限",
           "require": 0,
           "choice": [],
-          "range": [
-            0,
-            999999
-          ],
+          "range": [0, 999999],
           "default": 0,
           "step": 100,
           "placeholder": "0=全量，设N则每个数据集取前N条",
@@ -9661,115 +9335,107 @@
     "job_template_account": "",
     "job_template_env": "",
     "job_template_expand": {
-        "index": 4,
-        "rec_job_template": "自定义镜像",
-        "help_url": "/job-template/job/llm_quantize"
+      "index": 4,
+      "rec_job_template": "自定义镜像",
+      "help_url": "/job-template/job/llm_quantize"
     },
     "job_template_args": {
-        "模型参数": {
-            "--model_source": {
-                "type": "str",
-                "default": "pvc",
-                "describe": "模型来源",
-                "choice": {
-                    "pvc": "PVC 模型目录",
-                    "modelscope": "ModelScope 模型 ID"
-                },
-                "editable": 1
-            },
-            "--model": {
-                "type": "str",
-                "default": "",
-                "describe": "PVC 绝对路径或 ModelScope 模型 ID（必填）",
-                "item_type": "str",
-                "require": 1,
-                "editable": 1
-            },
-            "--model_revision": {
-                "type": "str",
-                "default": "master",
-                "describe": "ModelScope 模型版本，PVC 来源时忽略",
-                "item_type": "str",
-                "editable": 1
-            },
-            "--model_cache": {
-                "type": "str",
-                "default": "/mnt/storage/models-storage/modelscope-cache",
-                "describe": "ModelScope 模型下载到 PVC 的缓存目录",
-                "item_type": "str",
-                "editable": 1
-            },
-            "--output": {
-                "type": "str",
-                "default": "/mnt/admin/models/quant",
-                "describe": "量化后模型保存路径",
-                "item_type": "str",
-                "editable": 1
-            }
+      "模型参数": {
+        "--model_source": {
+          "type": "str",
+          "default": "pvc",
+          "describe": "模型来源",
+          "choice": {
+            "pvc": "PVC 模型目录",
+            "modelscope": "ModelScope 模型 ID"
+          },
+          "editable": 1
         },
-        "量化配置": {
-            "--method": {
-                "type": "str",
-                "default": "gptq",
-                "describe": "选择量化算法",
-                "choice": {
-                    "gptq": "GPTQ（精度好，需校准数据）",
-                    "awq": "AWQ（速度快精度高）",
-                    "bnb": "bitsandbytes（无需校准，快速试用）"
-                },
-                "editable": 1
-            },
-            "--bits": {
-                "type": "int",
-                "default": 4,
-                "choice": [
-                    4,
-                    8
-                ],
-                "describe": "量化位数：GPTQ 支持 4/8，AWQ 仅支持 4，BnB 支持 4/8",
-                "editable": 1
-            },
-            "--group_size": {
-                "type": "int",
-                "default": 128,
-                "choice": [
-                    32,
-                    64,
-                    128,
-                    256
-                ],
-                "describe": "GPTQ 分组大小，推荐 128",
-                "editable": 1
-            },
-            "--dataset": {
-                "type": "str",
-                "default": "/mnt/storage/models-storage/datasets/wikitext2",
-                "describe": "GPTQ/AWQ 校准集：PVC 目录、CSV/JSON/JSONL/TXT 文件或 wikitext2 离线样本",
-                "item_type": "str",
-                "editable": 1
-            },
-            "--nsamples": {
-                "type": "int",
-                "default": 128,
-                "range": "16,1024",
-                "step": 16,
-                "describe": "GPTQ/AWQ 校准样本数（平台 16~1024；CLI 1~10000）",
-                "editable": 1
-            },
-            "--force": {
-                "type": "bool",
-                "item_type": "bool",
-                "require": 0,
-                "choice": [],
-                "range": "",
-                "default": "false",
-                "describe": "允许复用非空输出目录；仅确认覆盖时开启",
-                "editable": 1
-            }
+        "--model": {
+          "type": "str",
+          "default": "",
+          "describe": "PVC 绝对路径或 ModelScope 模型 ID（必填）",
+          "item_type": "str",
+          "require": 1,
+          "editable": 1
+        },
+        "--model_revision": {
+          "type": "str",
+          "default": "master",
+          "describe": "ModelScope 模型版本，PVC 来源时忽略",
+          "item_type": "str",
+          "editable": 1
+        },
+        "--model_cache": {
+          "type": "str",
+          "default": "/mnt/storage/models-storage/modelscope-cache",
+          "describe": "ModelScope 模型下载到 PVC 的缓存目录",
+          "item_type": "str",
+          "editable": 1
+        },
+        "--output": {
+          "type": "str",
+          "default": "/mnt/admin/models/quant",
+          "describe": "量化后模型保存路径",
+          "item_type": "str",
+          "editable": 1
         }
+      },
+      "量化配置": {
+        "--method": {
+          "type": "str",
+          "default": "gptq",
+          "describe": "选择量化算法",
+          "choice": {
+            "gptq": "GPTQ（精度好，需校准数据）",
+            "awq": "AWQ（速度快精度高）",
+            "bnb": "bitsandbytes（无需校准，快速试用）"
+          },
+          "editable": 1
+        },
+        "--bits": {
+          "type": "int",
+          "default": 4,
+          "choice": [4, 8],
+          "describe": "量化位数：GPTQ 支持 4/8，AWQ 仅支持 4，BnB 支持 4/8",
+          "editable": 1
+        },
+        "--group_size": {
+          "type": "int",
+          "default": 128,
+          "choice": [32, 64, 128, 256],
+          "describe": "GPTQ 分组大小，推荐 128",
+          "editable": 1
+        },
+        "--dataset": {
+          "type": "str",
+          "default": "/mnt/storage/models-storage/datasets/wikitext2",
+          "describe": "GPTQ/AWQ 校准集：PVC 目录、CSV/JSON/JSONL/TXT 文件或 wikitext2 离线样本",
+          "item_type": "str",
+          "editable": 1
+        },
+        "--nsamples": {
+          "type": "int",
+          "default": 128,
+          "range": "16,1024",
+          "step": 16,
+          "describe": "GPTQ/AWQ 校准样本数（平台 16~1024；CLI 1~10000）",
+          "editable": 1
+        },
+        "--force": {
+          "type": "bool",
+          "item_type": "bool",
+          "require": 0,
+          "choice": [],
+          "range": "",
+          "default": "false",
+          "describe": "允许复用非空输出目录；仅确认覆盖时开启",
+          "editable": 1
+        }
+      }
     }
   },
- "msswift": {
+  "msswift": {
     "project_name": "分布式加速",
     "image_name": "10.121.177.20:8082/mlops/msswift:4.5.0-py311-cu128-r3",
     "gitpath": "/job-template/job/msswift",
@@ -9792,10 +9458,7 @@
           "item_type": "str",
           "label": "任务模式",
           "require": 1,
-          "choice": [
-            "sft",
-            "rlhf"
-          ],
+          "choice": ["sft", "rlhf"],
           "default": "sft",
           "describe": "sft=监督微调(分布式训练)；rlhf=RLHF对齐训练",
           "editable": 1
@@ -9875,12 +9538,7 @@
           "item_type": "str",
           "label": "分布式策略",
           "require": 0,
-          "choice": [
-            "none",
-            "zero2",
-            "zero3",
-            "megatron"
-          ],
+          "choice": ["none", "zero2", "zero3", "megatron"],
           "default": "zero2",
           "describe": "none=原生 PyTorch DDP（支持单卡/多卡）；zero2=DeepSpeed ZeRO-2；zero3=DeepSpeed ZeRO-3；megatron=Megatron 模型并行",
           "editable": 1
@@ -9924,11 +9582,7 @@
           "item_type": "str",
           "label": "训练方式",
           "require": 1,
-          "choice": [
-            "lora",
-            "full",
-            "qlora"
-          ],
+          "choice": ["lora", "full", "qlora"],
           "default": "lora",
           "describe": "LoRA=低秩适配(省显存，单卡 22GB 可跑 7B)；full=全参微调(效果最好)；QLoRA=量化 LoRA(最省显存)",
           "editable": 1
@@ -9986,10 +9640,7 @@
           "item_type": "str",
           "label": "RLHF 算法",
           "require": 1,
-          "choice": [
-            "dpo",
-            "grpo"
-          ],
+          "choice": ["dpo", "grpo"],
           "default": "dpo",
           "describe": "DPO=直接偏好优化；GRPO=组相对策略优化；KTO=二元反馈对齐；PPO 因缺少 Reward/Value Model 配置暂不开放",
           "editable": 1
@@ -10081,10 +9732,7 @@
           "item_type": "str",
           "label": "仅保存模型权重",
           "require": 0,
-          "choice": [
-            "true",
-            "false"
-          ],
+          "choice": ["true", "false"],
           "default": "true",
           "describe": "true=兼容原节点、节省空间；false=同时保存优化器和随机状态，完整断点续训必须选择false",
           "editable": 1

@@ -20,6 +20,7 @@ import psutil
 
 from kubernetes import client
 from job.pkgs.k8s.py_k8s import K8s
+from job.pkgs.k8s.affinity import build_pod_anti_affinity
 
 k8s_client = K8s()
 
@@ -279,20 +280,10 @@ def make_pytorchjob(name, num_workers, image, command):
                 "imagePullSecrets": HUBSECRET,
                 "nodeSelector": KFJ_TASK_NODE_SELECTOR,
                 "affinity": {
-                    "podAntiAffinity": {
-                        "preferredDuringSchedulingIgnoredDuringExecution": [{
-                            "weight": 5,
-                            "podAffinityTerm": {
-                                "topologyKey": "kubernetes.io/hostname",
-                                "labelSelector": {
-                                    "matchLabels": {
-                                        "component": name,
-                                        "type": "pytorchjob"
-                                    }
-                                }
-                            }
-                        }]
-                    }
+                    "podAntiAffinity": build_pod_anti_affinity(
+                        {"component": name, "type": "pytorchjob"},
+                        num_workers,
+                    )
                 },
                 "containers": [{
                     "name": "pytorch",

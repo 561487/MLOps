@@ -48,6 +48,7 @@ def dump_launcher_diagnostics():
 
 # print(os.environ)
 from job.pkgs.k8s.py_k8s import K8s
+from job.pkgs.k8s.affinity import build_pod_anti_affinity
 k8s_client = K8s()
 
 KFJ_NAMESPACE = os.getenv('KFJ_NAMESPACE', '')
@@ -256,22 +257,10 @@ def make_volcanojob(name,num_workers,image,working_dir,command,env):
                     ]
                 }
             },
-            "podAntiAffinity": {
-                "preferredDuringSchedulingIgnoredDuringExecution": [
-                    {
-                        "weight": 20,
-                        "podAffinityTerm": {
-                            "topologyKey": "kubernetes.io/hostname",
-                            "labelSelector": {
-                                "matchLabels": {
-                                    "component": name,
-                                    "type": "volcanojob"
-                                }
-                            }
-                        }
-                    }
-                ]
-            }
+            "podAntiAffinity": build_pod_anti_affinity(
+                {"component": name, "type": "volcanojob"},
+                num_workers,
+            )
         },
         "containers": [
             {
@@ -337,7 +326,6 @@ def make_volcanojob(name,num_workers,image,working_dir,command,env):
             producer_pod_spec['nodeSelector'] = {}
         producer_pod_spec['nodeSelector'].pop('cpu', None)
         producer_pod_spec['nodeSelector']['gpu'] = 'true'
-        producer_pod_spec['nodeSelector']['mps'] = 'false'
     elif int(gpu_num) < 0:
         shared_count, _, shared_resource_name = k8s_client.get_gpu_shared_resource(GPU_RESOURCE)
         producer_pod_spec['containers'][0]['resources']['requests'][shared_resource_name] = shared_count
@@ -346,7 +334,6 @@ def make_volcanojob(name,num_workers,image,working_dir,command,env):
             producer_pod_spec['nodeSelector'] = {}
         producer_pod_spec['nodeSelector'].pop('cpu', None)
         producer_pod_spec['nodeSelector']['gpu'] = 'true'
-        producer_pod_spec['nodeSelector']['mps'] = 'true'
     else:
         producer_pod_spec['containers'][0]['env'].append({
             "name": "NVIDIA_VISIBLE_DEVICES",
@@ -385,7 +372,6 @@ def make_volcanojob(name,num_workers,image,working_dir,command,env):
                 consumer_pod_spec['nodeSelector'] = {}
             consumer_pod_spec['nodeSelector'].pop('cpu', None)
             consumer_pod_spec['nodeSelector']['gpu'] = 'true'
-            consumer_pod_spec['nodeSelector']['mps'] = 'false'
         elif int(gpu_num) < 0:
             shared_count, _, shared_resource_name = k8s_client.get_gpu_shared_resource(GPU_RESOURCE)
             consumer_pod_spec['containers'][0]['resources']['requests'][shared_resource_name] = shared_count
@@ -394,7 +380,6 @@ def make_volcanojob(name,num_workers,image,working_dir,command,env):
                 consumer_pod_spec['nodeSelector'] = {}
             consumer_pod_spec['nodeSelector'].pop('cpu', None)
             consumer_pod_spec['nodeSelector']['gpu'] = 'true'
-            consumer_pod_spec['nodeSelector']['mps'] = 'true'
         else:
             consumer_pod_spec['containers'][0]['env'].append({
                 "name": "NVIDIA_VISIBLE_DEVICES",

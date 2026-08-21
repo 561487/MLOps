@@ -2,7 +2,7 @@
 
 set -ex
 
-docker build --network=host -t ccr.ccs.tencentyun.com/cube-studio/tf:20230801 -f job/tf/Dockerfile .
-docker push ccr.ccs.tencentyun.com/cube-studio/tf:20230801
+docker build --network=host -t 10.121.177.20:8082/mlops/tf:20260821 -f job/tf/Dockerfile .
+docker push 10.121.177.20:8082/mlops/tf:20260821
 
 

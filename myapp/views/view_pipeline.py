@@ -359,6 +359,7 @@ def dag_to_pipeline(pipeline, dbsession, workflow_label=None, **kwargs):
 
         # 设置task的默认环境变量
         gpu_num, _, gpu_resource_name = core.get_gpu(task.resource_gpu)
+        rdma_num, _, rdma_resource_name = core.get_rdma(task.resource_rdma)
         container_envs.append(("KFJ_TASK_ID", str(task.id)))
         container_envs.append(("KFJ_TASK_NAME", str(task.name)))
         container_envs.append(("KFJ_TASK_NODE_SELECTOR", str(task.get_node_selector())))
@@ -368,8 +369,10 @@ def dag_to_pipeline(pipeline, dbsession, workflow_label=None, **kwargs):
         container_envs.append(("KFJ_TASK_RESOURCE_CPU", str(task.resource_cpu)))
         container_envs.append(("KFJ_TASK_RESOURCE_MEMORY", str(task.resource_memory)))
         container_envs.append(("KFJ_TASK_RESOURCE_GPU", str(task.resource_gpu)))
+        container_envs.append(("KFJ_TASK_RESOURCE_RDMA", str(rdma_num)))
         container_envs.append(("KFJ_TASK_PROJECT_NAME", str(pipeline.project.name)))
         container_envs.append(("GPU_RESOURCE_NAME", gpu_resource_name))
+        container_envs.append(("RDMA_RESOURCE_NAME", rdma_resource_name))
         container_envs.append(("USERNAME", pipeline.created_by.username))
         container_envs.append(("IMAGE_PULL_POLICY", conf.get('IMAGE_PULL_POLICY','IfNotPresent')))
         if hubsecret_list:
@@ -611,10 +614,12 @@ def dag_to_pipeline(pipeline, dbsession, workflow_label=None, **kwargs):
         # 设置资源限制
         resource_cpu = task.job_template.get_env('TASK_RESOURCE_CPU') if task.job_template.get_env('TASK_RESOURCE_CPU') else task.resource_cpu
         resource_gpu = task.job_template.get_env('TASK_RESOURCE_GPU') if task.job_template.get_env('TASK_RESOURCE_GPU') else task.resource_gpu
+        resource_rdma = task.job_template.get_env('TASK_RESOURCE_RDMA') if task.job_template.get_env('TASK_RESOURCE_RDMA') else task.resource_rdma
 
         resource_memory = task.job_template.get_env('TASK_RESOURCE_MEMORY') if task.job_template.get_env('TASK_RESOURCE_MEMORY') else task.resource_memory
 
-        resources_requests = resources_limits = {}
+        resources_requests = {}
+        resources_limits = {}
 
         if resource_memory:
             if not '~' in resource_memory:
@@ -668,6 +673,12 @@ def dag_to_pipeline(pipeline, dbsession, workflow_label=None, **kwargs):
                 # 没要gpu的容器，就要加上可视gpu为空，不然gpu镜像能看到和使用所有gpu
                 for gpu_alias in conf.get('GPU_NONE', {}):
                     container_envs.append((conf.get('GPU_NONE',{})[gpu_alias][0], conf.get('GPU_NONE',{})[gpu_alias][1]))
+
+        rdma_num, _, rdma_resource_name = core.get_rdma(resource_rdma)
+        if rdma_resource_name and rdma_num:
+            nodeSelector.pop('cpu', None)
+            resources_requests[rdma_resource_name] = str(int(rdma_num))
+            resources_limits[rdma_resource_name] = str(int(rdma_num))
         # 配置host
         host_aliases = {}
 
@@ -689,6 +700,14 @@ def dag_to_pipeline(pipeline, dbsession, workflow_label=None, **kwargs):
             arguments = None
             resources_requests = None
             resources_limits = None
+
+        container_security_context = None
+        if resources_requests and rdma_resource_name and rdma_num:
+            container_security_context = {
+                "capabilities": {
+                    "add": ["IPC_LOCK"]
+                }
+            }
 
         # 构建 outputs.artifacts：将 task.outputs 中定义的输出文件声明为 Argo artifact
         # PVC 挂载路径 Argo 不会捕获，统一复制到 /tmp/cube_outputs/ 再让 Argo 抓
@@ -777,6 +796,8 @@ def dag_to_pipeline(pipeline, dbsession, workflow_label=None, **kwargs):
             task_template["schedulerName"] = conf.get('GPU_SCHEDULERNAME', 'hami-scheduler')
         if priority_class:
             task_template["priorityClassName"] = priority_class
+        if container_security_context:
+            task_template["container"]["securityContext"] = container_security_context
 
         # 统一添加一些固定环境变量，比如hostip，podip等
         task_template['container']['env'].append({

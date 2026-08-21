@@ -2,8 +2,8 @@
 
 set -ex
 
-docker build --network=host -t ccr.ccs.tencentyun.com/cube-studio/video-audio:20250301 -f job/video-audio/Dockerfile .
-docker push ccr.ccs.tencentyun.com/cube-studio/video-audio:20250301
+docker build --network=host -t 10.121.177.20:8082/mlops/video-audio:20260821 -f job/video-audio/Dockerfile .
+docker push 10.121.177.20:8082/mlops/video-audio:20260821
 
 
 
