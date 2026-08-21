@@ -7,6 +7,7 @@ import sys
 import time
 
 from job.pkgs.k8s.py_k8s import K8s
+from job.pkgs.k8s.affinity import build_pod_anti_affinity
 k8s_client = K8s()
 
 import argparse, json
@@ -176,22 +177,10 @@ def create_header_deploy(name):
                                 ]
                             }
                         },
-                        "podAntiAffinity": {
-                            "preferredDuringSchedulingIgnoredDuringExecution": [
-                                {
-                                    "weight": 5,
-                                    "podAffinityTerm": {
-                                        "topologyKey": "kubernetes.io/hostname",
-                                        "labelSelector": {
-                                            "matchLabels": {
-                                                "component": name,
-                                                "type":"ray"
-                                            }
-                                        }
-                                    }
-                                }
-                            ]
-                        }
+                        "podAntiAffinity": build_pod_anti_affinity(
+                            {"component": name, "type": "ray"},
+                            1,
+                        )
                     },
                     "containers": [
                         {
@@ -315,21 +304,10 @@ def create_worker_deploy(header_name,worker_name):
                                 ]
                             }
                         },
-                        "podAntiAffinity": {
-                            "preferredDuringSchedulingIgnoredDuringExecution": [
-                                {
-                                    "weight": 5,
-                                    "podAffinityTerm": {
-                                        "topologyKey": "kubernetes.io/hostname",
-                                        "labelSelector": {
-                                            "matchLabels": {
-                                                "component": worker_name
-                                            }
-                                        }
-                                    }
-                                }
-                            ]
-                        }
+                        "podAntiAffinity": build_pod_anti_affinity(
+                            {"component": worker_name, "type": "ray"},
+                            NUM_WORKER,
+                        )
                     },
                     "imagePullSecrets": HUBSECRET,
                     "restartPolicy": "Always",
@@ -392,14 +370,12 @@ def create_worker_deploy(header_name,worker_name):
         worker_deploy['spec']['template']['spec']['containers'][0]['resources']['limits'][GPU_RESOURCE_NAME] = int(gpu_num)
         worker_deploy['spec']['template']['spec']['nodeSelector'].pop('cpu', None)
         worker_deploy['spec']['template']['spec']['nodeSelector']['gpu'] = 'true'
-        worker_deploy['spec']['template']['spec']['nodeSelector']['mps'] = 'false'
     elif int(gpu_num)<0:
         shared_count, _, shared_resource_name = k8s_client.get_gpu_shared_resource(GPU_RESOURCE)
         worker_deploy['spec']['template']['spec']['containers'][0]['resources']['requests'][shared_resource_name] = shared_count
         worker_deploy['spec']['template']['spec']['containers'][0]['resources']['limits'][shared_resource_name] = shared_count
         worker_deploy['spec']['template']['spec']['nodeSelector'].pop('cpu', None)
         worker_deploy['spec']['template']['spec']['nodeSelector']['gpu'] = 'true'
-        worker_deploy['spec']['template']['spec']['nodeSelector']['mps'] = 'true'
     else:
         # 添加禁用指令
         worker_deploy['spec']['template']['spec']['containers'][0]['env'].append({

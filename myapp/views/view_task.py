@@ -569,6 +569,7 @@ class Task_ModelView_Base():
             task_env += 'PORT2=' + str(meet_ports[2])+ "\n"
 
         gpu_num, _, resource_name = core.get_gpu(task.resource_gpu)
+        rdma_num, _, rdma_resource_name = core.get_rdma(task.resource_rdma)
 
         # 系统环境变量
         task_env += 'KFJ_TASK_ID=' + str(task.id) + "\n"
@@ -581,6 +582,7 @@ class Task_ModelView_Base():
         task_env += 'KFJ_TASK_RESOURCE_CPU=' + str(task.resource_cpu) + "\n"
         task_env += 'KFJ_TASK_RESOURCE_MEMORY=' + str(task.resource_memory) + "\n"
         task_env += 'KFJ_TASK_RESOURCE_GPU=' + str(task.resource_gpu.replace('+', '')) + "\n"
+        task_env += 'KFJ_TASK_RESOURCE_RDMA=' + str(rdma_num) + "\n"
         task_env += 'KFJ_TASK_PROJECT_NAME=' + str(task.pipeline.project.name) + "\n"
         task_env += 'KFJ_PIPELINE_ID=' + str(task.pipeline_id) + "\n"
         task_env += 'KFJ_RUN_ID=' + run_id + "\n"
@@ -589,6 +591,7 @@ class Task_ModelView_Base():
         task_env += 'KFJ_PIPELINE_NAME=' + str(task.pipeline.name) + "\n"
         task_env += 'KFJ_NAMESPACE=pipeline' + "\n"
         task_env += f'GPU_RESOURCE_NAME={resource_name}' + "\n"
+        task_env += f'RDMA_RESOURCE_NAME={rdma_resource_name}' + "\n"
 
         # ---- SwanLab 训练监控环境变量（仅训练类模板） ----
         _job_template_name = (task.job_template.name or '') if task.job_template else ''
@@ -755,6 +758,7 @@ class Task_ModelView_Base():
         resource_cpu = task.job_template.get_env('TASK_RESOURCE_CPU') if task.job_template.get_env('TASK_RESOURCE_CPU') and 'run-' in run_id else task.resource_cpu
         resource_gpu = task.job_template.get_env('TASK_RESOURCE_GPU') if task.job_template.get_env('TASK_RESOURCE_GPU') and 'run-' in run_id else task.resource_gpu
         resource_memory = task.job_template.get_env('TASK_RESOURCE_MEMORY') if task.job_template.get_env('TASK_RESOURCE_MEMORY') and 'run-' in run_id else task.resource_memory
+        resource_rdma = task.job_template.get_env('TASK_RESOURCE_RDMA') if task.job_template.get_env('TASK_RESOURCE_RDMA') and 'run-' in run_id else task.resource_rdma
         host_aliases=conf.get('HOSTALIASES')
         if task.job_template.host_aliases:
             host_aliases += "\n" + task.job_template.host_aliases
@@ -780,7 +784,7 @@ class Task_ModelView_Base():
                                     resource_memory=resource_memory,
                                     resource_cpu=resource_cpu,
                                     resource_gpu=resource_gpu,
-                                    resource_rdma = '0',
+                                    resource_rdma=resource_rdma,
                                     image_pull_policy=conf.get('IMAGE_PULL_POLICY', 'Always'),
                                     image_pull_secrets=image_pull_secrets,
                                     image=image,

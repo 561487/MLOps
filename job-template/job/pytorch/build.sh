@@ -2,7 +2,7 @@
 
 set -ex
 
-docker build --network=host -t ccr.ccs.tencentyun.com/cube-studio/pytorch:20250801 -f job/pytorch/Dockerfile .
-docker push ccr.ccs.tencentyun.com/cube-studio/pytorch:20250801
+docker build --network=host -t 10.121.177.20:8082/mlops/pytorch:20260820 -f job/pytorch/Dockerfile .
+docker push 10.121.177.20:8082/mlops/pytorch:20260820
 
 

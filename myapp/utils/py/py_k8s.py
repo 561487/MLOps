@@ -1137,7 +1137,12 @@ class K8s():
         env_list.append(client.V1EnvVar(name='K8S_HOST_IP', value_from=client.V1EnvVarSource(field_ref=client.V1ObjectFieldSelector(field_path='status.hostIP'))))
         env_list.append(client.V1EnvVar(name='K8S_POD_NAME', value_from=client.V1EnvVarSource(field_ref=client.V1ObjectFieldSelector(field_path='metadata.name'))))
 
-        k8s_security_context = client.V1SecurityContext(privileged=privileged,capabilities=client.V1Capabilities(add=security_context.get('capabilities',{}).get('add',[]) if security_context else []))
+        rdma_num, _, rdma_resource_name = core.get_rdma(resource_rdma)
+        security_capabilities = security_context.get('capabilities', {}).get('add', []) if security_context else []
+        security_capabilities = list(security_capabilities)
+        if rdma_resource_name and rdma_num and 'IPC_LOCK' not in security_capabilities:
+            security_capabilities.append('IPC_LOCK')
+        k8s_security_context = client.V1SecurityContext(privileged=privileged,capabilities=client.V1Capabilities(add=security_capabilities))
 
         resources_requests = {}
         resources_limits = {}
@@ -1174,6 +1179,10 @@ class K8s():
             if gpu_resource_name:
                 resources_requests[gpu_resource_name] = str(int(gpu_num))
                 resources_limits[gpu_resource_name] = str(int(gpu_num))
+
+        if rdma_resource_name and rdma_num:
+            resources_requests[rdma_resource_name] = str(int(rdma_num))
+            resources_limits[rdma_resource_name] = str(int(rdma_num))
 
         if 0==gpu_num:
             # 没要gpu的容器，就要加上可视gpu为空，不然gpu镜像能看到和使用所有gpu
@@ -1280,6 +1289,10 @@ class K8s():
                 selector = selector.strip()
                 if selector:
                     nodeSelector[selector.strip().split('=')[0].strip()] = selector.strip().split('=')[1].strip()
+
+        rdma_num, _, rdma_resource_name = core.get_rdma(resource_rdma)
+        if rdma_resource_name and rdma_num:
+            nodeSelector.pop('cpu', None)
 
         gpu_num, gpu_type, resource_name = self.get_gpu(resource_gpu)
         # 设置卡型
