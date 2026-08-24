@@ -9769,7 +9769,7 @@
   },
  "msswift": {
     "project_name": "分布式加速",
-    "image_name": "10.121.177.20:8082/mlops/msswift:4.5.0-py311-cu128-r3",
+    "image_name": "10.121.177.20:8082/mlops/msswift:4.5.0-py311-cu128-r4",
     "gitpath": "/job-template/job/msswift",
     "image_describe": "ms-swift 分布式训练镜像（预置 CUDA + torch + deepspeed + swift）",
     "job_template_name": "msswift",
