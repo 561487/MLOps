@@ -34,20 +34,7 @@ from sqlalchemy import case
 from myapp import db
 from myapp.exceptions import MyappException
 from myapp.models.model_job import Images, Task
-from myapp.models.model_runtime import ModelRuntimeMapping
-
-# runtime_key → scene 映射（第二版分析确定；scene 与页面 SCENE_CHOICES 保持一致）
-# scene: finetune / pretrain / quantization / inference
-# - litgpt → pretrain 为 litgpt-pretrain 预留（模板尚未配置 runtime_key，接入后自动生效）
-RUNTIME_SCENE = {
-    'msswift': 'finetune',
-    'llama_factory': 'finetune',
-    'deepspeed': 'finetune',
-    'litgpt': 'pretrain',
-    'gptqmodel': 'quantization',
-    'vllm': 'inference',
-    'sglang': 'inference',
-}
+from myapp.models.model_runtime import ModelRuntimeMapping, RUNTIME_SCENE
 
 # runtime_key → 任务参数中的模型参数名（不同 Job Template 的参数名不同）
 RUNTIME_MODEL_ARG = {

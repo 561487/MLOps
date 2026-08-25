@@ -31,6 +31,8 @@ export interface ILinkageConfig {
 interface IFormChangeRes {
     currentChange: Record<string, any>
     allValues: Record<string, any>
+    /** 表单值注入（编辑回填）信号：true 时按已有值初始化联动并保留当前值，不触发下游清空 */
+    init?: boolean
 }
 export interface IDynamicFormGroupConfigItem {
     expanded: boolean
@@ -143,19 +145,59 @@ export default function DynamicForm(props: IProps) {
         setCurrentConfigGroup(tarConfigGroup)
     }
 
-    const resetFieldProps = (field: string, linkageConfig: ILinkageConfig[]) => {
+    /** 级联清空：从 field 出发沿联动图向下游清空 effect 字段值（scene → runtime_key → runtime_image） */
+    const clearDownstream = (field: string, linkageConfig: ILinkageConfig[]) => {
+        const visited = new Set<string>()
+        const queue = [field]
+        while (queue.length) {
+            const cur = queue.shift() as string
+            if (visited.has(cur)) continue
+            visited.add(cur)
+            findOptionInLinkAge(cur, linkageConfig).forEach(item => {
+                props.form?.setFieldsValue({ [item.effect]: undefined })
+                setValueInConfig(item.effect, { options: [] })
+                setValueInConfigGroup(item.effect, { options: [] })
+                queue.push(item.effect)
+            })
+        }
+    }
+
+    const resetFieldProps = (field: string, linkageConfig: ILinkageConfig[], opts: { preserveValue?: boolean } = {}) => {
+        const { preserveValue = false } = opts
         const optionInlinkAge = findOptionInLinkAge(field, linkageConfig)
         optionInlinkAge.forEach(item => {
-            props.form?.setFieldsValue({ [item.effect]: undefined })
-            setValueInConfig(item.effect, { options: item.option })
-            setValueInConfigGroup(item.effect, { options: item.option })
+            const prev = props.form?.getFieldValue(item.effect)
+            let options = item.option
+            if (preserveValue && prev !== undefined && prev !== null) {
+                // 编辑初始化：保留当前值；当前值不在联动候选里时（如已停用镜像的历史值）追加显示
+                if (!options.some(o => o.value === prev)) {
+                    options = [...options, { label: prev, value: prev }]
+                }
+                props.form?.setFieldsValue({ [item.effect]: prev })
+            } else {
+                // 用户主动变更：清空该字段值，并级联清空依赖它的下游字段
+                props.form?.setFieldsValue({ [item.effect]: undefined })
+                clearDownstream(item.effect, linkageConfig)
+            }
+            setValueInConfig(item.effect, { options })
+            setValueInConfigGroup(item.effect, { options })
         })
     }
 
     useEffect(() => {
         if (props.formChangeRes && props.linkageConfig) {
-            const { currentChange } = props.formChangeRes
-            resetFieldProps(Object.keys(currentChange)[0], props.linkageConfig)
+            const { currentChange, init } = props.formChangeRes
+            if (init) {
+                // 表单值注入后的联动初始化（编辑打开）：遍历全部已有值字段，保留当前值刷新候选下拉
+                Object.entries(currentChange).forEach(([key, value]) => {
+                    if (value !== undefined && value !== null) {
+                        resetFieldProps(key, props.linkageConfig as ILinkageConfig[], { preserveValue: true })
+                    }
+                })
+            } else {
+                // 用户主动变更：只处理发生变化的字段，其下游值级联清空
+                resetFieldProps(Object.keys(currentChange)[0], props.linkageConfig)
+            }
         }
     }, [props.formChangeRes])
 

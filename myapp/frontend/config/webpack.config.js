@@ -252,6 +252,10 @@ module.exports = function (webpackEnv) {
       minimizer: [
         // This is only used in production mode
         new TerserPlugin({
+          // 本地开发机内存受限（3.8G）：默认并行会派生 (cpu-1) 个 terser 进程，
+          // webpack 主进程 + 3 个 worker 峰值约 2.5-3.5G，被内核 OOM 直接 SIGKILL（无任何报错）。
+          // parallel: false 改为进程内压缩，峰值约降 40%，构建变慢但可稳定完成。
+          parallel: false,
           terserOptions: {
             parse: {
               // We want terser to parse ecma 8 code. However, we don't want it

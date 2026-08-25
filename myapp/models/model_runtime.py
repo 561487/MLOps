@@ -23,17 +23,21 @@ from sqlalchemy.orm import relationship
 from myapp.models.base import MyappModelBase
 from myapp.models.helpers import AuditMixinNullable
 
-# 平台真实存在的大模型 Runtime 框架。
-# 与 job_template.runtime_key / Resolver RUNTIME_SCENE 保持一致。
-RUNTIME_KEY_CHOICES = [
-    'msswift',
-    'llama_factory',
-    'deepspeed',
-    'litgpt',
-    'gptqmodel',
-    'vllm',
-    'sglang',
-]
+# ---- 场景 / Runtime 类型 唯一公共配置 ----
+# 单一来源：页面联动（view_runtime.column_related）、后端组合校验（view_runtime._validate_scene_runtime）、
+# Resolver 场景解析（runtime_resolver.RUNTIME_SCENE）全部从这里取。
+SCENE_RUNTIME_MAP = {
+    'finetune': ['msswift', 'llama_factory', 'deepspeed'],
+    'pretrain': ['litgpt'],
+    'quantization': ['gptqmodel'],
+    'inference': ['vllm', 'sglang'],
+}
+
+# Runtime 类型 → 所属场景（由 SCENE_RUNTIME_MAP 推导的逆映射，不重复维护）
+RUNTIME_SCENE = {key: scene for scene, keys in SCENE_RUNTIME_MAP.items() for key in keys}
+
+# 平台真实存在的大模型 Runtime 框架（顺序即地图推导顺序，与 SCENE_RUNTIME_MAP 严格一致）
+RUNTIME_KEY_CHOICES = list(RUNTIME_SCENE.keys())
 
 
 class RuntimeImageVersion(Model, AuditMixinNullable, MyappModelBase):
