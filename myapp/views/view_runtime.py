@@ -4,9 +4,14 @@
 - 镜像的 Runtime 元数据（runtime_key / runtime_version / runtime_enabled）在
   「开发 → 镜像管理」的 Images 表上配置，镜像管理 = 镜像资产唯一来源
 - 模型 Runtime 映射：model / scene / runtime_key(联动) / runtime_image(联动下拉) / is_default / remark
-- 两级联动（复用前端 ADUGTemplate 的 column_related 机制，前端零改动）：
-  1. scene → runtime_key：不同场景只出现允许的 Runtime 类型
+- 三级级联（复用前端 ADUGTemplate 的 column_related 机制）：
+  scene → runtime_key → runtime_image
+  1. scene → runtime_key：不同场景只出现允许的 Runtime 类型（SCENE_RUNTIME_MAP）
   2. runtime_key → runtime_image：只显示该类型「已启用」的镜像
+  3. 编辑打开时按 formData 已有值初始化两级下拉（ModalForm init 信号 + DynamicForm 保留值刷新）；
+     用户主动修改字段时级联清空下游值（改 scene 清 runtime_key+runtime_image，改 runtime_key 清 runtime_image）
+- 场景 → Runtime 类型唯一公共配置：SCENE_RUNTIME_MAP（models/model_runtime.py），
+  页面联动 / 后端保存校验 / Resolver 场景解析共用，禁止任何地方另写一份
 - 保存链路说明（真实 post()/put() 流程）：
   前端提交的是 runtime_image 显示串（通用组件联动 option value==label 的约束，
   无法直接提交 images_id）；baseApi.post() 的 add_columns 白名单过滤会丢弃不在
@@ -31,6 +36,7 @@ from myapp.models.model_job import Images
 from myapp.models.model_runtime import (
     ModelRuntimeMapping,
     RUNTIME_KEY_CHOICES,
+    SCENE_RUNTIME_MAP,
     ensure_single_default,
 )
 from myapp.views.baseApi import MyappModelRestApi
@@ -43,20 +49,14 @@ conf = app.config
 # - pretrain：litgpt（scene 预留，运行链路后续接入）
 # - quantization：gptqmodel
 # - inference：vllm / sglang（scene 预留，推理创建链路暂未接入 Resolver）
+# 场景 → Runtime 类型映射见 SCENE_RUNTIME_MAP（models/model_runtime.py 唯一公共配置，
+# view 联动 / 后端校验 / Resolver 场景解析共用，此处不重复维护）
 SCENE_CHOICES = [
     ['finetune', _('finetune(微调/训练)')],
     ['pretrain', _('pretrain(预训练)')],
     ['quantization', _('quantization(量化)')],
     ['inference', _('inference(推理)')],
 ]
-
-# 场景 → 允许的 Runtime 类型（第一层联动 + 后端组合校验，页面与后端同时保证）
-SCENE_RUNTIME_MAP = {
-    'finetune': ['msswift', 'llama_factory', 'deepspeed'],
-    'pretrain': ['litgpt'],
-    'quantization': ['gptqmodel'],
-    'inference': ['vllm', 'sglang'],
-}
 
 # 镜像显示串分隔符（' / ' 不会出现在 Harbor 镜像地址中，可安全按末段还原镜像名）
 DISPLAY_SEP = ' / '
@@ -223,21 +223,43 @@ class ModelRuntimeMapping_ModelView_Base():
         data.pop('runtime_image', None)
         return data
 
+    def _validate_scene_runtime(self, scene, runtime_key):
+        """场景与 Runtime 类型组合校验（保存前强制，不依赖前端级联；SCENE_RUNTIME_MAP 唯一公共配置）。"""
+        allowed = SCENE_RUNTIME_MAP.get(scene)
+        if allowed is None:
+            raise MyappException(
+                '未知场景 %s（允许：%s）' % (scene, ' / '.join(SCENE_RUNTIME_MAP)))
+        if runtime_key not in allowed:
+            raise MyappException('%s 场景不支持 Runtime: %s' % (scene, runtime_key))
+
     def _resolve_pending_image(self, item):
         """INSERT/UPDATE 前把前端提交的 runtime_image 解析回 Images 并回填 images_id/runtime_key。
 
         兼容两种提交值：
         - 镜像 id（纯数字，如 '123'）——后续前端若改为直接提交 id 也成立
         - 显示串（'Runtime类型 / 版本 / 镜像名'）——当前前端联动 value==label 的实际提交格式
+
+        保存校验（新增/编辑都强制，直接 API 提交同样拦截）：
+        - scene + runtime_key 属于 SCENE_RUNTIME_MAP 允许组合
+        - 所选镜像的 Images.runtime_key == Mapping.runtime_key
+        - 新选镜像必须 runtime_enabled=true；唯一例外：编辑时保留当前已引用的停用镜像
+          （runtime_image 未变更且解析回同一个 images_id 时允许维持原值，不允许重新选择停用镜像）
+        - 编辑时 runtime_image 未提交 → 保留原 images_id，且 runtime_key 自动同步回原镜像
+          （防止 scene/runtime_key 已改而镜像未选，产生 mapping 与镜像不一致的脏数据）
         """
         display = (getattr(self, '_pending_runtime_image', None) or '')
         # 防御：antd 某些模式可能提交 {label, value} 对象
         if isinstance(display, dict):
             display = display.get('value') or display.get('label') or ''
         display = str(display).strip()
+        existing_id = getattr(item, 'images_id', None)
         if not display:
-            # 编辑时未重新选择镜像 → 保留原关联；新增时必须选择
-            if getattr(item, 'images_id', None):
+            # 编辑时未重新选择镜像 → 保留原关联（新增时 images_id 为空 → 必须选择）
+            if existing_id:
+                orig = db.session.query(Images).get(existing_id)
+                if orig and orig.runtime_key:
+                    item.runtime_key = orig.runtime_key  # 自动同步回原镜像，杜绝两份数据
+                self._validate_scene_runtime(item.scene, item.runtime_key)
                 return item
             raise MyappException('请选择有效的 Runtime 镜像')
         if display.isdigit():
@@ -251,13 +273,15 @@ class ModelRuntimeMapping_ModelView_Base():
         submitted_key = (item.runtime_key or '').strip()
         if submitted_key and submitted_key != img.runtime_key:
             raise MyappException(
-                '所选镜像与 Runtime 类型不一致（%s ↔ %s），请修正' % (submitted_key, img.runtime_key))
+                '所选镜像 Runtime 类型为 %s，与映射 Runtime 类型 %s 不一致' % (img.runtime_key, submitted_key))
         # 强校验 2：场景与 Runtime 类型组合必须合法（finetune + vllm 等非法组合拒绝）
-        if img.runtime_key not in SCENE_RUNTIME_MAP.get(item.scene, []):
-            raise MyappException('场景 %s 不允许 Runtime 类型 %s' % (item.scene, img.runtime_key))
-        # 强校验 3：镜像必须已启用
+        self._validate_scene_runtime(item.scene, img.runtime_key)
+        # 强校验 3：镜像必须已启用；唯一例外是编辑保留当前已引用的停用镜像（未重新选择）
         if not img.runtime_enabled:
-            raise MyappException('镜像「%s」已停用（允许新任务使用=false），请选择其他镜像' % img.name)
+            if existing_id and existing_id == img.id:
+                pass  # 编辑保留当前引用：允许维持停用镜像，但不得再选择其他停用镜像
+            else:
+                raise MyappException('镜像「%s」已停用（允许新任务使用=false），请选择其他镜像' % img.name)
         # 自动同步：runtime_key / images_id 均取自所选镜像（禁止手工输入两份数据）
         item.images_id = img.id
         item.runtime_key = img.runtime_key
