@@ -5,7 +5,6 @@ msswift 模板启动器
 """
 
 import argparse
-import copy
 import datetime
 import json
 import os
@@ -21,6 +20,7 @@ import psutil
 from kubernetes import client
 from job.pkgs.k8s.py_k8s import K8s
 from job.pkgs.k8s.affinity import build_pod_anti_affinity
+from job.pkgs.k8s.replica_specs import build_master_worker_replica_specs
 
 k8s_client = K8s()
 
@@ -327,16 +327,16 @@ def make_pytorchjob(name, num_workers, image, command):
             "capabilities": {"add": ["IPC_LOCK"]}
         }
 
-    worker_pod_spec = copy.deepcopy(pod_spec)
-    worker_pod_spec['replicas'] = int(num_workers) - 1
-
+    # num_workers 含 Master；单机时不写 Worker，避免多占一份资源/默认出 worker-0
+    replica_specs = build_master_worker_replica_specs(pod_spec, num_workers)
     if _monitor_enabled():
-        pod_spec['template']['spec']['containers'][0]['env'].append({
+        replica_specs["Master"]['template']['spec']['containers'][0]['env'].append({
             "name": "MLOPS_MONITOR_ROLE", "value": "primary"
         })
-        worker_pod_spec['template']['spec']['containers'][0]['env'].append({
-            "name": "MLOPS_MONITOR_ROLE", "value": "worker"
-        })
+        if "Worker" in replica_specs:
+            replica_specs["Worker"]['template']['spec']['containers'][0]['env'].append({
+                "name": "MLOPS_MONITOR_ROLE", "value": "worker"
+            })
 
     pytorch_deploy = {
         "apiVersion": "kubeflow.org/v1",
@@ -357,10 +357,7 @@ def make_pytorchjob(name, num_workers, image, command):
         },
         "spec": {
             "cleanPodPolicy": "None",
-            "pytorchReplicaSpecs": {
-                "Master": pod_spec,
-                "Worker": worker_pod_spec
-            }
+            "pytorchReplicaSpecs": replica_specs,
         }
     }
 

@@ -1,10 +1,17 @@
 pip config set global.index-url https://mirrors.aliyun.com/pypi/simple
 
-# pip install tensorboardX torch torchvision --no-cache-dir
-# pip install torch==2.0.1+cu118 torchvision==0.15.2+cu118 torchaudio==2.0.2 tensorboardX --index-url https://download.pytorch.org/whl/cu118
-pip install torch==2.0.1 torchvision==0.15.2 torchaudio==2.0.2 tensorboardX
+# RTX 5090 D (sm_120) 必须用 CUDA 12.8 + torch cu128，镜像里已预装：
+#   10.121.177.20:8082/mlops/ubuntu-gpu:cuda12.8.1-cudnn-python3.11
+# 不要再 pip 装 torch==2.0.1，会覆盖镜像里的 cu128 包，再次出现 no kernel image。
+python - <<'PY'
+import torch
+print('torch', torch.__version__, 'cuda', torch.version.cuda)
+print('gpu', torch.cuda.get_device_name(0) if torch.cuda.is_available() else None)
+print('cap', torch.cuda.get_device_capability(0) if torch.cuda.is_available() else None)
+print('arch', torch.cuda.get_arch_list())
+PY
 
-pip install numpy==1.26.4
+pip install tensorboardX
 
 #export NCCL_IB_HCA=mlx5   # 需要适配,ib或者roce 都行
 #export NCCL_IB_TC=136
