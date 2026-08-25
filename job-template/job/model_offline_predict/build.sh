@@ -5,8 +5,8 @@ cd "$(dirname "$0")/.."
 
 REGISTRY="10.121.177.20:8082"
 PROJECT="mlops"
-IMAGE_NAME="offline-predict-launcher"
-IMAGE_VERSION="1.0.0-20260821-r1"
+IMAGE_NAME="model-offline-predict-launcher"
+IMAGE_VERSION="1.0.0-20260825-r1"
 IMAGE="${REGISTRY}/${PROJECT}/${IMAGE_NAME}:${IMAGE_VERSION}"
 
 docker build -t "${IMAGE}" -f model_offline_predict/Dockerfile .
