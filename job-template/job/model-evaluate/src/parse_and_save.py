@@ -157,6 +157,25 @@ def compute_overall(results: dict) -> float:
     # 常见指标的优先级（按通用性降序）
     METRIC_PRIORITY = ['accuracy', 'acc', 'exact_match', 'f1', 'bleu', 'rouge']
 
+    # OpenCompass 实际输出的 metric 名归一化映射
+    # （bleu_score -> bleu, rouge_1/rouge_l -> rouge, accuracy_score -> accuracy 等）
+    METRIC_ALIAS = {
+        'accuracy_score': 'accuracy',
+        'acc_score': 'acc',
+        'exact': 'exact_match',
+        'exact_match_score': 'exact_match',
+        'bleu_score': 'bleu',
+        'bleu': 'bleu',
+        'rouge_1': 'rouge',
+        'rouge_2': 'rouge',
+        'rouge_l': 'rouge',
+        'rouge': 'rouge',
+        'f1_score': 'f1',
+    }
+
+    def _normalize(name: str) -> str:
+        return METRIC_ALIAS.get(name.lower(), name.lower())
+
     scores = []
     for ds, metrics in results.items():
         if not metrics:
@@ -168,7 +187,7 @@ def compute_overall(results: dict) -> float:
         # 按优先级寻找可用的指标
         for preferred in METRIC_PRIORITY:
             for name, value in metrics.items():
-                if preferred == name.lower() and isinstance(value, (int, float)):
+                if _normalize(name) == preferred and isinstance(value, (int, float)):
                     chosen_metric = name
                     chosen_value = value
                     break

@@ -9078,7 +9078,7 @@
   },
   "model-evaluate": {
     "project_name": "模型处理",
-    "image_name": "10.121.177.20:8082/mlops/model-evaluate:20260625-073618",
+    "image_name": "10.121.177.20:8082/mlops/model-evaluate:main-py310-cu128-r1",
     "gitpath": "/job-template/job/model-evaluate",
     "image_describe": "大模型评测",
     "job_template_name": "model-evaluate",
@@ -9302,6 +9302,61 @@
           "default": "",
           "placeholder": "/mnt/storage/datasets-cache",
           "describe": "数据集缓存目录(挂载卷路径)。有数据集则直接复用，没有则下载到此目录。留空则使用容器内置缓存(Pod销毁即丢失)",
+          "editable": 1
+        }
+      },
+      "自定义数据集": {
+        "--custom_dataset_path": {
+          "type": "str",
+          "item_type": "str",
+          "label": "自定义数据集路径",
+          "require": 0,
+          "choice": [],
+          "range": "",
+          "default": "",
+          "placeholder": "/mnt/storage/models-storage/datasets/my_eval.jsonl",
+          "describe": "自定义数据集路径(容器内绝对路径，支持文件或目录)。提供时走自定义评测路径，与“评测数据集”互斥。列名/题型/指标自动推断；目录内每个文件作为独立数据集。目录需统一为 .json/.jsonl 或 .csv",
+          "editable": 1
+        },
+        "--custom_columns": {
+          "type": "str",
+          "item_type": "str",
+          "label": "列名覆盖(JSON)",
+          "require": 0,
+          "choice": [],
+          "range": "",
+          "default": "",
+          "placeholder": "如 {\"input\":\"q\",\"target\":\"ans\",\"choices\":\"opt1,opt2,opt3,opt4\"}",
+          "describe": "列名覆盖(JSON)，仅在自动推断不准时使用。字段: input=问题列名, target=答案列名, choices=选项列名(逗号分隔，非空=选择题)。留空=自动推断",
+          "editable": 1
+        },
+        "--custom_metric": {
+          "type": "str",
+          "item_type": "str",
+          "label": "评测指标",
+          "require": 0,
+          "choice": [
+            "accuracy",
+            "exact_match",
+            "bleu",
+            "rouge"
+          ],
+          "range": "",
+          "default": "",
+          "placeholder": "",
+          "describe": "评测指标覆盖。留空=自动(选择题→accuracy / 生成式→exact_match)。若对应 Evaluator 类在镜像中不存在，自动 fallback 到 accuracy",
+          "editable": 1
+        },
+        "--custom_prompt_template": {
+          "type": "str",
+          "item_type": "str",
+          "label": "自定义 Prompt 模板",
+          "require": 0,
+          "choice": [],
+          "range": "",
+          "default": "",
+          "placeholder": "如: 请回答以下问题:\\n{input}",
+          "describe": "自定义 prompt(含 {input}/{A} 等占位符)。留空=自动(选择题用 ANSWER 模板 / 生成式用 {input})。占位符需与数据列名对齐",
           "editable": 1
         }
       },
