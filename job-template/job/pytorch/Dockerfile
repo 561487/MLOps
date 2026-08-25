@@ -1,4 +1,4 @@
-FROM python:3.9
+FROM 10.121.177.20:8082/notebook/python:3.9
 
 ENV TZ=Asia/Shanghai
 ENV DEBIAN_FRONTEND=noninteractive

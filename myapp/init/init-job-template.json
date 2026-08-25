@@ -4742,7 +4742,7 @@
   },
   "pytorchjob": {
     "project_name": "深度学习",
-    "image_name": "10.121.177.20:8082/mlops/pytorch:20260820",
+    "image_name": "10.121.177.20:8082/mlops/pytorch:20260824",
     "gitpath": "/job-template/job/pytorch",
     "image_describe": "pytorch分布式训练",
     "job_template_name": "pytorchjob",
@@ -4765,7 +4765,7 @@
           "require": 1,
           "choice": [],
           "range": "",
-          "default": "10.121.177.20:8082/mlops/ubuntu-gpu:cuda11.8.0-cudnn8-python3.9",
+          "default": "10.121.177.20:8082/mlops/ubuntu-gpu:cuda12.8.1-cudnn-python3.11",
           "placeholder": "",
           "describe": "worker镜像，直接运行你代码的环境镜像 <a target='_blank' href='https://github.com/data-infra/cube-studio/tree/main/images'>基础镜像</a>",
           "editable": 1
@@ -4812,7 +4812,7 @@
   },
   "paddlejob": {
     "project_name": "深度学习",
-    "image_name": "10.121.177.20:8082/mlops/paddle-job:20260821",
+    "image_name": "10.121.177.20:8082/mlops/paddle-job:20260825",
     "gitpath": "/job-template/job/paddle",
     "image_describe": "paddle分布式训练",
     "job_template_name": "paddlejob",
@@ -6032,7 +6032,7 @@
   },
   "model-offline-predict": {
     "project_name": "模型服务化",
-    "image_name": "10.121.177.20:8082/mlops/offline-predict-launcher:20260714",
+    "image_name": "10.121.177.20:8082/mlops/offline-predict-launcher:1.0.0-20260821-r1",
     "gitpath": "/job-template/job/offline-predict",
     "image_describe": "分布式离线推理",
     "job_template_name": "model-offline-predict",
@@ -6733,7 +6733,7 @@
   },
   "video-img": {
     "project_name": "视频处理",
-    "image_name": "10.121.177.20:8082/mlops/video-audio:20250301",
+    "image_name": "10.121.177.20:8082/mlops/video-audio:20260821",
     "gitpath": "/job-template/job/video-audio",
     "image_describe": "分布式媒体文件处理",
     "job_template_name": "video-img",
@@ -6778,7 +6778,7 @@
   },
   "video-audio": {
     "project_name": "视频处理",
-    "image_name": "10.121.177.20:8082/mlops/video-audio:20250301",
+    "image_name": "10.121.177.20:8082/mlops/video-audio:20260821",
     "gitpath": "/job-template/job/video-audio",
     "image_describe": "分布式媒体文件处理",
     "job_template_name": "video-audio",
@@ -9437,7 +9437,7 @@
   },
   "msswift": {
     "project_name": "分布式加速",
-    "image_name": "10.121.177.20:8082/mlops/msswift:4.5.0-py311-cu128-r4",
+    "image_name": "10.121.177.20:8082/notebook/msswift:4.5.0-py311-cu128-r1",
     "gitpath": "/job-template/job/msswift",
     "image_describe": "ms-swift 分布式训练镜像（预置 CUDA + torch + deepspeed + swift）",
     "job_template_name": "msswift",

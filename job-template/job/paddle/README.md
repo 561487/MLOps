@@ -13,11 +13,10 @@ spec:
   paddleReplicaSpecs:
     Master:
       replicas: 1
-    Worker:
-      replicas: num_worker - 1
+    # Worker 仅在 num_worker > 1 时写入，replicas = num_worker - 1
 ```
 
-平台参数 `--num_worker` 表示总节点数，包含 1 个 Master。比如 `--num_worker=3` 时，会创建 1 个 Master 和 2 个 Worker。
+平台参数 `--num_worker` 表示总节点数，包含 1 个 Master。比如 `--num_worker=3` 时，会创建 1 个 Master 和 2 个 Worker；`--num_worker=1` 时只创建 Master，不写 Worker。
 
 # 参数
 
