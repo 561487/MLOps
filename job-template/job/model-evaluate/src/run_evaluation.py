@@ -48,7 +48,7 @@ def check_opencompass():
     try:
         result = subprocess.run(
             ['opencompass', '--help'],
-            capture_output=True, text=True, timeout=10
+            capture_output=True, text=True, timeout=120
         )
         if result.returncode != 0:
             print(f"[ERROR] opencompass CLI 不可用: {result.stderr}")
@@ -57,6 +57,10 @@ def check_opencompass():
     except FileNotFoundError:
         print("[ERROR] opencompass 命令未找到，请确认镜像中已安装 opencompass")
         sys.exit(1)
+    except subprocess.TimeoutExpired:
+        # opencompass CLI 启动需 import torch/transformers，冷缓存时可超过 10s+
+        # 能启动到超时说明命令存在，仅首次加载慢，不视为致命错误
+        print("[WARN] opencompass --help 响应慢(120s 超时)，CLI 存在，继续执行")
 
 
 def check_gpu_available(num_gpus: int = 1):
@@ -99,6 +103,285 @@ def check_gpu_available(num_gpus: int = 1):
         print(f'[WARN] GPU 检查失败: {e}')
 
 
+def _resolve_evaluator_type(metric: str) -> str:
+    """把 metric 名映射为 OpenCompass Evaluator 类的完整 type 路径。
+
+    会用 importlib 探测目标类是否存在；探测失败则 fallback 到 AccEvaluator，
+    避免 config 加载时因类名错误直接崩溃。
+    """
+    METRIC_EVALUATOR_MAP = {
+        'accuracy': 'opencompass.openicl.icl_evaluator.AccEvaluator',
+        'exact_match': 'opencompass.openicl.icl_evaluator.ExactMatchEvaluator',
+        'bleu': 'opencompass.openicl.icl_evaluator.BleuScoreEvaluator',
+        'rouge': 'opencompass.openicl.icl_evaluator.RougeEvaluator',
+    }
+    type_str = METRIC_EVALUATOR_MAP.get(metric, METRIC_EVALUATOR_MAP['accuracy'])
+    try:
+        mod_path, cls_name = type_str.rsplit('.', 1)
+        import importlib
+        mod = importlib.import_module(mod_path)
+        if not hasattr(mod, cls_name):
+            print(f'[WARN] Evaluator 类 {cls_name} 不存在，fallback 到 AccEvaluator')
+            return METRIC_EVALUATOR_MAP['accuracy']
+    except Exception as e:
+        print(f'[WARN] 探测 {type_str} 失败 ({e})，fallback 到 AccEvaluator')
+        return METRIC_EVALUATOR_MAP['accuracy']
+    return type_str
+
+
+def _read_first_record(file_path: str) -> dict:
+    """读取 jsonl/json/csv 文件的第一条记录，返回字段名列表。"""
+    import csv as _csv
+    ext = os.path.splitext(file_path)[1].lower()
+    try:
+        if ext == '.csv':
+            with open(file_path, 'r', encoding='utf-8') as f:
+                reader = _csv.reader(f)
+                header = next(reader, None)
+                return {col: '' for col in (header or [])}
+        else:
+            # jsonl / json
+            with open(file_path, 'r', encoding='utf-8') as f:
+                first_line = f.readline().strip()
+                if not first_line:
+                    return {}
+                return json.loads(first_line)
+    except Exception as e:
+        print(f'[WARN] 读取文件首行失败 {file_path}: {e}')
+        return {}
+
+
+def infer_dataset_schema(file_path: str) -> dict:
+    """读首行数据，自动推断列名/题型/指标。
+
+    返回 dict:
+      input_col: 问题列名
+      output_col: 答案列名
+      choice_cols: 选项列名列表（空=生成式）
+      metric: 推断的指标
+      fmt: 'json' 或 'csv'
+    """
+    record = _read_first_record(file_path)
+    fields = list(record.keys()) if record else []
+
+    # ---- 格式 ----
+    ext = os.path.splitext(file_path)[1].lower()
+    fmt = 'csv' if ext == '.csv' else 'json'
+
+    # ---- 答案列 ----
+    ANSWER_CANDIDATES = ['target', 'answer', 'label', 'gold', 'gt']
+    output_col = ''
+    for cand in ANSWER_CANDIDATES:
+        if cand in fields:
+            output_col = cand
+            break
+    if not output_col and fields:
+        output_col = fields[-1]  # fallback: 最后一列
+
+    # ---- 选项列(MCQ) ----
+    # 策略1: A,B,C,D 同时存在
+    choice_cols = []
+    upper_letters = [c for c in fields if len(c) == 1 and c.isupper()]
+    if len(upper_letters) >= 2:
+        choice_cols = sorted(upper_letters)
+    else:
+        # 策略2: option_a/option_b/... 或 option1/option2/...
+        option_prefix = [f for f in fields if f.lower().startswith('option')]
+        if len(option_prefix) >= 2:
+            choice_cols = sorted(option_prefix)
+
+    is_mcq = len(choice_cols) > 0
+
+    # ---- 问题列 ----
+    INPUT_CANDIDATES = ['input', 'question', 'query', 'prompt']
+    input_col = ''
+    for cand in INPUT_CANDIDATES:
+        if cand in fields:
+            input_col = cand
+            break
+    if not input_col:
+        # 去掉答案列和选项列后取第一个
+        remaining = [f for f in fields if f != output_col and f not in choice_cols]
+        input_col = remaining[0] if remaining else (fields[0] if fields else 'input')
+
+    # ---- 指标 ----
+    metric = 'accuracy' if is_mcq else 'exact_match'
+
+    # ---- 打印推断结果 ----
+    task_type = 'MCQ(选择题)' if is_mcq else '生成式问答'
+    print(f'[INFO] 自动推断: 问题列={input_col}, 答案列={output_col}, '
+          f'选项列={choice_cols or "无"}, 题型={task_type}, 指标={metric}')
+
+    if not fields:
+        print(f'[WARN] 无法读取数据字段，使用默认值: input/target/无选项/accuracy')
+        return {
+            'input_col': 'input', 'output_col': 'target',
+            'choice_cols': [], 'metric': 'accuracy', 'fmt': fmt,
+        }
+
+    return {
+        'input_col': input_col,
+        'output_col': output_col,
+        'choice_cols': choice_cols,
+        'metric': metric,
+        'fmt': fmt,
+    }
+
+
+def build_custom_config(args: argparse.Namespace) -> str:
+    """为自定义数据集生成 OpenCompass config 文件，返回文件路径。
+
+    支持:
+      - 单文件 / 单目录（目录内每个文件作为独立数据集）
+      - 自动推断列名/题型/指标（读首行数据）
+      - --custom_columns JSON 覆盖列名（推断失败时救场）
+      - --custom_metric 覆盖指标
+      - --custom_prompt_template 覆盖 prompt
+    输出: {output_path}/_custom_config.py
+    """
+    import glob as _glob
+
+    path = args.custom_dataset_path
+    if not os.path.exists(path):
+        raise FileNotFoundError(f'自定义数据集路径不存在: {path}')
+
+    # ---- 1. 收集数据文件列表 ----
+    json_exts = {'.json', '.jsonl'}
+    csv_exts = {'.csv'}
+    if os.path.isdir(path):
+        all_files = []
+        for f in sorted(os.listdir(path)):
+            ext = os.path.splitext(f)[1].lower()
+            if ext in json_exts or ext in csv_exts:
+                all_files.append(os.path.join(path, f))
+        if not all_files:
+            raise FileNotFoundError(f'目录 {path} 下未找到 .json/.jsonl/.csv 文件')
+        # 检查格式统一
+        exts_found = set(os.path.splitext(f)[1].lower() for f in all_files)
+        has_json = bool(exts_found & json_exts)
+        has_csv = bool(exts_found & csv_exts)
+        if has_json and has_csv:
+            raise ValueError(
+                f'目录 {path} 包含混合格式 {sorted(exts_found)}，'
+                '要求统一为 .json/.jsonl 或 .csv')
+        data_files = all_files
+    else:
+        data_files = [path]
+
+    # ---- 2. 推断 schema（用第一个文件） ----
+    schema = infer_dataset_schema(data_files[0])
+
+    # ---- 3. 用户覆盖 ----
+    # --custom_columns JSON 覆盖列名
+    if args.custom_columns:
+        try:
+            cols_override = json.loads(args.custom_columns)
+            if isinstance(cols_override, dict):
+                if 'input' in cols_override:
+                    schema['input_col'] = cols_override['input']
+                if 'target' in cols_override:
+                    schema['output_col'] = cols_override['target']
+                if 'choices' in cols_override:
+                    raw = cols_override['choices']
+                    if isinstance(raw, str):
+                        schema['choice_cols'] = [c.strip() for c in raw.split(',') if c.strip()]
+                    elif isinstance(raw, list):
+                        schema['choice_cols'] = [str(c).strip() for c in raw if str(c).strip()]
+                    else:
+                        print(f'[WARN] --custom_columns choices 格式不支持({type(raw)})，已忽略')
+                    # 覆盖 choices 后按新 choice_cols 重算 metric，保持题型与指标一致
+                    schema['metric'] = 'accuracy' if schema['choice_cols'] else 'exact_match'
+                print(f'[INFO] 列名已覆盖: input={schema["input_col"]}, '
+                      f'target={schema["output_col"]}, choices={schema["choice_cols"]}, '
+                      f'metric={schema["metric"]}')
+        except json.JSONDecodeError:
+            print(f'[WARN] --custom_columns 不是合法 JSON，已忽略: {args.custom_columns}')
+
+    # --custom_metric 覆盖指标
+    metric = (args.custom_metric or schema['metric']).lower()
+
+    # ---- 4. 构建公共配置 ----
+    is_mcq = len(schema['choice_cols']) > 0
+    input_columns = [schema['input_col']] + schema['choice_cols']
+    output_column = schema['output_col']
+    evaluator_type = _resolve_evaluator_type(metric)
+    fmt = schema['fmt']
+
+    # prompt 模板
+    if args.custom_prompt_template:
+        prompt_str = args.custom_prompt_template
+    elif is_mcq:
+        letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+        options_block = '\n'.join(
+            f'{letters[i]}) {{{col}}}' for i, col in enumerate(schema['choice_cols']))
+        last_letter = letters[len(schema['choice_cols']) - 1]
+        prompt_str = (
+            "Answer the following multiple choice question. The last line of your "
+            "response should be of the following format: 'ANSWER: $LETTER' "
+            f"(without quotes) where LETTER is one of A-{last_letter}. "
+            "Think step by step before answering.\n\n"
+            f"{{{schema['input_col']}}}\n\n{options_block}"
+        )
+    else:
+        prompt_str = '{' + schema['input_col'] + '}'
+
+    # ---- 5. 生成 config（目录场景：每文件一个 dataset） ----
+    config_path = os.path.join(args.output_path, '_custom_config.py')
+    lines = []
+    lines.append('# Auto-generated OpenCompass config for custom dataset')
+    lines.append('datasets = [')
+
+    for data_file in data_files:
+        # abbr: 文件名去扩展名
+        basename = os.path.splitext(os.path.basename(data_file))[0]
+        abbr = basename
+
+        lines.append('    dict(')
+        lines.append(f'        abbr={repr(abbr)},')
+        lines.append("        type='opencompass.datasets.HFDataset',")
+        lines.append(f'        path={repr(fmt)},')
+        lines.append(f'        data_files={repr([data_file])},')
+        lines.append('        reader_cfg=dict(')
+        lines.append(f'            input_columns={repr(input_columns)},')
+        lines.append(f'            output_column={repr(output_column)},')
+        lines.append("            train_split='train',")
+        lines.append("            test_split='train',")
+        lines.append('        ),')
+        lines.append('        infer_cfg=dict(')
+        lines.append('            prompt_template=dict(')
+        lines.append("                type='opencompass.openicl.icl_prompt_template.PromptTemplate',")
+        lines.append('                template=dict(')
+        lines.append('                    round=[')
+        lines.append(f'                        dict(prompt={repr(prompt_str)}, role="HUMAN"),')
+        lines.append('                    ],')
+        lines.append('                ),')
+        lines.append('            ),')
+        lines.append("            retriever=dict(type='opencompass.openicl.icl_retriever.ZeroRetriever'),")
+        lines.append("            inferencer=dict(type='opencompass.openicl.icl_inferencer.GenInferencer'),")
+        lines.append('        ),')
+        lines.append('        eval_cfg=dict(')
+        if is_mcq:
+            last_letter = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'[len(schema['choice_cols']) - 1]
+            answer_pattern = f'(?i)ANSWER\\s*:\\s*([A-{last_letter}])'
+            lines.append('            pred_postprocessor=dict(')
+            lines.append(f'                answer_pattern={repr(answer_pattern)},')
+            lines.append("                type='opencompass.utils.text_postprocessors.match_answer_pattern'),")
+        lines.append(f'            evaluator=dict(type={repr(evaluator_type)}),')
+        lines.append('        ),')
+        lines.append('    ),')
+
+    lines.append(']')
+    config_code = '\n'.join(lines)
+
+    with open(config_path, 'w', encoding='utf-8') as f:
+        f.write(config_code + '\n')
+
+    print(f'[INFO] 自定义数据集 config 已生成: {config_path}')
+    print(f'[INFO] 数据文件({len(data_files)}个): {data_files}')
+    print(f'[INFO] 格式: {fmt}, MCQ: {is_mcq}, 指标: {metric} -> {evaluator_type}')
+    return config_path
+
+
 def build_opencompass_cmd(args: argparse.Namespace) -> list:
     """构建 OpenCompass 执行命令。
 
@@ -106,15 +389,25 @@ def build_opencompass_cmd(args: argparse.Namespace) -> list:
     而 opencompass 内置的 dataset config 并未传递此参数，
     这里生成一个 wrapper 脚本，在调用 opencompass 入口前先 monkey-patch
     MsDataset.load，确保 trust_remote_code=True 在子进程中也生效。
+
+    数据集来源二选一：
+      - --custom_dataset_path：生成自定义 config，用 --config 传给 OpenCompass
+      - --datasets：用 OpenCompass 内置数据集名，走 --datasets
     """
     work_dir = os.path.join(args.output_path, 'opencompass_results')
     os.makedirs(work_dir, exist_ok=True)
 
     # ---- 构建 opencompass CLI 参数（不含可执行文件） ----
-    # datasets 参数：平台传逗号分隔字符串，需拆分为空格分隔的多个参数
-    dataset_list = [d.strip() for d in args.datasets.split(',') if d.strip()]
-    print(f'[INFO] 数据集列表: {dataset_list}')
-    opencompass_args = ['--datasets'] + dataset_list
+    # 数据集参数：custom 路径用 --config，内置数据集用 --datasets
+    if args.custom_dataset_path:
+        config_path = build_custom_config(args)
+        print(f'[INFO] 使用自定义数据集: {args.custom_dataset_path}')
+        opencompass_args = ['--config', config_path]
+    else:
+        # datasets 参数：平台传逗号分隔字符串，需拆分为空格分隔的多个参数
+        dataset_list = [d.strip() for d in args.datasets.split(',') if d.strip()]
+        print(f'[INFO] 数据集列表(内置): {dataset_list}')
+        opencompass_args = ['--datasets'] + dataset_list
     opencompass_args += [
         '--hf-path', args.model_path,
         '--hf-num-gpus', str(args.num_gpus),
@@ -375,8 +668,9 @@ def main():
                         help='模型类型: hf_chat（对话模型）/ hf_base（基座模型）')
 
     # ---- 评测配置 ----
-    parser.add_argument('--datasets', type=str, required=True,
-                        help='评测数据集名称，多个用逗号分隔，如: ceval_gen,gsm8k_gen,mmlu_gen')
+    parser.add_argument('--datasets', type=str, required=False, default='',
+                        help='内置数据集名称，逗号分隔，如: ceval_gen,gsm8k_gen。'
+                             '与 --custom_dataset_path 互斥，二选一')
     parser.add_argument('--output_path', type=str, required=True,
                         help='评测结果输出根目录，所有文件写入此路径')
 
@@ -400,6 +694,22 @@ def main():
     parser.add_argument('--datasets_cache_dir', type=str, default='',
                         help='数据集缓存目录（挂载卷路径），有则复用，无则下载到此目录')
 
+    # ---- 自定义数据集（与 --datasets 互斥） ----
+    parser.add_argument('--custom_dataset_path', type=str, default='',
+                        help='自定义数据集路径（容器内绝对路径，文件或目录）。'
+                             '与 --datasets 互斥；提供时走自定义评测路径。'
+                             '列名/题型/指标自动推断，目录内每个文件作为独立数据集')
+    parser.add_argument('--custom_columns', type=str, default='',
+                        help='列名覆盖(JSON)，推断失败时救场。'
+                             '如 {"input":"q","target":"ans","choices":"opt1,opt2,opt3,opt4"}。'
+                             '空=自动推断')
+    parser.add_argument('--custom_metric', type=str, default='',
+                        choices=['', 'accuracy', 'exact_match', 'bleu', 'rouge'],
+                        help='评测指标覆盖。空=自动(MCQ→accuracy / 生成式→exact_match)')
+    parser.add_argument('--custom_prompt_template', type=str, default='',
+                        help='自定义 prompt 模板（含 {input}/{A} 等占位符）。'
+                             '空=自动(MCQ 用 ANSWER 模板 / 生成式用 {input})')
+
     args = parser.parse_args()
 
     # ---- 打印参数 ----
@@ -412,6 +722,14 @@ def main():
     print('==========================================\n')
 
     # ---- 校验 ----
+    # custom_dataset_path 与 datasets 互斥，二选一
+    if args.custom_dataset_path and args.datasets:
+        print('[ERROR] --custom_dataset_path 与 --datasets 不能同时指定，二选一')
+        sys.exit(1)
+    if not args.custom_dataset_path and not args.datasets:
+        print('[ERROR] 必须指定 --datasets 或 --custom_dataset_path 之一')
+        sys.exit(1)
+
     check_opencompass()
     check_gpu_available(args.num_gpus)
     # 仅对本地路径做存在性检查，HF 模型 ID（如 Qwen/Qwen2.5-0.5B-Instruct）由 OpenCompass 自行下载
