@@ -2526,7 +2526,7 @@
   },
   "dataset": {
     "project_name": "数据导入导出",
-    "image_name": "10.121.177.20:8082/mlops/dataset:20260624",
+    "image_name": "10.121.177.20:8082/mlops/dataset:20260824",
     "gitpath": "/job-template/job/dataset",
     "image_describe": "数据集导入",
     "job_template_name": "dataset",
@@ -2575,7 +2575,7 @@
           "range": "",
           "default": "1998",
           "placeholder": "",
-          "describe": "数据集的版本",
+          "describe": "数据集的版本；ModelScope留空或填写latest时使用master分支",
           "editable": 1
         },
         "--partition": {
@@ -2600,6 +2600,342 @@
           "default": "/mnt/{{creator}}/pipeline/example/dataset/",
           "placeholder": "",
           "describe": "数据集的保存地址",
+          "editable": 1
+        },
+        "--download_percent": {
+          "type": "float",
+          "item_type": "float",
+          "label": "下载百分比",
+          "require": 0,
+          "choice": [],
+          "range": "0,100",
+          "default": "100",
+          "placeholder": "例如 30",
+          "describe": "按数据量下载指定百分比。ModelScope按数据文件体积选择分片；当前平台按文件数量选择。100表示全量下载。数据集只有一个大文件时无法拆分下载。",
+          "editable": 1
+        }
+      }
+    }
+  },
+  "dataset-process": {
+    "project_name": "数据处理工具",
+    "image_name": "10.121.177.20:8082/mlops/datasetprocess:20260825",
+    "gitpath": "/job-template/job/datasetprocess",
+    "image_describe": "PVC数据集预处理与SFT格式转换",
+    "job_template_name": "dataset-process",
+    "job_template_describe": "从PVC读取原始数据集，完成选择、清洗和SFT JSONL格式转换",
+    "job_template_command": "python3 launcher.py",
+    "job_template_volume": "",
+    "job_template_account": "",
+    "job_template_env": "",
+    "job_template_expand": {
+      "index": 2,
+      "rec_job_template": "dataset",
+      "help_url": "/job-template/job/datasetprocess"
+    },
+    "job_template_args": {
+      "输入配置": {
+        "--input_path": {
+          "type": "str",
+          "item_type": "str",
+          "label": "输入PVC路径",
+          "require": 1,
+          "choice": [],
+          "default": "/mnt/{{creator}}/pipeline/example/dataset/",
+          "placeholder": "/mnt/admin/dataset/raw/",
+          "describe": "DatasetDown下载后的文件或目录路径",
+          "editable": 1
+        },
+        "--input_format": {
+          "type": "enum",
+          "item_type": "str",
+          "label": "输入格式",
+          "require": 1,
+          "choice": ["auto", "json", "jsonl", "csv", "tsv", "parquet", "txt"],
+          "default": "auto",
+          "describe": "auto根据文件扩展名自动识别",
+          "editable": 1
+        },
+        "--file_pattern": {
+          "type": "str",
+          "item_type": "str",
+          "label": "文件匹配",
+          "require": 0,
+          "choice": [],
+          "default": "*",
+          "placeholder": "*.csv",
+          "describe": "目录输入时按文件名筛选",
+          "editable": 1
+        },
+        "--recursive": {
+          "type": "enum",
+          "item_type": "str",
+          "label": "递归子目录",
+          "require": 0,
+          "choice": ["true", "false"],
+          "default": "true",
+          "describe": "是否递归扫描输入目录",
+          "editable": 1
+        }
+      },
+      "数据选择": {
+        "--select_fields": {
+          "type": "str",
+          "item_type": "str",
+          "label": "保留字段",
+          "require": 0,
+          "choice": [],
+          "default": "",
+          "placeholder": "device,alarm,cause,solution",
+          "describe": "逗号分隔；留空保留全部字段",
+          "editable": 1
+        },
+        "--filter_expression": {
+          "type": "str",
+          "item_type": "str",
+          "label": "过滤条件",
+          "require": 0,
+          "choice": [],
+          "default": "",
+          "placeholder": "fault_type is not null && score >= 0.8",
+          "describe": "支持==、!=、>、>=、<、<=、contains、is null及and",
+          "editable": 1
+        },
+        "--sample_ratio": {
+          "type": "float",
+          "item_type": "float",
+          "label": "处理比例",
+          "require": 0,
+          "choice": [],
+          "range": "0,1",
+          "default": "1.0",
+          "describe": "对PVC内已下载数据进行抽样，1表示全量",
+          "editable": 1
+        },
+        "--max_samples": {
+          "type": "int",
+          "item_type": "int",
+          "label": "最大样本数",
+          "require": 0,
+          "choice": [],
+          "range": "0,1000000000",
+          "default": "0",
+          "describe": "0表示不限制",
+          "editable": 1
+        },
+        "--sampling_method": {
+          "type": "enum",
+          "item_type": "str",
+          "label": "抽样方式",
+          "require": 0,
+          "choice": ["random", "head"],
+          "default": "random",
+          "describe": "random随机抽样；head顺序截取",
+          "editable": 1
+        },
+        "--seed": {
+          "type": "int",
+          "item_type": "int",
+          "label": "随机种子",
+          "require": 0,
+          "choice": [],
+          "default": "42",
+          "describe": "保证抽样和切分可复现",
+          "editable": 1
+        }
+      },
+      "基础预处理": {
+        "--required_fields": {
+          "type": "str",
+          "item_type": "str",
+          "label": "必填字段",
+          "require": 0,
+          "choice": [],
+          "default": "",
+          "placeholder": "question,answer",
+          "describe": "任一字段为空时记录为异常样本",
+          "editable": 1
+        },
+        "--drop_empty": {
+          "type": "enum",
+          "item_type": "str",
+          "label": "过滤空样本",
+          "require": 0,
+          "choice": ["true", "false"],
+          "default": "true",
+          "describe": "过滤无法构造有效问答的样本",
+          "editable": 1
+        },
+        "--deduplicate": {
+          "type": "enum",
+          "item_type": "str",
+          "label": "样本去重",
+          "require": 0,
+          "choice": ["true", "false"],
+          "default": "true",
+          "describe": "按最终messages内容去重",
+          "editable": 1
+        },
+        "--min_text_length": {
+          "type": "int",
+          "item_type": "int",
+          "label": "最小文本长度",
+          "require": 0,
+          "choice": [],
+          "default": "1",
+          "describe": "user和assistant内容总长度下限",
+          "editable": 1
+        },
+        "--max_text_length": {
+          "type": "int",
+          "item_type": "int",
+          "label": "最大文本长度",
+          "require": 0,
+          "choice": [],
+          "default": "20000",
+          "describe": "0表示不限制",
+          "editable": 1
+        },
+        "--drop_fields": {
+          "type": "str",
+          "item_type": "str",
+          "label": "删除字段",
+          "require": 0,
+          "choice": [],
+          "default": "",
+          "placeholder": "phone,email",
+          "describe": "转换前删除指定字段，逗号分隔",
+          "editable": 1
+        },
+        "--invalid_policy": {
+          "type": "enum",
+          "item_type": "str",
+          "label": "异常处理",
+          "require": 0,
+          "choice": ["reject", "skip", "fail"],
+          "default": "reject",
+          "describe": "reject写入异常文件；skip跳过；fail终止任务",
+          "editable": 1
+        }
+      },
+      "SFT转换": {
+        "--template_type": {
+          "type": "enum",
+          "item_type": "str",
+          "label": "转换模板",
+          "require": 1,
+          "choice": ["qa", "instruction", "conversation", "custom"],
+          "default": "custom",
+          "describe": "选择原始数据对应的SFT转换方式",
+          "editable": 1
+        },
+        "--system_prompt": {
+          "type": "str",
+          "item_type": "str",
+          "label": "系统提示词",
+          "require": 0,
+          "choice": [],
+          "default": "你是工业设备故障预警助手。",
+          "describe": "写入每条messages的system内容",
+          "editable": 1
+        },
+        "--user_fields": {
+          "type": "str",
+          "item_type": "str",
+          "label": "用户侧字段",
+          "require": 0,
+          "choice": [],
+          "default": "",
+          "placeholder": "device,alarm,metrics",
+          "describe": "不使用用户模板时按这些字段构造user内容",
+          "editable": 1
+        },
+        "--assistant_fields": {
+          "type": "str",
+          "item_type": "str",
+          "label": "回答侧字段",
+          "require": 0,
+          "choice": [],
+          "default": "",
+          "placeholder": "fault_type,cause,solution",
+          "describe": "不使用回答模板时按这些字段构造assistant内容",
+          "editable": 1
+        },
+        "--user_template": {
+          "type": "str",
+          "item_type": "str",
+          "label": "用户内容模板",
+          "require": 0,
+          "choice": [],
+          "default": "",
+          "placeholder": "设备：{{device}} 告警：{{alarm}}",
+          "describe": "使用双花括号引用原始字段",
+          "editable": 1
+        },
+        "--assistant_template": {
+          "type": "str",
+          "item_type": "str",
+          "label": "回答内容模板",
+          "require": 0,
+          "choice": [],
+          "default": "",
+          "placeholder": "故障：{{fault_type}} 建议：{{solution}}",
+          "describe": "使用双花括号引用原始字段",
+          "editable": 1
+        }
+      },
+      "切分与输出": {
+        "--train_ratio": {
+          "type": "float",
+          "item_type": "float",
+          "label": "训练集比例",
+          "require": 1,
+          "choice": [],
+          "range": "0,1",
+          "default": "0.9",
+          "describe": "与验证集比例之和必须为1",
+          "editable": 1
+        },
+        "--val_ratio": {
+          "type": "float",
+          "item_type": "float",
+          "label": "验证集比例",
+          "require": 1,
+          "choice": [],
+          "range": "0,1",
+          "default": "0.1",
+          "describe": "可填0表示不生成验证样本",
+          "editable": 1
+        },
+        "--shuffle": {
+          "type": "enum",
+          "item_type": "str",
+          "label": "随机切分",
+          "require": 0,
+          "choice": ["true", "false"],
+          "default": "true",
+          "describe": "是否随机选择验证集样本",
+          "editable": 1
+        },
+        "--output_dir": {
+          "type": "str",
+          "item_type": "str",
+          "label": "输出PVC目录",
+          "require": 1,
+          "choice": [],
+          "default": "/mnt/{{creator}}/dataset-process/output/",
+          "placeholder": "/mnt/admin/dataset-process/fault-v1/",
+          "describe": "输出train.jsonl、val.jsonl、rejected.jsonl和处理报告",
+          "editable": 1
+        },
+        "--overwrite": {
+          "type": "enum",
+          "item_type": "str",
+          "label": "覆盖已有输出",
+          "require": 0,
+          "choice": ["true", "false"],
+          "default": "false",
+          "describe": "默认拒绝覆盖已有输出目录",
           "editable": 1
         }
       }
