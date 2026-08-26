@@ -49,6 +49,7 @@
     "d3": "^7.8.5",
     "d3-graphviz": "^5.1.0",
     "d3-tip": "^0.9.1",
+    "dompurify": "^3.4.14",
     "dotenv": "^10.0.0",
     "dotenv-expand": "^5.1.0",
     "echarts": "^5.4.2",
@@ -199,6 +200,7 @@
     ]
   },
   "devDependencies": {
+    "@types/dompurify": "^3.0.5",
     "@types/node": "^20.8.10",
     "babel-plugin-import": "^1.13.3"
   }
