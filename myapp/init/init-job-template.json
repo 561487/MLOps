@@ -2608,7 +2608,7 @@
   },
   "dataset": {
     "project_name": "数据导入导出",
-    "image_name": "10.121.177.20:8082/mlops/dataset:20260624",
+    "image_name": "10.121.177.20:8082/mlops/dataset:20260824",
     "gitpath": "/job-template/job/dataset",
     "image_describe": "数据集导入",
     "job_template_name": "dataset",
@@ -2660,7 +2660,7 @@
           "range": "",
           "default": "1998",
           "placeholder": "",
-          "describe": "数据集的版本",
+          "describe": "数据集的版本；ModelScope留空或填写latest时使用master分支",
           "editable": 1
         },
         "--partition": {
@@ -2685,6 +2685,18 @@
           "default": "/mnt/{{creator}}/pipeline/example/dataset/",
           "placeholder": "",
           "describe": "数据集的保存地址",
+          "editable": 1
+        },
+        "--download_percent": {
+          "type": "float",
+          "item_type": "float",
+          "label": "下载百分比",
+          "require": 0,
+          "choice": [],
+          "range": "0,100",
+          "default": "100",
+          "placeholder": "例如 30",
+          "describe": "按数据量下载指定百分比。ModelScope按数据文件体积选择分片；当前平台按文件数量选择。100表示全量下载。数据集只有一个大文件时无法拆分下载。",
           "editable": 1
         }
       }

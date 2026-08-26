@@ -1,5 +1,5 @@
 # dataset 模板
-镜像：ccr.ccs.tencentyun.com/cube-studio/dataset:20230801
+镜像：10.121.177.20:8082/mlops/dataset:20260824
 
 参数
 ```bash
@@ -10,7 +10,7 @@
             "item_type": "str",
             "label": "数据集的来源",
             "require": 1,
-            "choice": ["当前平台","huggingface"],
+            "choice": ["当前平台","modelscope"],
             "range": "",
             "default": "当前平台",
             "placeholder": "",
@@ -38,7 +38,7 @@
             "range": "",
             "default": "latest",
             "placeholder": "",
-            "describe": "数据集的版本",
+            "describe": "数据集的版本；ModelScope留空或填写latest时使用master分支",
             "editable": 1
         },
         "--partition": {
@@ -63,6 +63,18 @@
             "default": "",
             "placeholder": "",
             "describe": "数据集的保存地址",
+            "editable": 1
+        },
+        "--download_percent": {
+            "type": "float",
+            "item_type": "float",
+            "label": "下载百分比",
+            "require": 0,
+            "choice": [],
+            "range": "0,100",
+            "default": "100",
+            "placeholder": "例如 30",
+            "describe": "按数据量下载指定百分比；100表示全量下载。ModelScope按文件体积选择分片，单个大文件无法拆分。",
             "editable": 1
         }
     }

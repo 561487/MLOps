@@ -13,6 +13,8 @@ import re
 import requests
 import copy
 import os
+import math
+from urllib.parse import quote
 KFJ_CREATOR = os.getenv('KFJ_CREATOR', 'admin')
 KFJ_TASK_PROJECT_NAME = os.getenv('KFJ_TASK_PROJECT_NAME','public')
 SENTINEL_FILE = '.dataset_downloaded'
@@ -35,15 +37,29 @@ def download_file(url,des_dir=None,local_path=None):
                 f.write(chunk)
 
 # @pysnooper.snoop()
-def download(name,version,partition,save_dir,download_limit='0',**kwargs):
+def parse_download_percent(value):
+    """Parse and validate a download percentage in the range (0, 100]."""
+    try:
+        percent = float(value if value not in (None, '') else 100)
+    except (TypeError, ValueError):
+        raise ValueError(f'下载百分比必须是数字，当前值: {value}')
+    if percent <= 0 or percent > 100:
+        raise ValueError(f'下载百分比必须大于 0 且不超过 100，当前值: {percent}')
+    return percent
+
+
+def download(name,version,partition,save_dir,download_limit='0',download_percent='100',**kwargs):
+    download_percent = parse_download_percent(download_percent)
     # 检查数据集状态
-    status = check_dataset_exists(save_dir, download_limit)
+    status = check_dataset_exists(save_dir, download_limit, download_percent)
     if status == 'skip':
         exit(0)
     elif status == 'apply_limit':
         apply_row_limit(save_dir, download_limit)
-        write_sentinel(save_dir, download_limit)
+        write_sentinel(save_dir, download_limit, download_percent)
         exit(0)
+    elif status == 'conflict':
+        exit(1)
     # status == 'download' → 继续正常下载流程
 
     # print(kwargs)
@@ -89,6 +105,14 @@ def download(name,version,partition,save_dir,download_limit='0',**kwargs):
             total_before = len(donwload_urls)
             donwload_urls = donwload_urls[:limit]
             print(f'下载数量限制: {limit}，共 {total_before} 个文件，实际下载前 {len(donwload_urls)} 个')
+        if download_percent < 100:
+            total_before = len(donwload_urls)
+            selected_count = max(1, math.floor(total_before * download_percent / 100))
+            donwload_urls = donwload_urls[:selected_count]
+            print(
+                f'按百分比下载: 请求 {download_percent:g}%，当前平台按文件数量取前 '
+                f'{selected_count}/{total_before} 个文件'
+            )
         print('启动并行下载:',donwload_urls)
         os.makedirs(save_dir, exist_ok=True)
         pool = Pool(len(donwload_urls))  # 开辟包含指定数目线程的线程池
@@ -129,7 +153,7 @@ def download(name,version,partition,save_dir,download_limit='0',**kwargs):
                 print(e)
 
         # 写入哨兵文件
-        write_sentinel(save_dir, download_limit)
+        write_sentinel(save_dir, download_limit, download_percent)
         exit(0)
 
     exit(1)
@@ -151,7 +175,188 @@ def exe_command(command):
     return exitcode
 
 
-def check_dataset_exists(save_dir, download_limit='0'):
+def exe_command_args(command):
+    """Execute an argv list without a shell, preserving spaces in file paths."""
+    print(' '.join(command))
+    process = Popen(command, stdout=PIPE, stderr=STDOUT)
+    with process.stdout:
+        for line in iter(process.stdout.readline, b''):
+            print(line.decode(errors='replace').strip(), flush=True)
+    return process.wait()
+
+
+def _modelscope_endpoint():
+    endpoint = os.getenv(
+        'MODELSCOPE_ENDPOINT',
+        os.getenv('MODELSCOPE_DOMAIN', 'https://modelscope.cn')
+    ).rstrip('/')
+    if not endpoint.startswith(('http://', 'https://')):
+        endpoint = 'https://' + endpoint
+    return endpoint
+
+
+def _modelscope_revision(version):
+    # “1998” is the historical default for the built-in MNIST example. It was
+    # previously ignored for ModelScope downloads, so keep that path backward
+    # compatible and resolve it to ModelScope's default branch.
+    return 'master' if not version or version in ('latest', '1998') else version
+
+
+def list_modelscope_dataset_files(dataset_id, version='latest'):
+    """Return all regular repository files as path/size dictionaries."""
+    if dataset_id.count('/') != 1:
+        raise ValueError('ModelScope 数据集名称必须是 namespace/dataset_name 格式')
+    namespace, dataset_name = dataset_id.split('/', 1)
+    endpoint = _modelscope_endpoint()
+    url = (
+        f'{endpoint}/api/v1/datasets/{quote(namespace, safe="")}/'
+        f'{quote(dataset_name, safe="")}/repo/tree'
+    )
+    headers = {}
+    token = os.getenv('MODELSCOPE_API_TOKEN', '').strip()
+    if token:
+        headers['Authorization'] = f'Bearer {token}'
+
+    revision = _modelscope_revision(version)
+    pending_dirs = ['']
+    visited_dirs = set()
+    result = []
+    while pending_dirs:
+        root = pending_dirs.pop(0)
+        if root in visited_dirs:
+            continue
+        visited_dirs.add(root)
+        page_number = 1
+        while True:
+            params = {
+                'Revision': revision,
+                'Root': root,
+                'PageNumber': page_number,
+                'PageSize': 100,
+            }
+            response = requests.get(url, params=params, headers=headers, timeout=120)
+            response.raise_for_status()
+            payload = response.json()
+            if payload.get('Code') != 200:
+                raise RuntimeError(
+                    f'ModelScope 文件列表获取失败: {payload.get("Message", payload)}'
+                )
+            data = payload.get('Data') or {}
+            entries = data.get('Files') or []
+            for entry in entries:
+                path = str(entry.get('Path') or entry.get('Name') or '').strip('/')
+                if not path:
+                    continue
+                entry_type = str(entry.get('Type') or '').lower()
+                if entry_type in ('tree', 'dir', 'directory'):
+                    pending_dirs.append(path)
+                    continue
+                if entry_type and entry_type != 'blob':
+                    continue
+                result.append({'path': path, 'size': max(0, int(entry.get('Size') or 0))})
+
+            total_count = int(data.get('TotalCount') or payload.get('TotalCount') or len(entries))
+            if not entries or page_number * 100 >= total_count:
+                break
+            page_number += 1
+
+    deduplicated = {}
+    for item in result:
+        deduplicated[item['path']] = item
+    return list(deduplicated.values())
+
+
+def _natural_path_key(path):
+    return [int(part) if part.isdigit() else part.lower()
+            for part in re.split(r'(\d+)', path)]
+
+
+def _is_repository_metadata(path):
+    name = os.path.basename(path).lower()
+    return (
+        name.startswith('readme')
+        or name.startswith('license')
+        or name in {
+            '.gitattributes', '.gitignore',
+            'dataset_infos.json', 'dataset_info.json',
+        }
+    )
+
+
+def select_modelscope_files_by_percent(files, download_percent):
+    """
+    Select a deterministic subset whose data-file bytes do not exceed the
+    requested percentage. Repository metadata is always included and is not
+    counted in the percentage.
+    """
+    percent = parse_download_percent(download_percent)
+    files = sorted(files, key=lambda item: _natural_path_key(item['path']))
+    metadata_files = [item for item in files if _is_repository_metadata(item['path'])]
+    data_files = [item for item in files if not _is_repository_metadata(item['path'])]
+    if not data_files:
+        raise RuntimeError('ModelScope 仓库中未发现可下载的数据文件')
+    if percent >= 100:
+        return files, 100.0
+
+    total_size = sum(item['size'] for item in data_files)
+    if total_size <= 0:
+        raise RuntimeError('ModelScope 未返回有效文件大小，无法按数据量百分比下载')
+    target_size = total_size * percent / 100
+    selected_data = []
+    selected_size = 0
+    for item in data_files:
+        if item['size'] <= 0:
+            selected_data.append(item)
+            continue
+        if selected_size + item['size'] <= target_size:
+            selected_data.append(item)
+            selected_size += item['size']
+
+    if not any(item['size'] > 0 for item in selected_data):
+        smallest = min((item for item in data_files if item['size'] > 0),
+                       key=lambda item: item['size'])
+        smallest_percent = smallest['size'] * 100 / total_size
+        raise RuntimeError(
+            f'数据集分片过大：最小数据文件 {smallest["path"]} 占 '
+            f'{smallest_percent:.2f}%，无法在不超过 {percent:g}% 的前提下部分下载。'
+            '请使用更高百分比或选择已分片的数据集。'
+        )
+
+    actual_percent = selected_size * 100 / total_size
+    return metadata_files + selected_data, actual_percent
+
+
+def download_modelscope_by_percent(dataset_id, version, save_dir, download_percent):
+    files = list_modelscope_dataset_files(dataset_id, version)
+    selected_files, actual_percent = select_modelscope_files_by_percent(
+        files, download_percent
+    )
+    print(
+        f'按数据量百分比下载: 请求 {float(download_percent):g}%，'
+        f'实际选择约 {actual_percent:.2f}%，共 {len(selected_files)}/{len(files)} 个仓库文件'
+    )
+    revision = _modelscope_revision(version)
+    os.makedirs(save_dir, exist_ok=True)
+    batch_size = 100
+    for start in range(0, len(selected_files), batch_size):
+        batch = selected_files[start:start + batch_size]
+        command = [
+            'modelscope', 'download', '--dataset', dataset_id,
+            '--repo-type', 'dataset',
+        ]
+        command.extend(item['path'] for item in batch)
+        command.extend([
+            '--revision', revision,
+            '--local_dir', save_dir,
+            '--cache_dir', '/tmp/ms_cache',
+        ])
+        exitcode = exe_command_args(command)
+        if exitcode != 0:
+            return exitcode
+    return 0
+
+
+def check_dataset_exists(save_dir, download_limit='0', download_percent='100'):
     """
     检查 save_dir 下数据集状态，返回:
       'skip'        — 数据已满足需求，无需任何操作
@@ -162,17 +367,30 @@ def check_dataset_exists(save_dir, download_limit='0'):
     if not os.path.isfile(sentinel_path):
         return 'download'
 
-    # 读取已存储的 limit
+    # 读取已存储的 limit 和 percent
     import re
     stored_limit = 0
+    stored_percent = 100.0
     try:
         with open(sentinel_path, 'r') as sf:
-            m = re.search(r'limit=(\d+)', sf.read())
+            sentinel_content = sf.read()
+            m = re.search(r'limit=(\d+)', sentinel_content)
             stored_limit = int(m.group(1)) if m else 0
+            m_percent = re.search(r'percent=([0-9.]+)', sentinel_content)
+            stored_percent = float(m_percent.group(1)) if m_percent else 100.0
     except Exception:
         stored_limit = 0
+        stored_percent = 100.0
 
     req_limit = int(download_limit) if download_limit else 0
+    req_percent = parse_download_percent(download_percent)
+
+    if stored_percent != req_percent:
+        print(
+            f'保存目录已包含 percent={stored_percent:g}% 的数据，不能直接改为 '
+            f'percent={req_percent:g}%，否则会混入旧分片。请更换保存目录。'
+        )
+        return 'conflict'
 
     # 1. 请求和存储完全一致 → 跳过
     if stored_limit == req_limit:
@@ -196,13 +414,17 @@ def check_dataset_exists(save_dir, download_limit='0'):
     return 'apply_limit'
 
 
-def write_sentinel(save_dir, download_limit='0'):
+def write_sentinel(save_dir, download_limit='0', download_percent='100'):
     """写入哨兵文件，记录 limit 值"""
     sentinel_path = os.path.join(save_dir, SENTINEL_FILE)
     try:
         req_limit = str(download_limit) if download_limit else '0'
+        req_percent = parse_download_percent(download_percent)
         with open(sentinel_path, 'w') as sf:
-            sf.write(f'downloaded at {datetime.datetime.now().isoformat()} limit={req_limit}\n')
+            sf.write(
+                f'downloaded at {datetime.datetime.now().isoformat()} '
+                f'limit={req_limit} percent={req_percent:g}\n'
+            )
         print(f'写入标记文件: {sentinel_path}')
     except Exception as e:
         print(f'写入标记文件失败: {e}')
@@ -240,6 +462,12 @@ if __name__ == "__main__":
     arg_parser.add_argument('--partition', type=str, help="数据集分区", default='')
     arg_parser.add_argument('--save_dir', type=str, help="保存目录", default='')
     arg_parser.add_argument('--download_limit', type=str, help="下载限制：当前平台=文件数，modelscope=parquet行数，0=全部", default='0')
+    arg_parser.add_argument(
+        '--download_percent',
+        type=str,
+        help="下载数据量百分比，范围 0-100；ModelScope 按文件体积计算，100=全量",
+        default='100'
+    )
 
     args = arg_parser.parse_args()
     if not args.save_dir:
@@ -250,21 +478,50 @@ if __name__ == "__main__":
     if args.src_type=='cube-studio' or args.src_type=='当前平台':
         download(**args.__dict__)
     elif args.src_type=='modelscope' or args.src_type=='魔塔':
+        try:
+            download_percent = parse_download_percent(args.download_percent)
+        except ValueError as e:
+            print(e)
+            exit(1)
         # 检查数据集状态
-        status = check_dataset_exists(args.save_dir, args.download_limit)
+        status = check_dataset_exists(
+            args.save_dir, args.download_limit, download_percent
+        )
         if status == 'skip':
             exit(0)
         elif status == 'apply_limit':
             apply_row_limit(args.save_dir, args.download_limit)
-            write_sentinel(args.save_dir, args.download_limit)
+            write_sentinel(
+                args.save_dir, args.download_limit, download_percent
+            )
             exit(0)
+        elif status == 'conflict':
+            exit(1)
         # status == 'download' → 继续正常下载流程
-        command = f'modelscope download --dataset {args.name} --repo-type dataset --local_dir {args.save_dir} --cache_dir /tmp/ms_cache'
-        exitcode = exe_command(command)
+        if download_percent < 100:
+            try:
+                exitcode = download_modelscope_by_percent(
+                    args.name,
+                    args.version,
+                    args.save_dir,
+                    download_percent,
+                )
+            except Exception as e:
+                print(f'ModelScope 按百分比下载失败: {e}')
+                exit(1)
+        else:
+            command = [
+                'modelscope', 'download', '--dataset', args.name,
+                '--repo-type', 'dataset',
+                '--revision', _modelscope_revision(args.version),
+                '--local_dir', args.save_dir,
+                '--cache_dir', '/tmp/ms_cache',
+            ]
+            exitcode = exe_command_args(command)
         if exitcode == 0:
             # 应用行数限制
             apply_row_limit(args.save_dir, args.download_limit)
-            write_sentinel(args.save_dir, args.download_limit)
+            write_sentinel(
+                args.save_dir, args.download_limit, download_percent
+            )
         exit(exitcode)
-
-
