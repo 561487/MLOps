@@ -6032,7 +6032,7 @@
   },
   "model-offline-predict": {
     "project_name": "模型服务化",
-    "image_name": "10.121.177.20:8082/mlops/offline-predict-launcher:1.0.0-20260821-r1",
+    "image_name": "10.121.177.20:8082/mlops/model-offline-predict-launcher:1.0.0-20260825-r1",
     "gitpath": "/job-template/job/offline-predict",
     "image_describe": "分布式离线推理",
     "job_template_name": "model-offline-predict",

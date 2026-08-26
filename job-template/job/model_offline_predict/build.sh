@@ -1,7 +1,15 @@
 #!/bin/bash
 # 构建上下文为 job-template/job（包含 pkgs/ 和 model_offline_predict/）
+set -e
 cd "$(dirname "$0")/.."
-source llm_offline_predict/image_tags.conf
-docker build -t $OFFLINE_PREDICT_LAUNCHER -f model_offline_predict/Dockerfile .
-docker push $OFFLINE_PREDICT_LAUNCHER
-echo "Pushed: $OFFLINE_PREDICT_LAUNCHER"
+
+REGISTRY="10.121.177.20:8082"
+PROJECT="mlops"
+IMAGE_NAME="model-offline-predict-launcher"
+IMAGE_VERSION="1.0.0-20260825-r1"
+IMAGE="${REGISTRY}/${PROJECT}/${IMAGE_NAME}:${IMAGE_VERSION}"
+
+docker build -t "${IMAGE}" -f model_offline_predict/Dockerfile .
+docker push "${IMAGE}"
+
+echo "Published: ${IMAGE}"

@@ -624,17 +624,18 @@ if __name__ == "__main__":
     args = arg_parser.parse_args()
     log("{} args: {}".format(__file__, args))
 
-    # 从统一配置文件读取 worker 镜像 tag
+    # worker 镜像 tag 优先级：命令行 --image > 环境变量 LLM_OFFLINE_PREDICT > image_tags.conf（兼容旧镜像）
     _conf_dir = os.path.dirname(os.path.abspath(__file__))
-    _worker_image = ''
-    _conf_path = os.path.join(_conf_dir, 'image_tags.conf')
-    if os.path.exists(_conf_path):
-        with open(_conf_path, 'r') as _f:
-            for _line in _f:
-                _line = _line.strip()
-                if _line.startswith('LLM_OFFLINE_PREDICT='):
-                    _worker_image = _line.split('=', 1)[1]
-                    break
+    _worker_image = os.environ.get('LLM_OFFLINE_PREDICT', '')
+    if not _worker_image:
+        _conf_path = os.path.join(_conf_dir, 'image_tags.conf')
+        if os.path.exists(_conf_path):
+            with open(_conf_path, 'r') as _f:
+                for _line in _f:
+                    _line = _line.strip()
+                    if _line.startswith('LLM_OFFLINE_PREDICT='):
+                        _worker_image = _line.split('=', 1)[1]
+                        break
     worker_image = args.image if args.image else _worker_image
     worker_command = args.command if args.command else "python3 /app/predict.py"
 
