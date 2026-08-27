@@ -20,6 +20,7 @@ import { handleTips } from './api';
 import globalConfig from './global.config'
 import i18nEn from './images/i18nEn.svg';
 import { getInitialTheme, setTheme, TThemeType } from './theme';
+import FloatingAssistant from './components/FloatingAssistant';
 
 import { useTranslation, Trans, } from 'react-i18next';
 const userName = Cookies.get('myapp_username')
@@ -448,8 +449,8 @@ const AppWrapper = (props: IProps) => {
             }}><AppstoreOutlined style={{ color: '#fff', fontSize: 22 }} /></div>
           </div> : null
         }
-
       </div >
+      <FloatingAssistant />
     </div>
   );
 };

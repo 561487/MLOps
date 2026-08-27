@@ -1048,6 +1048,11 @@ CHATGPT_ARGS = {
     "model": 'gpt-5-chat'
 }
 
+# 浮窗 AI 助手 LLM：未注入环境变量时写入进程环境，供 view_assistant 的 os.environ.get 读取
+os.environ.setdefault('ASSISTANT_LLM_URL', 'http://10.80.10.146:9998/v1')
+os.environ.setdefault('ASSISTANT_LLM_API_KEY', 'xf-SpqvDfjjdQVKsB9h0LETqHhkuJrO6AOKqR29YSIDhh3MDXuo')
+os.environ.setdefault('ASSISTANT_LLM_MODEL', 'qwen3')
+
 
 # 所有训练集群的信息
 CLUSTERS={
