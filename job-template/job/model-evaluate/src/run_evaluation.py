@@ -228,6 +228,104 @@ def infer_dataset_schema(file_path: str) -> dict:
     }
 
 
+def _find_list_format_fields(record: dict):
+    """检测「列表打包」式 MCQ 数据格式。
+
+    这种格式把选项文本和正确答案标记以列表形式存在单条记录里，例如：
+      {question:..., options:[str,...], correct:[bool,...], id:int, ...}
+    而非标准 MCQ 的「每个选项一列」(A/B/C/D 独立列)。
+
+    Returns:
+      (question_col, options_col, correct_col) 三元组；非列表格式返回 None。
+    """
+    if not isinstance(record, dict):
+        return None
+    # 收集 list[str] 候选（选项文本列）和 list[bool] 候选（答案标记列）
+    str_list_cols = []  # [(colname, value)]
+    correct_col = None
+    for k, v in record.items():
+        if isinstance(v, list) and len(v) >= 2:
+            if all(isinstance(x, bool) for x in v):
+                correct_col = k
+            elif all(isinstance(x, str) for x in v):
+                str_list_cols.append((k, v))
+    if not str_list_cols or not correct_col:
+        return None
+    # 从 list[str] 候选里挑真正的「选项文本列」（排除 option_ids 这类短 id 列）
+    kl = lambda name: name.lower()
+    if any(k == 'options' for k, _ in str_list_cols):
+        options_col = 'options'
+    elif any('option' in kl(k) and 'id' not in kl(k) for k, _ in str_list_cols):
+        options_col = next(k for k, _ in str_list_cols
+                           if 'option' in kl(k) and 'id' not in kl(k))
+    elif any('text' in kl(k) or 'choice' in kl(k) for k, _ in str_list_cols):
+        options_col = next(k for k, _ in str_list_cols
+                           if 'text' in kl(k) or 'choice' in kl(k))
+    else:
+        # 兜底: 取元素平均长度最长的列（选项文本通常比短 id 长很多）
+        options_col = max(str_list_cols,
+                          key=lambda kv: sum(len(x) for x in kv[1]) / len(kv[1]))[0]
+    for cand in ['question', 'input', 'query', 'prompt']:
+        if cand in record and isinstance(record[cand], str):
+            return (cand, options_col, correct_col)
+    for k, v in record.items():
+        if isinstance(v, str) and k != options_col:
+            return (k, options_col, correct_col)
+    return None
+
+
+def _normalize_list_format_file(input_file: str, output_dir: str):
+    """把列表打包式 MCQ 文件转成标准 MCQ 格式。
+
+    标准格式：{question:..., A:opt0, B:opt1, ..., answer:'C'}
+    这样现有 infer_dataset_schema 能正确推断（选项列=A/B/C...，答案列=answer，
+    字母匹配 answer_pattern）。原数据的 option_ids(P/Q/R/S/T) 统一映射成 A/B/C...。
+
+    Returns:
+      标准化后的文件路径；若 input_file 不是列表格式，返回 None（调用方用原文件）。
+    """
+    import string
+    records = []
+    fields = None
+    with open(input_file, 'r', encoding='utf-8') as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                rec = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if fields is None:
+                fields = _find_list_format_fields(rec)
+                if not fields:
+                    return None
+            q_col, opt_col, ans_col = fields
+            options_list = rec.get(opt_col, [])
+            correct_list = rec.get(ans_col, [])
+            if len(options_list) != len(correct_list) or not options_list:
+                continue
+            true_idx = next((i for i, c in enumerate(correct_list) if c), None)
+            if true_idx is None:
+                continue
+            new_rec = {q_col: rec[q_col], 'answer': string.ascii_uppercase[true_idx]}
+            for i, opt_text in enumerate(options_list):
+                new_rec[string.ascii_uppercase[i]] = opt_text
+            records.append(new_rec)
+    if not records:
+        return None
+    base = os.path.splitext(os.path.basename(input_file))[0]
+    out_file = os.path.join(output_dir, f'_normalized_{base}.jsonl')
+    os.makedirs(output_dir, exist_ok=True)
+    with open(out_file, 'w', encoding='utf-8') as f:
+        for rec in records:
+            f.write(json.dumps(rec, ensure_ascii=False) + '\n')
+    n_opts = sum(1 for k in records[0] if len(k) == 1 and k.isupper())
+    print(f'[INFO] 列表式数据已标准化: {os.path.basename(input_file)} -> '
+          f'{out_file} ({len(records)} 条, {n_opts} 选项)')
+    return out_file
+
+
 def build_custom_config(args: argparse.Namespace) -> str:
     """为自定义数据集生成 OpenCompass config 文件，返回文件路径。
 
@@ -267,6 +365,17 @@ def build_custom_config(args: argparse.Namespace) -> str:
         data_files = all_files
     else:
         data_files = [path]
+
+    # ---- 1.5 列表打包式 MCQ 预处理 ----
+    # FailureSensorIQ 等数据集把选项文本/正确答案标记以列表形式存在单条记录里
+    # （options:[str,...], correct:[bool,...]），infer_dataset_schema 会误把列表列
+    # 当独立选项、把题目序号 id 当答案。这里先展开成标准 MCQ 格式
+    # （A/B/C... 独立列 + answer 字母列），让后续推断与 prompt 模板正确工作。
+    normalized_files = []
+    for f in data_files:
+        nf = _normalize_list_format_file(f, args.output_path)
+        normalized_files.append(nf if nf else f)
+    data_files = normalized_files
 
     # ---- 2. 推断 schema（用第一个文件） ----
     schema = infer_dataset_schema(data_files[0])
@@ -325,10 +434,31 @@ def build_custom_config(args: argparse.Namespace) -> str:
     else:
         prompt_str = '{' + schema['input_col'] + '}'
 
-    # ---- 5. 生成 config（目录场景：每文件一个 dataset） ----
+    # ---- 5. 生成 models 配置 ----
+    # OpenCompass get_config_from_arg 分支1: 当 args.config 有值时，
+    # 加载 config 后直接 return，完全忽略 --hf-path 等 CLI 参数。
+    # 因此 config 必须自带 models，否则 partitioner 取 cfg['models'] 会 KeyError。
+    is_chat = (args.model_type == 'hf_chat')
+    model_cls = 'HuggingFacewithChatTemplate' if is_chat else 'HuggingFaceBaseModel'
+    model_type_str = f'opencompass.models.huggingface_above_v4_33.{model_cls}'
+    model_abbr = os.path.basename(args.model_path.rstrip('/')) + '_hf'
+
+    # ---- 6. 生成 config（目录场景：每文件一个 dataset） ----
     config_path = os.path.join(args.output_path, '_custom_config.py')
     lines = []
     lines.append('# Auto-generated OpenCompass config for custom dataset')
+    # models 块：与 OpenCompass cli/main.py 的 --hf-path 分支保持一致的字段集
+    lines.append('models = [')
+    lines.append('    dict(')
+    lines.append(f'        type={repr(model_type_str)},')
+    lines.append(f'        abbr={repr(model_abbr)},')
+    lines.append(f'        path={repr(args.model_path)},')
+    lines.append(f'        max_seq_len={args.max_seq_len},')
+    lines.append(f'        max_out_len={args.max_out_len},')
+    lines.append(f'        batch_size={args.batch_size},')
+    lines.append(f'        run_cfg=dict(num_gpus={args.num_gpus}),')
+    lines.append('    ),')
+    lines.append(']')
     lines.append('datasets = [')
 
     for data_file in data_files:
@@ -340,7 +470,8 @@ def build_custom_config(args: argparse.Namespace) -> str:
         lines.append(f'        abbr={repr(abbr)},')
         lines.append("        type='opencompass.datasets.HFDataset',")
         lines.append(f'        path={repr(fmt)},')
-        lines.append(f'        data_files={repr([data_file])},')
+        # HFDataset.load 把 data_files 传给 get_data_path(期望 str)，必须用 str 不能用 list
+        lines.append(f'        data_files={repr(data_file)},')
         lines.append('        reader_cfg=dict(')
         lines.append(f'            input_columns={repr(input_columns)},')
         lines.append(f'            output_column={repr(output_column)},')
@@ -379,6 +510,9 @@ def build_custom_config(args: argparse.Namespace) -> str:
     print(f'[INFO] 自定义数据集 config 已生成: {config_path}')
     print(f'[INFO] 数据文件({len(data_files)}个): {data_files}')
     print(f'[INFO] 格式: {fmt}, MCQ: {is_mcq}, 指标: {metric} -> {evaluator_type}')
+    print(f'[INFO] 模型: {model_abbr}, type={model_type_str}, '
+          f'num_gpus={args.num_gpus}, batch_size={args.batch_size}, '
+          f'max_seq_len={args.max_seq_len}, max_out_len={args.max_out_len}')
     return config_path
 
 
@@ -391,21 +525,37 @@ def build_opencompass_cmd(args: argparse.Namespace) -> list:
     MsDataset.load，确保 trust_remote_code=True 在子进程中也生效。
 
     数据集来源二选一：
-      - --custom_dataset_path：生成自定义 config，用 --config 传给 OpenCompass
+      - --custom_dataset_path：生成自定义 config，作为位置参数传给 OpenCompass
       - --datasets：用 OpenCompass 内置数据集名，走 --datasets
     """
     work_dir = os.path.join(args.output_path, 'opencompass_results')
     os.makedirs(work_dir, exist_ok=True)
 
     # ---- 构建 opencompass CLI 参数（不含可执行文件） ----
-    # 数据集参数：custom 路径用 --config，内置数据集用 --datasets
+    # 数据集参数：custom 路径用 config 位置参数（OpenCompass 的 config 是位置参数，
+    # 不能用 --config 前缀，否则 argparse 会撞 --config-dir/--config-verbose 报歧义），
+    # 内置数据集用 --datasets
     if args.custom_dataset_path:
         config_path = build_custom_config(args)
         print(f'[INFO] 使用自定义数据集: {args.custom_dataset_path}')
-        opencompass_args = ['--config', config_path]
+        opencompass_args = [config_path]
     else:
         # datasets 参数：平台传逗号分隔字符串，需拆分为空格分隔的多个参数
         dataset_list = [d.strip() for d in args.datasets.split(',') if d.strip()]
+
+        # ---- 约束：hf_chat 只能选 _gen 数据集 ----
+        # HuggingFacewithChatTemplate 不支持 PPL 评测(NotImplementedError)
+        # 且模板参数无 UI 联动，这里做运行时快速校验，启动即失败
+        if args.model_type == 'hf_chat':
+            ppl_ds = [d for d in dataset_list if d.endswith('_ppl')]
+            if ppl_ds:
+                print(f'[ERROR] 模型类型为 hf_chat 时只能选择 _gen 数据集，'
+                      f'检测到非法的 _ppl 数据集: {",".join(ppl_ds)}')
+                print('[HINT] 二选一修改：'
+                      '1) 从评测数据集中去掉 _ppl 项；'
+                      '2) 将模型类型改为 hf_base(base 支持 _ppl 和 _gen)')
+                sys.exit(1)
+
         print(f'[INFO] 数据集列表(内置): {dataset_list}')
         opencompass_args = ['--datasets'] + dataset_list
     opencompass_args += [
@@ -432,11 +582,37 @@ def build_opencompass_cmd(args: argparse.Namespace) -> list:
         print(f'[INFO] Few-shot 设置为 {args.few_shot}，'
               '请确保数据集配置中引用了该环境变量')
 
+    # ---- DATASET_SOURCE 处理：交给 sitecustomize 的智能选源补丁逐数据集决策 ----
+    # 优先级（每个数据集独立判断）：
+    #   1. 本地缓存已存在 → 直接用
+    #   2. OSS 直链可用（DATASETS_URL 覆盖 piqa/gaokao/gsm8k/bbh/ceval 等 95 个）→ 自动下载
+    #   3. 无 OSS 直链（如 nq/xsum/obqa/siqa）→ 临时启用 ModelScope repo 加载
+    #   4. 都不可用 → 报错并指引离线数据包
+    if 'DATASET_SOURCE' in os.environ:
+        print(f'[INFO] 清除全局 DATASET_SOURCE={os.environ["DATASET_SOURCE"]}，'
+              f'改由智能选源补丁逐数据集决策')
+        os.environ.pop('DATASET_SOURCE', None)
+
     # 数据集缓存目录 → 直接设 environment，确保在 Python 启动前生效
     if args.datasets_cache_dir:
+        # 防呆告警：缓存目录不应是自定义数据集目录本身
+        if args.custom_dataset_path and (
+            args.custom_dataset_path == args.datasets_cache_dir
+            or args.datasets_cache_dir.startswith(
+                args.custom_dataset_path.rstrip('/') + '/')
+            or args.custom_dataset_path.startswith(
+                args.datasets_cache_dir.rstrip('/') + '/')
+        ):
+            print(f'[WARN] datasets_cache_dir={args.datasets_cache_dir} 与 '
+                  f'custom_dataset_path={args.custom_dataset_path} 重叠或嵌套，'
+                  f'可能导致 OpenCompass 在自定义数据集目录下查找 ./data/<内置数据集>/ 子目录。'
+                  f'建议：datasets_cache_dir 使用独立的缓存目录（如 '
+                  f'/mnt/storage/models-share-volume/opencompass_data）')
         os.makedirs(args.datasets_cache_dir, exist_ok=True)
         os.environ['MODELSCOPE_CACHE'] = args.datasets_cache_dir
         os.environ['HF_DATASETS_CACHE'] = args.datasets_cache_dir
+        # get_data_path 实际读的是 COMPASS_DATA_CACHE（前面两个对内置数据集无效）
+        os.environ['COMPASS_DATA_CACHE'] = args.datasets_cache_dir
         # 诊断：检查缓存目录是否已有数据
         existing = []
         for root, dirs, files in os.walk(args.datasets_cache_dir):
@@ -445,6 +621,10 @@ def build_opencompass_cmd(args: argparse.Namespace) -> list:
         cache_hit = len(existing) > 0
         print(f'[INFO] 数据集缓存目录: {args.datasets_cache_dir} (已有{len(existing)}个文件)' if cache_hit
               else f'[INFO] 数据集缓存目录: {args.datasets_cache_dir} (空，将下载)')
+    else:
+        # 无缓存目录时，设默认值（get_data_path 走 else 分支时会用到）
+        os.environ.setdefault('COMPASS_DATA_CACHE',
+                              os.path.expanduser('~/.cache/opencompass'))
 
     # 样本数限制 → 通过环境变量传给 wrapper
     if args.max_samples > 0:
