@@ -2702,13 +2702,14 @@
       }
     }
   },
-  "dataset-process": {
+  "dataset-preprocess": {
     "project_name": "数据处理工具",
-    "image_name": "10.121.177.20:8082/mlops/datasetprocess:20260825",
-    "gitpath": "/job-template/job/datasetprocess",
-    "image_describe": "PVC数据集预处理与SFT格式转换",
-    "job_template_name": "dataset-process",
-    "job_template_describe": "从PVC读取原始数据集，完成选择、清洗和SFT JSONL格式转换",
+    "image_name": "10.121.177.20:8082/mlops/datasetpreprocess:20260827",
+    "gitpath": "/job-template/job/datasetpreprocess",
+    "image_describe": "PVC数据集通用预处理",
+    "job_template_name": "dataset-preprocess",
+    "job_template_old_names": ["dataset-process"],
+    "job_template_describe": "从PVC读取原始数据集，清洗后输出完整且未切分的JSONL数据集",
     "job_template_command": "python3 launcher.py",
     "job_template_volume": "",
     "job_template_account": "",
@@ -2716,7 +2717,7 @@
     "job_template_expand": {
       "index": 2,
       "rec_job_template": "dataset",
-      "help_url": "/job-template/job/datasetprocess"
+      "help_url": "/job-template/job/datasetpreprocess"
     },
     "job_template_args": {
       "输入配置": {
@@ -2825,7 +2826,7 @@
           "require": 0,
           "choice": [],
           "default": "42",
-          "describe": "保证抽样和切分可复现",
+          "describe": "保证随机抽样可复现",
           "editable": 1
         }
       },
@@ -2841,6 +2842,17 @@
           "describe": "任一字段为空时记录为异常样本",
           "editable": 1
         },
+        "--text_fields": {
+          "type": "str",
+          "item_type": "str",
+          "label": "文本字段",
+          "require": 0,
+          "choice": [],
+          "default": "",
+          "placeholder": "alarm_text,cause,solution",
+          "describe": "用于空值和长度检查；留空时递归检查记录内全部文本字段",
+          "editable": 1
+        },
         "--drop_empty": {
           "type": "enum",
           "item_type": "str",
@@ -2848,7 +2860,27 @@
           "require": 0,
           "choice": ["true", "false"],
           "default": "true",
-          "describe": "过滤无法构造有效问答的样本",
+          "describe": "过滤不包含有效文本内容的样本",
+          "editable": 1
+        },
+        "--clean_text": {
+          "type": "enum",
+          "item_type": "str",
+          "label": "清理文本",
+          "require": 0,
+          "choice": ["true", "false"],
+          "default": "true",
+          "describe": "递归移除字符串中的非法控制字符",
+          "editable": 1
+        },
+        "--trim_whitespace": {
+          "type": "enum",
+          "item_type": "str",
+          "label": "清理首尾空白",
+          "require": 0,
+          "choice": ["true", "false"],
+          "default": "true",
+          "describe": "清理文本时同时移除字符串首尾空白",
           "editable": 1
         },
         "--deduplicate": {
@@ -2858,7 +2890,18 @@
           "require": 0,
           "choice": ["true", "false"],
           "default": "true",
-          "describe": "按最终messages内容去重",
+          "describe": "按整条记录或指定字段去重",
+          "editable": 1
+        },
+        "--dedup_fields": {
+          "type": "str",
+          "item_type": "str",
+          "label": "去重字段",
+          "require": 0,
+          "choice": [],
+          "default": "",
+          "placeholder": "device_id,timestamp,alarm_text",
+          "describe": "逗号分隔；留空按清洗后的整条记录去重",
           "editable": 1
         },
         "--min_text_length": {
@@ -2867,8 +2910,8 @@
           "label": "最小文本长度",
           "require": 0,
           "choice": [],
-          "default": "1",
-          "describe": "user和assistant内容总长度下限",
+          "default": "0",
+          "describe": "指定文本字段或全部文本内容的长度下限",
           "editable": 1
         },
         "--max_text_length": {
@@ -2877,8 +2920,8 @@
           "label": "最大文本长度",
           "require": 0,
           "choice": [],
-          "default": "20000",
-          "describe": "0表示不限制",
+          "default": "0",
+          "describe": "文本内容长度上限，0表示不限制",
           "editable": 1
         },
         "--drop_fields": {
@@ -2889,7 +2932,18 @@
           "choice": [],
           "default": "",
           "placeholder": "phone,email",
-          "describe": "转换前删除指定字段，逗号分隔",
+          "describe": "清洗结果中删除指定字段，逗号分隔",
+          "editable": 1
+        },
+        "--rename_fields": {
+          "type": "str",
+          "item_type": "str",
+          "label": "字段重命名",
+          "require": 0,
+          "choice": [],
+          "default": "",
+          "placeholder": "old_name:new_name,alarm_text:alarm",
+          "describe": "支持old:new逗号分隔或JSON对象",
           "editable": 1
         },
         "--invalid_policy": {
@@ -2903,114 +2957,16 @@
           "editable": 1
         }
       },
-      "SFT转换": {
-        "--template_type": {
-          "type": "enum",
-          "item_type": "str",
-          "label": "转换模板",
-          "require": 1,
-          "choice": ["qa", "instruction", "conversation", "custom"],
-          "default": "custom",
-          "describe": "选择原始数据对应的SFT转换方式",
-          "editable": 1
-        },
-        "--system_prompt": {
-          "type": "str",
-          "item_type": "str",
-          "label": "系统提示词",
-          "require": 0,
-          "choice": [],
-          "default": "你是工业设备故障预警助手。",
-          "describe": "写入每条messages的system内容",
-          "editable": 1
-        },
-        "--user_fields": {
-          "type": "str",
-          "item_type": "str",
-          "label": "用户侧字段",
-          "require": 0,
-          "choice": [],
-          "default": "",
-          "placeholder": "device,alarm,metrics",
-          "describe": "不使用用户模板时按这些字段构造user内容",
-          "editable": 1
-        },
-        "--assistant_fields": {
-          "type": "str",
-          "item_type": "str",
-          "label": "回答侧字段",
-          "require": 0,
-          "choice": [],
-          "default": "",
-          "placeholder": "fault_type,cause,solution",
-          "describe": "不使用回答模板时按这些字段构造assistant内容",
-          "editable": 1
-        },
-        "--user_template": {
-          "type": "str",
-          "item_type": "str",
-          "label": "用户内容模板",
-          "require": 0,
-          "choice": [],
-          "default": "",
-          "placeholder": "设备：{{device}} 告警：{{alarm}}",
-          "describe": "使用双花括号引用原始字段",
-          "editable": 1
-        },
-        "--assistant_template": {
-          "type": "str",
-          "item_type": "str",
-          "label": "回答内容模板",
-          "require": 0,
-          "choice": [],
-          "default": "",
-          "placeholder": "故障：{{fault_type}} 建议：{{solution}}",
-          "describe": "使用双花括号引用原始字段",
-          "editable": 1
-        }
-      },
-      "切分与输出": {
-        "--train_ratio": {
-          "type": "float",
-          "item_type": "float",
-          "label": "训练集比例",
-          "require": 1,
-          "choice": [],
-          "range": "0,1",
-          "default": "0.9",
-          "describe": "与验证集比例之和必须为1",
-          "editable": 1
-        },
-        "--val_ratio": {
-          "type": "float",
-          "item_type": "float",
-          "label": "验证集比例",
-          "require": 1,
-          "choice": [],
-          "range": "0,1",
-          "default": "0.1",
-          "describe": "可填0表示不生成验证样本",
-          "editable": 1
-        },
-        "--shuffle": {
-          "type": "enum",
-          "item_type": "str",
-          "label": "随机切分",
-          "require": 0,
-          "choice": ["true", "false"],
-          "default": "true",
-          "describe": "是否随机选择验证集样本",
-          "editable": 1
-        },
+      "输出配置": {
         "--output_dir": {
           "type": "str",
           "item_type": "str",
           "label": "输出PVC目录",
           "require": 1,
           "choice": [],
-          "default": "/mnt/{{creator}}/dataset-process/output/",
-          "placeholder": "/mnt/admin/dataset-process/fault-v1/",
-          "describe": "输出train.jsonl、val.jsonl、rejected.jsonl和处理报告",
+          "default": "/mnt/{{creator}}/dataset-preprocess/output/",
+          "placeholder": "/mnt/admin/dataset-preprocess/fault-v1/",
+          "describe": "输出完整dataset.jsonl、rejected.jsonl和预处理报告",
           "editable": 1
         },
         "--overwrite": {
