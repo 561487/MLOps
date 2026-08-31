@@ -53,13 +53,11 @@ services:
       REDIS_HOST: 'redis'
       REDIS_PORT: '6379'
       REDIS_PASSWORD: admin
-      MYSQL_SERVICE: 'mysql+pymysql://root:admin@mysql:3306/kubeflow?charset=utf8mb4'
+      MYSQL_SERVICE: 'mysql+pymysql://root:admin@10.121.177.145:3306/kubeflow?charset=utf8mb4'
       ENVIRONMENT: DEV
     depends_on:
         redis:
           condition: service_started
-        mysql:
-          condition: service_healthy
     volumes:
       - ../../myapp/static/appbuilder/frontend:/data/web/frontend
       - ../../myapp/:/home/myapp/myapp/
@@ -82,12 +80,10 @@ services:
       REDIS_HOST: 'redis'
       REDIS_PORT: '6379'
       REDIS_PASSWORD: admin
-      MYSQL_SERVICE: 'mysql+pymysql://root:admin@mysql:3306/kubeflow?charset=utf8mb4'
+      MYSQL_SERVICE: 'mysql+pymysql://root:admin@10.121.177.145:3306/kubeflow?charset=utf8mb4'
     depends_on:
       redis:
         condition: service_started
-      mysql:
-        condition: service_healthy
     volumes:
       - ../../myapp/:/home/myapp/myapp/
       - ./config.py:/home/myapp/myapp/config.py
@@ -102,12 +98,9 @@ services:
     environment:
       STAGE: 'dev'
       ENVIRONMENT: 'dev'
-      MYSQL_SERVICE: 'mysql+pymysql://root:admin@mysql:3306/kubeflow?charset=utf8mb4'
+      MYSQL_SERVICE: 'mysql+pymysql://root:admin@10.121.177.145:3306/kubeflow?charset=utf8mb4'
       PROMETHEUS_BASE_URL: '${PROMETHEUS_BASE_URL:-http://172.16.227.232:9090}'
       RESOURCE_MONITOR_INTERVAL: '10'
-    depends_on:
-      mysql:
-        condition: service_healthy
     volumes:
       - ../../myapp/:/home/myapp/myapp/
       - ./config.py:/home/myapp/myapp/config.py

@@ -207,12 +207,15 @@
   flex-direction: row-reverse;
 }
 
-/* 消息内容容器（气泡 + 工具栏） */
+/* 消息内容容器（气泡 + 工具栏）
+   flex:1 让容器占满头像旁剩余宽度，避免气泡 max-width 百分比相对「收缩后的父级」
+   导致短中文被压成一字一行 */
 .fa-msg-content {
   display: flex;
   flex-direction: column;
-  max-width: calc(100% - 40px);
+  flex: 1;
   min-width: 0;
+  max-width: calc(100% - 40px);
 }
 
 .fa-msg-user .fa-msg-content {
@@ -281,12 +284,14 @@
   margin-left: 8px;
 }
 
-/* 气泡通用 */
+/* 气泡通用：按内容撑开，仅在触达 max-width 时再换行 */
 .fa-msg-bubble {
-  max-width: 78%;
+  max-width: 100%;
+  width: fit-content;
   padding: 9px 13px;
   line-height: 1.6;
-  word-break: break-word;
+  overflow-wrap: break-word;
+  word-break: normal;
   white-space: pre-wrap;
   font-size: 13.5px;
 }
@@ -451,7 +456,7 @@
 
 /* ===== 输入区：占满横向空间 ===== */
 .fa-panel-input {
-  padding: 10px 0 14px;
+  padding: 10px 14px 14px;
   display: flex;
   align-items: stretch;
   gap: 10px;
@@ -502,6 +507,13 @@
   display: block;
   flex: 1;
   min-width: 0;
+}
+
+.fa-panel-input .ant-input-textarea {
+  display: block;
+  flex: 1;
+  min-width: 0;
+  width: 100%;
 }
 
 .fa-send-btn {

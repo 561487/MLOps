@@ -2617,13 +2617,14 @@
       }
     }
   },
-  "dataset-process": {
+  "dataset-preprocess": {
     "project_name": "数据处理工具",
-    "image_name": "10.121.177.20:8082/mlops/datasetprocess:20260825",
-    "gitpath": "/job-template/job/datasetprocess",
-    "image_describe": "PVC数据集预处理与SFT格式转换",
-    "job_template_name": "dataset-process",
-    "job_template_describe": "从PVC读取原始数据集，完成选择、清洗和SFT JSONL格式转换",
+    "image_name": "10.121.177.20:8082/mlops/datasetpreprocess:20260827",
+    "gitpath": "/job-template/job/datasetpreprocess",
+    "image_describe": "PVC数据集通用预处理",
+    "job_template_name": "dataset-preprocess",
+    "job_template_old_names": ["dataset-process"],
+    "job_template_describe": "从PVC读取原始数据集，清洗后输出完整且未切分的JSONL数据集",
     "job_template_command": "python3 launcher.py",
     "job_template_volume": "",
     "job_template_account": "",
@@ -2631,7 +2632,7 @@
     "job_template_expand": {
       "index": 2,
       "rec_job_template": "dataset",
-      "help_url": "/job-template/job/datasetprocess"
+      "help_url": "/job-template/job/datasetpreprocess"
     },
     "job_template_args": {
       "输入配置": {
@@ -2740,7 +2741,7 @@
           "require": 0,
           "choice": [],
           "default": "42",
-          "describe": "保证抽样和切分可复现",
+          "describe": "保证随机抽样可复现",
           "editable": 1
         }
       },
@@ -2756,6 +2757,17 @@
           "describe": "任一字段为空时记录为异常样本",
           "editable": 1
         },
+        "--text_fields": {
+          "type": "str",
+          "item_type": "str",
+          "label": "文本字段",
+          "require": 0,
+          "choice": [],
+          "default": "",
+          "placeholder": "alarm_text,cause,solution",
+          "describe": "用于空值和长度检查；留空时递归检查记录内全部文本字段",
+          "editable": 1
+        },
         "--drop_empty": {
           "type": "enum",
           "item_type": "str",
@@ -2763,7 +2775,27 @@
           "require": 0,
           "choice": ["true", "false"],
           "default": "true",
-          "describe": "过滤无法构造有效问答的样本",
+          "describe": "过滤不包含有效文本内容的样本",
+          "editable": 1
+        },
+        "--clean_text": {
+          "type": "enum",
+          "item_type": "str",
+          "label": "清理文本",
+          "require": 0,
+          "choice": ["true", "false"],
+          "default": "true",
+          "describe": "递归移除字符串中的非法控制字符",
+          "editable": 1
+        },
+        "--trim_whitespace": {
+          "type": "enum",
+          "item_type": "str",
+          "label": "清理首尾空白",
+          "require": 0,
+          "choice": ["true", "false"],
+          "default": "true",
+          "describe": "清理文本时同时移除字符串首尾空白",
           "editable": 1
         },
         "--deduplicate": {
@@ -2773,7 +2805,18 @@
           "require": 0,
           "choice": ["true", "false"],
           "default": "true",
-          "describe": "按最终messages内容去重",
+          "describe": "按整条记录或指定字段去重",
+          "editable": 1
+        },
+        "--dedup_fields": {
+          "type": "str",
+          "item_type": "str",
+          "label": "去重字段",
+          "require": 0,
+          "choice": [],
+          "default": "",
+          "placeholder": "device_id,timestamp,alarm_text",
+          "describe": "逗号分隔；留空按清洗后的整条记录去重",
           "editable": 1
         },
         "--min_text_length": {
@@ -2782,8 +2825,8 @@
           "label": "最小文本长度",
           "require": 0,
           "choice": [],
-          "default": "1",
-          "describe": "user和assistant内容总长度下限",
+          "default": "0",
+          "describe": "指定文本字段或全部文本内容的长度下限",
           "editable": 1
         },
         "--max_text_length": {
@@ -2792,8 +2835,8 @@
           "label": "最大文本长度",
           "require": 0,
           "choice": [],
-          "default": "20000",
-          "describe": "0表示不限制",
+          "default": "0",
+          "describe": "文本内容长度上限，0表示不限制",
           "editable": 1
         },
         "--drop_fields": {
@@ -2804,7 +2847,18 @@
           "choice": [],
           "default": "",
           "placeholder": "phone,email",
-          "describe": "转换前删除指定字段，逗号分隔",
+          "describe": "清洗结果中删除指定字段，逗号分隔",
+          "editable": 1
+        },
+        "--rename_fields": {
+          "type": "str",
+          "item_type": "str",
+          "label": "字段重命名",
+          "require": 0,
+          "choice": [],
+          "default": "",
+          "placeholder": "old_name:new_name,alarm_text:alarm",
+          "describe": "支持old:new逗号分隔或JSON对象",
           "editable": 1
         },
         "--invalid_policy": {
@@ -2818,114 +2872,16 @@
           "editable": 1
         }
       },
-      "SFT转换": {
-        "--template_type": {
-          "type": "enum",
-          "item_type": "str",
-          "label": "转换模板",
-          "require": 1,
-          "choice": ["qa", "instruction", "conversation", "custom"],
-          "default": "custom",
-          "describe": "选择原始数据对应的SFT转换方式",
-          "editable": 1
-        },
-        "--system_prompt": {
-          "type": "str",
-          "item_type": "str",
-          "label": "系统提示词",
-          "require": 0,
-          "choice": [],
-          "default": "你是工业设备故障预警助手。",
-          "describe": "写入每条messages的system内容",
-          "editable": 1
-        },
-        "--user_fields": {
-          "type": "str",
-          "item_type": "str",
-          "label": "用户侧字段",
-          "require": 0,
-          "choice": [],
-          "default": "",
-          "placeholder": "device,alarm,metrics",
-          "describe": "不使用用户模板时按这些字段构造user内容",
-          "editable": 1
-        },
-        "--assistant_fields": {
-          "type": "str",
-          "item_type": "str",
-          "label": "回答侧字段",
-          "require": 0,
-          "choice": [],
-          "default": "",
-          "placeholder": "fault_type,cause,solution",
-          "describe": "不使用回答模板时按这些字段构造assistant内容",
-          "editable": 1
-        },
-        "--user_template": {
-          "type": "str",
-          "item_type": "str",
-          "label": "用户内容模板",
-          "require": 0,
-          "choice": [],
-          "default": "",
-          "placeholder": "设备：{{device}} 告警：{{alarm}}",
-          "describe": "使用双花括号引用原始字段",
-          "editable": 1
-        },
-        "--assistant_template": {
-          "type": "str",
-          "item_type": "str",
-          "label": "回答内容模板",
-          "require": 0,
-          "choice": [],
-          "default": "",
-          "placeholder": "故障：{{fault_type}} 建议：{{solution}}",
-          "describe": "使用双花括号引用原始字段",
-          "editable": 1
-        }
-      },
-      "切分与输出": {
-        "--train_ratio": {
-          "type": "float",
-          "item_type": "float",
-          "label": "训练集比例",
-          "require": 1,
-          "choice": [],
-          "range": "0,1",
-          "default": "0.9",
-          "describe": "与验证集比例之和必须为1",
-          "editable": 1
-        },
-        "--val_ratio": {
-          "type": "float",
-          "item_type": "float",
-          "label": "验证集比例",
-          "require": 1,
-          "choice": [],
-          "range": "0,1",
-          "default": "0.1",
-          "describe": "可填0表示不生成验证样本",
-          "editable": 1
-        },
-        "--shuffle": {
-          "type": "enum",
-          "item_type": "str",
-          "label": "随机切分",
-          "require": 0,
-          "choice": ["true", "false"],
-          "default": "true",
-          "describe": "是否随机选择验证集样本",
-          "editable": 1
-        },
+      "输出配置": {
         "--output_dir": {
           "type": "str",
           "item_type": "str",
           "label": "输出PVC目录",
           "require": 1,
           "choice": [],
-          "default": "/mnt/{{creator}}/dataset-process/output/",
-          "placeholder": "/mnt/admin/dataset-process/fault-v1/",
-          "describe": "输出train.jsonl、val.jsonl、rejected.jsonl和处理报告",
+          "default": "/mnt/{{creator}}/dataset-preprocess/output/",
+          "placeholder": "/mnt/admin/dataset-preprocess/fault-v1/",
+          "describe": "输出完整dataset.jsonl、rejected.jsonl和预处理报告",
           "editable": 1
         },
         "--overwrite": {
@@ -9571,7 +9527,7 @@
   },
   "model-evaluate": {
     "project_name": "模型处理",
-    "image_name": "10.121.177.20:8082/mlops/model-evaluate:main-py310-cu128-r1",
+    "image_name": "10.121.177.20:8082/mlops/model-evaluate:main-py310-cu128-r6",
     "gitpath": "/job-template/job/model-evaluate",
     "image_describe": "大模型评测",
     "job_template_name": "model-evaluate",
@@ -9663,48 +9619,26 @@
             "cmmlu_ppl",
             "commonsenseqa_gen",
             "commonsenseqa_ppl",
-            "drop_gen",
-            "GaokaoBench_gen",
-            "gpqa_gen",
             "gsm8k_gen",
             "hellaswag_gen",
             "hellaswag_ppl",
             "humaneval_gen",
-            "humaneval_plus_gen",
             "lambada_gen",
             "math_gen",
-            "math_500_gen",
             "mbpp_gen",
-            "mbpp_plus_gen",
             "mmlu_gen",
             "mmlu_ppl",
-            "mmlu_pro_gen",
-            "narrativeqa_gen",
-            "nq_gen",
-            "obqa_gen",
-            "obqa_ppl",
             "piqa_gen",
             "piqa_ppl",
             "race_gen",
             "race_ppl",
-            "simpleqa_gen",
-            "siqa_gen",
-            "siqa_ppl",
-            "squad20_gen",
-            "storycloze_gen",
-            "storycloze_ppl",
-            "strategyqa_gen",
-            "supergpqa_gen",
             "triviaqa_gen",
-            "truthfulqa_gen",
-            "winogrande_gen",
-            "XCOPA_ppl",
-            "Xsum_gen"
+            "winogrande_gen"
           ],
           "range": "",
           "default": "ceval_gen",
           "placeholder": "",
-          "describe": "选择评测数据集，可多选。后缀说明：_gen=生成式评测(需生成文本，支持所有题型)，_ppl=困惑度评测(仅选择题，更快省显存)。C-Eval(中文综合)/MMLU(英文综合)/CMMLU(中文多任务)/GSM8K(数学)/BBH(推理)/HumanEval(代码)/MBPP(代码)/HellaSwag(常识)/PIQA(物理)/WinoGrande(代词)/LAMBADA(语言)/TriviaQA(问答)/NQ(开放问答)/AGIEval(考试)/MATH(竞赛数学)/TheoremQA(定理)/SQuAD(阅读理解)/RACE(英文阅读)/ARC(科学推理)/OBQA(开放问答)/SIQA(社交推理)/CNN/DailyMail(摘要)/XSum(单句摘要)/WMT(翻译)/TruthfulQA(真实性)/CMRC(中文阅读)/GAOKAO(高考)/XCOPA(跨语言推理)",
+          "describe": "选择评测数据集，可多选。后缀说明：_gen=生成式评测(需生成文本)，_ppl=困惑度评测(仅选择题，更快省显存)。均有 OSS 直链可自动下载：C-Eval(中文综合)/MMLU(英文综合)/CMMLU(中文多任务)/GSM8K(数学)/BBH(推理)/HumanEval(代码)/MBPP(代码)/HellaSwag(常识)/PIQA(物理)/WinoGrande(代词)/LAMBADA(语言)/TriviaQA(问答)/AGIEval(考试)/MATH(竞赛数学)/RACE(英文阅读)/CommonsenseQA(常识)。约束：hf_chat 模型只能选 _gen 数据集(选含 _ppl 会启动报错)；hf_base 两者均可。OBQA/SIQA/StrategyQA/XSum/NQ 等因无 OSS 直链且 ModelScope 加载有兼容性问题，暂未列入",
           "editable": 1
         },
         "--num_gpus": {
