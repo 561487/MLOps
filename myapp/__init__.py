@@ -267,8 +267,6 @@ def _seed_default_templates():
             existing = db.session.query(Job_Template).filter_by(
                 name=template_name).first()
         except Exception:
-            # 数据库迁移未完成（如 Job_Template 新增列尚未应用）时容错，
-            # 避免 import 阶段崩溃导致 myapp db upgrade 也无法执行
             db.session.rollback()
             return
         if existing:

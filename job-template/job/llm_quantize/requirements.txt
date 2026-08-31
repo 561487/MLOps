@@ -1,9 +1,4 @@
-# 模型量化 Runtime（gptqmodel）顶层依赖锁定 —— r1
-# 安装方式：pip install --no-deps -r requirements.txt（依赖树由基础镜像固化，
-# 不二次依赖解析；protobuf 6.33.6 同时被 gptqmodel 7.1.0 与 swanlab 0.9.3 实际使用，
-# 元数据区间不相交，该组合已实测运行正常）
-# GPU 计算栈（torch 2.12.1+cu130 / torchvision 0.27.1+cu130 / triton 3.7.1 / CUDA 13.0 / Python 3.11）
-# 由基础镜像提供，版本由 Dockerfile 构建期断言校验兜底。
+
 
 gptqmodel==7.1.0
 transformers==5.12.1
