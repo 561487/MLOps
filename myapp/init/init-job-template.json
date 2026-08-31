@@ -2897,6 +2897,163 @@
       }
     }
   },
+  "dataset-convert": {
+    "project_name": "数据处理工具",
+    "image_name": "10.121.177.20:8082/mlops/dataset-convert:20260828",
+    "gitpath": "/job-template/job/dataset-convert",
+    "image_describe": "数据集格式转换（Schema 驱动）",
+    "job_template_name": "dataset-convert",
+    "job_template_describe": "读取并识别用户数据集，转换为平台标准 JSONL（messages / text / eval_qa）",
+    "job_template_command": "python3 launcher.py",
+    "job_template_volume": "",
+    "job_template_account": "",
+    "job_template_env": "",
+    "job_template_expand": {
+      "index": 2,
+      "rec_job_template": "dataset",
+      "help_url": "/job-template/job/dataset-convert"
+    },
+    "job_template_args": {
+      "基础配置": {
+        "--input_path": {
+          "type": "str",
+          "item_type": "str",
+          "label": "输入数据集",
+          "require": 1,
+          "choice": [],
+          "default": "/mnt/{{creator}}/pipeline/example/dataset/",
+          "placeholder": "/mnt/admin/raw/fault.jsonl",
+          "describe": "输入数据集文件或目录（目录支持递归扫描）",
+          "editable": 1
+        },
+        "--input_format": {
+          "type": "enum",
+          "item_type": "str",
+          "label": "输入文件格式",
+          "require": 1,
+          "choice": ["auto", "json", "jsonl", "csv", "tsv", "parquet", "txt"],
+          "default": "auto",
+          "describe": "auto 根据文件扩展名自动识别",
+          "editable": 1
+        },
+        "--source_schema": {
+          "type": "enum",
+          "item_type": "str",
+          "label": "源数据结构",
+          "require": 1,
+          "choice": ["auto", "text", "alpaca", "messages", "sharegpt", "qa", "prompt_response", "custom"],
+          "default": "auto",
+          "describe": "auto 按优先级自动识别（messages→conversations→instruction+output→prompt+response→question+answer→query+response→text）；custom 必须配合 field_mapping",
+          "editable": 1
+        },
+        "--target_schema": {
+          "type": "enum",
+          "item_type": "str",
+          "label": "目标数据结构",
+          "require": 1,
+          "choice": ["messages", "text", "eval_qa"],
+          "default": "messages",
+          "describe": "messages → 对话训练格式（Messages）；text → 纯文本格式（Text）；eval_qa → 模型评测格式（Input / Target）",
+          "editable": 1
+        },
+        "--output_dir": {
+          "type": "str",
+          "item_type": "str",
+          "label": "输出目录",
+          "require": 1,
+          "choice": [],
+          "default": "/mnt/{{creator}}/dataset-convert/output/",
+          "placeholder": "/mnt/admin/dataset-convert/fault-v1/",
+          "describe": "输出 converted.jsonl、dataset_manifest.json（无拒绝记录时不生成 rejected.jsonl）",
+          "editable": 1
+        }
+      },
+      "高级配置": {
+        "--field_mapping": {
+          "type": "str",
+          "item_type": "str",
+          "label": "字段映射(JSON)",
+          "require": 0,
+          "choice": [],
+          "default": "",
+          "placeholder": "{\"query_text\":\"user\",\"reply_text\":\"assistant\"}",
+          "describe": "仅 source_schema=custom 必填。JSON 对象，目标字段需匹配 target_schema（messages→user/assistant；text→text；eval_qa→input/target）",
+          "editable": 1
+        },
+        "--system_prompt": {
+          "type": "str",
+          "item_type": "str",
+          "label": "系统提示词",
+          "require": 0,
+          "choice": [],
+          "default": "",
+          "describe": "仅 target_schema=messages 生效；原 messages 已有 system 轮次时不重复注入",
+          "editable": 1
+        },
+        "--keep_metadata": {
+          "type": "enum",
+          "item_type": "str",
+          "label": "保留原字段",
+          "require": 0,
+          "choice": ["true", "false"],
+          "default": "false",
+          "describe": "true 时转换未使用的原字段统一收进 metadata 对象输出（不平铺）",
+          "editable": 1
+        },
+        "--invalid_policy": {
+          "type": "enum",
+          "item_type": "str",
+          "label": "异常处理",
+          "require": 0,
+          "choice": ["reject", "skip", "fail"],
+          "default": "reject",
+          "describe": "reject 写入 rejected.jsonl；skip 跳过仅计数；fail 遇首条无效记录即失败。有效样本为 0 时任务一律失败",
+          "editable": 1
+        },
+        "--recursive": {
+          "type": "enum",
+          "item_type": "str",
+          "label": "递归子目录",
+          "require": 0,
+          "choice": ["true", "false"],
+          "default": "true",
+          "describe": "目录输入时是否递归扫描",
+          "editable": 1
+        },
+        "--file_pattern": {
+          "type": "str",
+          "item_type": "str",
+          "label": "文件匹配",
+          "require": 0,
+          "choice": [],
+          "default": "*",
+          "placeholder": "*.csv",
+          "describe": "目录输入时按文件名筛选",
+          "editable": 1
+        },
+        "--encoding": {
+          "type": "str",
+          "item_type": "str",
+          "label": "文件编码",
+          "require": 0,
+          "choice": [],
+          "default": "utf-8",
+          "describe": "文本类文件编码",
+          "editable": 1
+        },
+        "--overwrite": {
+          "type": "enum",
+          "item_type": "str",
+          "label": "覆盖已有输出",
+          "require": 0,
+          "choice": ["true", "false"],
+          "default": "false",
+          "describe": "默认拒绝覆盖已有输出目录",
+          "editable": 1
+        }
+      }
+    }
+  },
   "model-download": {
     "project_name": "数据导入导出",
     "image_name": "10.121.177.20:8082/mlops/model_download:20250601",
