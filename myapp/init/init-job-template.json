@@ -9527,7 +9527,7 @@
   },
   "model-evaluate": {
     "project_name": "模型处理",
-    "image_name": "10.121.177.20:8082/mlops/model-evaluate:main-py310-cu128-r6",
+    "image_name": "10.121.177.20:8082/mlops/model-evaluate:main-py310-cu128-r8",
     "gitpath": "/job-template/job/model-evaluate",
     "image_describe": "大模型评测",
     "job_template_name": "model-evaluate",
@@ -9638,7 +9638,7 @@
           "range": "",
           "default": "ceval_gen",
           "placeholder": "",
-          "describe": "选择评测数据集，可多选。后缀说明：_gen=生成式评测(需生成文本)，_ppl=困惑度评测(仅选择题，更快省显存)。均有 OSS 直链可自动下载：C-Eval(中文综合)/MMLU(英文综合)/CMMLU(中文多任务)/GSM8K(数学)/BBH(推理)/HumanEval(代码)/MBPP(代码)/HellaSwag(常识)/PIQA(物理)/WinoGrande(代词)/LAMBADA(语言)/TriviaQA(问答)/AGIEval(考试)/MATH(竞赛数学)/RACE(英文阅读)/CommonsenseQA(常识)。约束：hf_chat 模型只能选 _gen 数据集(选含 _ppl 会启动报错)；hf_base 两者均可。OBQA/SIQA/StrategyQA/XSum/NQ 等因无 OSS 直链且 ModelScope 加载有兼容性问题，暂未列入",
+          "describe": "选择评测数据集，可多选。后缀说明：_gen=生成式评测(需生成文本)，_ppl=困惑度评测(仅选择题，更快省显存)。均有 OSS 直链可自动下载：C-Eval(中文综合)/MMLU(英文综合)/CMMLU(中文多任务)/GSM8K(数学)/BBH(推理)/HumanEval(代码)/MBPP(代码)/HellaSwag(常识)/PIQA(物理)/WinoGrande(代词)/LAMBADA(语言)/TriviaQA(问答)/AGIEval(考试)/MATH(竞赛数学)/RACE(英文阅读)/CommonsenseQA(常识)。约束：hf_chat 模型只能选 _gen 数据集(_ppl 会自动跳过)；hf_base 两者均可。OBQA/SIQA/StrategyQA/XSum/NQ 等因无 OSS 直链且 ModelScope 加载有兼容性问题，暂未列入",
           "editable": 1
         },
         "--num_gpus": {
@@ -9797,7 +9797,7 @@
           "range": "",
           "default": "",
           "placeholder": "如 {\"device_map\": \"auto\", \"torch_dtype\": \"float16\"}",
-          "describe": "额外模型加载参数(JSON)，如 device_map、torch_dtype 等。高级用户使用，留空则使用默认配置",
+          "describe": "额外模型加载参数(JSON)，如 device_map、torch_dtype 等。留空时默认 {\"device_map\":\"auto\",\"torch_dtype\":\"bfloat16\"}；填写后与默认值合并，同名字段以用户配置为准",
           "editable": 1
         }
       }

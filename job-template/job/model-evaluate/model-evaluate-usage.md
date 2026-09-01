@@ -8,8 +8,9 @@
 
 | 项目 | 值 |
 |---|---|
-| 镜像 | `10.121.177.20:8082/mlops/model-evaluate:main-py310-cu128-r2` |
-| 基础镜像 | nvidia/cuda:12.8.0-runtime-ubuntu22.04 |
+| 业务镜像 | `10.121.177.20:8082/mlops/model-evaluate:main-py310-cu128-r10` |
+| BASE 镜像 | `10.121.177.20:8082/mlops/model-evaluate:base-py310-cu128` |
+| 底层 CUDA | nvidia/cuda:12.8.0-runtime-ubuntu22.04 |
 | Python | 3.10 |
 | PyTorch | 2.7.0+cu128（支持 RTX 5090 / Blackwell sm_120） |
 | Transformers | ≥5.2（支持 Qwen3.5 等新架构） |
@@ -120,7 +121,7 @@
 
 | 参数 | 类型 | 必填 | 默认值 | 说明 |
 |---|---|:---:|---|---|
-| `--model_kwargs` | json | 否 | — | 额外模型加载参数。如 `{"device_map": "auto", "torch_dtype": "float16"}` |
+| `--model_kwargs` | json | 否 | `{"device_map":"auto","torch_dtype":"bfloat16"}` | 额外模型加载参数；留空用默认值，填写后与默认合并（同名字段用户优先） |
 
 ---
 
@@ -290,7 +291,8 @@
 
 1. **互斥校验**：`--custom_dataset_path` 与 `--datasets` 必须二选一，同时填写会报错
 2. **目录格式统一**：自定义数据集目录内所有文件必须同格式（不可混用 jsonl 和 csv）
-3. **镜像版本**：`main-py310-cu128-r1` 支持 Qwen3.5，旧镜像 `main-py310-cu124-r1` 不支持
-4. **首次运行**：OpenCompass CLI 冷启动较慢（import torch/transformers），属正常现象
-5. **结果对比**：`eval_report.csv` 累积多次评测结果，便于横向对比不同模型/版本
-6. **自定义数据集缩写**：单文件用文件名（去扩展名），目录场景用文件名作为数据集标识
+3. **镜像版本**：业务镜像 `main-py310-cu128-r10`；重依赖在 `model-evaluate:base-py310-cu128`，日常改代码只重建业务层
+4. **构建方式**：升级依赖跑 `build-base.sh`，改 `src/` 跑 `build.sh`
+5. **首次运行**：OpenCompass CLI 冷启动较慢（import torch/transformers），属正常现象
+6. **结果对比**：`eval_report.csv` 累积多次评测结果，便于横向对比不同模型/版本
+7. **自定义数据集缩写**：单文件用文件名（去扩展名），目录场景用文件名作为数据集标识
