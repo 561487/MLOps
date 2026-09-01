@@ -1,124 +1,28 @@
 # job-template/job/model-evaluate/Dockerfile
-# 构建方式: 在项目根目录执行
+# 业务镜像：基于 model-evaluate:base-py310-cu128，仅复制/安装入口脚本，日常改代码走此 Dockerfile。
+#
+# 构建（项目根目录）:
 #   bash job-template/job/model-evaluate/build.sh
 #
-# 基础镜像: CUDA 12.8 + Ubuntu 22.04（支持 GPU 推理）
-# CUDA 12.8 原因: RTX 5090 (Blackwell, sm_120) 需要 torch cu128 wheel
-#                 torch 2.6/cu124 最高只支持 sm_90，sm_120 会报 "no kernel image available"
-FROM nvidia/cuda:12.8.0-runtime-ubuntu22.04
+# 首次或升级依赖时先构建 base:
+#   bash job-template/job/model-evaluate/build-base.sh
+ARG BASE_IMAGE=10.121.177.20:8082/mlops/model-evaluate:base-py310-cu128
+FROM ${BASE_IMAGE}
 
-LABEL maintainer="cube-studio"
-LABEL description="OpenCompass LLM Evaluation Tool - Cube Studio Job Template"
+LABEL maintainer="MLops"
+LABEL description="OpenCompass LLM Evaluation Tool - MLops Job Template (app layer)"
 
-ENV TZ=Asia/Shanghai
-ENV DEBIAN_FRONTEND=noninteractive
-ENV LANG=en_US.UTF-8
-
-# ── 运行时环境变量（OpenCompass 会自动识别） ──
-ENV HF_ENDPOINT=https://hf-mirror.com
-ENV DATASET_SOURCE=ModelScope
-
-# ── 1. 系统依赖（使用清华 apt 镜像源） ──
-RUN sed -i 's|http://archive.ubuntu.com|https://mirrors.tuna.tsinghua.edu.cn|g' /etc/apt/sources.list && \
-    sed -i 's|http://security.ubuntu.com|https://mirrors.tuna.tsinghua.edu.cn|g' /etc/apt/sources.list && \
-    apt-get update -o Acquire::Retries=3 --fix-missing && \
-    apt-get install -y --no-install-recommends \
-    git \
-    wget \
-    curl \
-    vim \
-    python3 \
-    python3-pip \
-    python3-venv \
-    ca-certificates \
-    && rm -rf /var/lib/apt/lists/*
-
-# ── 2. 配置 PyPI 国内镜像源 ──
-RUN pip3 config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple && \
-    pip3 install --no-cache-dir --upgrade pip setuptools wheel
-
-# ── 3. 安装 PyTorch（CUDA 12.8）──
-# 关键：--index-url 显式指向 CUDA 版 PyTorch 源，必须放在包名后面才生效
-# --extra-index-url 指向清华源作为依赖（numpy 等）的下载源
-# torch 2.7.0+cu128: 首个正式支持 Blackwell (sm_120, RTX 5090) 的稳定版；
-#                    transformers 5.x 要求 torch>=2.6，2.7 满足
-RUN pip3 install --no-cache-dir \
-    --index-url https://download.pytorch.org/whl/cu128 \
-    --extra-index-url https://pypi.tuna.tsinghua.edu.cn/simple \
-    torch==2.7.0 \
-    torchvision==0.22.0 \
-    torchaudio==2.7.0
-
-# ── 4. 安装 OpenCompass main + transformers 5.x ──
-# OpenCompass 从 git main 安装: PyPI 0.5.3 不含 Qwen3.5 支持
-# transformers>=5.2: qwen3_5 架构注册的最低版本
-# modelscope: 数据集下载源（对应 DATASET_SOURCE=ModelScope）
-# GitHub 直连不稳（curl 16 HTTP2 framing 层被重置），措施：
-#   1. git 强制 HTTP/1.1 —— 规避 HTTP/2 传输被重置
-#   2. 三级回退克隆链: 直连 → ghfast.top → gh-proxy.com（公益加速镜像，仅克隆公开仓库，无认证风险）
-#   3. --depth 1 浅克隆 —— 减少传输量
-RUN git config --global http.version HTTP/1.1 && \
-    (git clone --depth 1 https://github.com/open-compass/opencompass.git /tmp/opencompass \
-     || git clone --depth 1 https://ghfast.top/https://github.com/open-compass/opencompass.git /tmp/opencompass \
-     || git clone --depth 1 https://gh-proxy.com/https://github.com/open-compass/opencompass.git /tmp/opencompass \
-    ) && \
-    pip3 install --no-cache-dir /tmp/opencompass Evaluate modelscope "transformers>=5.2" && \
-    rm -rf /tmp/opencompass
-
-# ── 5.【强制】patch batch_encode_plus（transformers 5.x 兼容） ──
-# transformers 5.x 移除了 batch_encode_plus 公开 API，而 OpenCompass main 仍在调用
-# （官方修复 PR #2575 已关闭未合并，其涉及多个 HF 后端文件）。
-# 替换 tokenizer.batch_encode_plus( → tokenizer(，即 tokenizer.__call__ 等价接口
-# （self.tokenizer.batch_encode_plus(...) 因子串匹配同样被正确替换）。
-# 扫描整个 opencompass 包，防止遗漏其他模型后端文件。
-# assert 保证: 若上游已改结构/合并官方修复导致替换点消失，构建立即失败而非静默产出坏镜像
-RUN python3 - <<'EOF'
-import opencompass, pathlib
-pkg = pathlib.Path(opencompass.__file__).parent
-total = 0
-for f in sorted(pkg.rglob('*.py')):
-    s = f.read_text(errors='ignore')
-    n = s.count('tokenizer.batch_encode_plus(')
-    if n:
-        f.write_text(s.replace('tokenizer.batch_encode_plus(', 'tokenizer('))
-        total += n
-        print(f'[PATCH] {f.name}: {n} 处')
-assert total > 0, '[PATCH FAIL] 未找到 batch_encode_plus 调用，OpenCompass 结构可能已变化，请人工检查'
-print(f'[PATCH OK] 共替换 {total} 处 batch_encode_plus -> tokenizer.__call__')
-EOF
-
-# ── 6. Qwen3.5 可选 kernel（Gated DeltaNet 加速，允许失败） ──
-# 不装能跑但慢且吃显存（回退到 PyTorch 原生实现，功能不受影响）
-RUN pip3 install --no-cache-dir causal-conv1d fla \
-    || echo "[WARN] causal-conv1d/fla 安装失败，Qwen3.5 将回退到慢速实现（不影响功能）"
-
-# ── 7. 查找 OpenCompass 安装路径，建立统一入口目录 ──
-RUN OPENCOMPASS_DIR=$(python3 -c "import opencompass; import os; print(os.path.dirname(opencompass.__file__))") && \
-    echo "OpenCompass installed at: $OPENCOMPASS_DIR" && \
-    mkdir -p /opt/opencompass && \
-    # 如果 pip 包包含 run.py，则链接；否则内置的 CLI 也能用
-    if [ -f "$OPENCOMPASS_DIR/../run.py" ]; then \
-        ln -sf "$OPENCOMPASS_DIR/../run.py" /opt/opencompass/run.py; \
-    else \
-        echo "[WARN] run.py 未找到，将仅使用 opencompass CLI: $OPENCOMPASS_DIR"; \
-    fi && \
-    if [ -d "$OPENCOMPASS_DIR/configs" ]; then \
-        ln -sf "$OPENCOMPASS_DIR/configs" /opt/opencompass/configs; \
-    else \
-        echo "[WARN] configs 目录未找到: $OPENCOMPASS_DIR/configs"; \
-    fi
-
-# ── 8. 复制入口脚本 ──
+# ── 复制入口脚本 ──
 COPY job-template/job/model-evaluate/src/ /app/
 RUN chmod +x /app/*.py
 
-# ── 9. 安装 sitecustomize.py 到 site-packages（Python 启动时自动加载） ──
+# ── 安装 sitecustomize.py 到 site-packages（Python 启动时自动加载） ──
 # 为 MsDataset.load 注入 trust_remote_code=True，在 opencompass 子进程中也生效
-RUN SITE_PACKAGES=$(python3 -c "import site; print(site.getsitepackages()[0])") && \
-    cp /app/sitecustomize.py "$SITE_PACKAGES/sitecustomize.py" && \
-    echo "sitecustomize.py installed to: $SITE_PACKAGES/sitecustomize.py"
-
-WORKDIR /opt/opencompass
-ENV PYTHONPATH=/app
+# 使用 python3 -S + sysconfig，避免 import site 时加载 /app/sitecustomize 污染 stdout
+RUN python3 -S -c "\
+import sysconfig, shutil; \
+dst = sysconfig.get_paths()['purelib'] + '/sitecustomize.py'; \
+shutil.copy('/app/sitecustomize.py', dst); \
+print('sitecustomize.py installed to:', dst)"
 
 ENTRYPOINT ["python3", "/app/run_evaluation.py"]

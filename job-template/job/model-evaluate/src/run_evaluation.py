@@ -43,6 +43,52 @@ KFJ_PIPELINE_ID = os.getenv('KFJ_PIPELINE_ID', '0')
 KFJ_TASK_PROJECT_NAME = os.getenv('KFJ_TASK_PROJECT_NAME', 'public')
 
 
+DEFAULT_MODEL_KWARGS = {
+    'device_map': 'auto',
+    'torch_dtype': 'bfloat16',
+}
+
+
+def resolve_model_kwargs(model_kwargs_str: str) -> dict:
+    """合并默认 model_kwargs 与用户覆盖项（用户优先）。"""
+    kwargs = dict(DEFAULT_MODEL_KWARGS)
+    if not model_kwargs_str:
+        return kwargs
+    try:
+        user_kwargs = json.loads(model_kwargs_str)
+        if isinstance(user_kwargs, dict):
+            kwargs.update(user_kwargs)
+        else:
+            print(f'[WARN] model_kwargs 不是 JSON 对象，使用默认值: {model_kwargs_str}')
+    except json.JSONDecodeError:
+        print(f'[WARN] model_kwargs 不是合法 JSON，使用默认值: {model_kwargs_str}')
+    return kwargs
+
+
+def apply_num_gpus_visibility(num_gpus: int):
+    """限制进程可见 GPU，使 device_map=auto 与 --num_gpus 一致。
+
+    device_map=auto 会使用当前进程可见的全部 GPU（CUDA_VISIBLE_DEVICES），
+    不会读取 --num_gpus；因此在启动前按 num_gpus 裁剪可见设备列表。
+    """
+    if num_gpus <= 0:
+        return
+    cuda_visible = os.environ.get('CUDA_VISIBLE_DEVICES', '').strip()
+    if cuda_visible:
+        devices = [d for d in cuda_visible.split(',') if d.strip() != '']
+        if len(devices) > num_gpus:
+            limited = ','.join(devices[:num_gpus])
+            os.environ['CUDA_VISIBLE_DEVICES'] = limited
+            print(f'[INFO] CUDA_VISIBLE_DEVICES 已限制为前 {num_gpus} 卡: {limited}')
+        elif len(devices) < num_gpus:
+            print(f'[WARN] CUDA_VISIBLE_DEVICES={cuda_visible} 仅 {len(devices)} 卡，'
+                  f'但 --num_gpus={num_gpus}')
+    else:
+        limited = ','.join(str(i) for i in range(num_gpus))
+        os.environ['CUDA_VISIBLE_DEVICES'] = limited
+        print(f'[INFO] CUDA_VISIBLE_DEVICES 未设置，按 --num_gpus={num_gpus} 设为: {limited}')
+
+
 def check_opencompass():
     """检查 OpenCompass CLI 是否可用。"""
     try:
@@ -442,6 +488,7 @@ def build_custom_config(args: argparse.Namespace) -> str:
     model_cls = 'HuggingFacewithChatTemplate' if is_chat else 'HuggingFaceBaseModel'
     model_type_str = f'opencompass.models.huggingface_above_v4_33.{model_cls}'
     model_abbr = os.path.basename(args.model_path.rstrip('/')) + '_hf'
+    model_kwargs = resolve_model_kwargs(args.model_kwargs)
 
     # ---- 6. 生成 config（目录场景：每文件一个 dataset） ----
     config_path = os.path.join(args.output_path, '_custom_config.py')
@@ -453,6 +500,7 @@ def build_custom_config(args: argparse.Namespace) -> str:
     lines.append(f'        type={repr(model_type_str)},')
     lines.append(f'        abbr={repr(model_abbr)},')
     lines.append(f'        path={repr(args.model_path)},')
+    lines.append(f'        model_kwargs={repr(model_kwargs)},')
     lines.append(f'        max_seq_len={args.max_seq_len},')
     lines.append(f'        max_out_len={args.max_out_len},')
     lines.append(f'        batch_size={args.batch_size},')
@@ -516,7 +564,15 @@ def build_custom_config(args: argparse.Namespace) -> str:
     return config_path
 
 
-def build_opencompass_cmd(args: argparse.Namespace) -> list:
+def get_dataset_skip_reason(dataset: str, model_type: str) -> str | None:
+    """返回数据集与模型类型不兼容时的跳过原因；兼容则返回 None。"""
+    if model_type == 'hf_chat' and dataset.endswith('_ppl'):
+        return 'hf_chat 不支持 _ppl 数据集'
+    return None
+
+
+def build_opencompass_cmd(args: argparse.Namespace,
+                          dataset_list: list | None = None) -> list:
     """构建 OpenCompass 执行命令。
 
     由于 C-Eval 等数据集需要 trust_remote_code=True 才能加载，
@@ -541,19 +597,31 @@ def build_opencompass_cmd(args: argparse.Namespace) -> list:
         opencompass_args = [config_path]
     else:
         # datasets 参数：平台传逗号分隔字符串，需拆分为空格分隔的多个参数
-        dataset_list = [d.strip() for d in args.datasets.split(',') if d.strip()]
+        if dataset_list is None:
+            dataset_list = [d.strip() for d in args.datasets.split(',') if d.strip()]
 
         # ---- 约束：hf_chat 只能选 _gen 数据集 ----
         # HuggingFacewithChatTemplate 不支持 PPL 评测(NotImplementedError)
-        # 且模板参数无 UI 联动，这里做运行时快速校验，启动即失败
-        if args.model_type == 'hf_chat':
-            ppl_ds = [d for d in dataset_list if d.endswith('_ppl')]
-            if ppl_ds:
+        incompatible = [
+            d for d in dataset_list
+            if get_dataset_skip_reason(d, args.model_type)
+        ]
+        if incompatible:
+            if len(dataset_list) == 1:
+                reason = get_dataset_skip_reason(dataset_list[0], args.model_type)
                 print(f'[ERROR] 模型类型为 hf_chat 时只能选择 _gen 数据集，'
-                      f'检测到非法的 _ppl 数据集: {",".join(ppl_ds)}')
+                      f'检测到非法的 _ppl 数据集: {dataset_list[0]}')
                 print('[HINT] 二选一修改：'
                       '1) 从评测数据集中去掉 _ppl 项；'
                       '2) 将模型类型改为 hf_base(base 支持 _ppl 和 _gen)')
+                sys.exit(1)
+            # 多数据集逐条运行时由 run_builtin_datasets_with_skip 跳过，此处仅过滤
+            dataset_list = [
+                d for d in dataset_list
+                if not get_dataset_skip_reason(d, args.model_type)
+            ]
+            if not dataset_list:
+                print('[ERROR] 过滤 _ppl 数据集后无可评测项')
                 sys.exit(1)
 
         print(f'[INFO] 数据集列表(内置): {dataset_list}')
@@ -631,17 +699,11 @@ def build_opencompass_cmd(args: argparse.Namespace) -> list:
         print(f'[INFO] 样本数限制: 每个数据集最多取 {args.max_samples} 条')
         os.environ['OC_MAX_SAMPLES'] = str(args.max_samples)
 
-    # 额外的模型加载参数
-    if args.model_kwargs:
-        try:
-            model_kwargs = json.loads(args.model_kwargs)
-            if isinstance(model_kwargs, dict):
-                for k, v in model_kwargs.items():
-                    opencompass_args.extend(['--model-kwargs', f'{k}={v}'])
-            else:
-                print(f'[WARN] model_kwargs 不是 JSON 对象，已跳过: {args.model_kwargs}')
-        except json.JSONDecodeError:
-            print(f'[WARN] model_kwargs 不是合法 JSON，已跳过: {args.model_kwargs}')
+    # 模型加载参数（默认 device_map=auto + torch_dtype=bfloat16，用户可覆盖）
+    model_kwargs = resolve_model_kwargs(args.model_kwargs)
+    print(f'[INFO] model_kwargs: {model_kwargs}')
+    for k, v in model_kwargs.items():
+        opencompass_args.extend(['--model-kwargs', f'{k}={v}'])
 
     # ---- 生成 wrapper 脚本（monkey-patch MsDataset.load → 调用 opencompass 入口） ----
     wrapper_path = os.path.join(args.output_path, '_opencompass_wrapper.py')
@@ -729,7 +791,9 @@ def build_opencompass_cmd(args: argparse.Namespace) -> list:
     return [sys.executable, wrapper_path] + opencompass_args
 
 
-def run_opencompass(cmd: list, log_path: str):
+def run_opencompass(cmd: list, log_path: str, *,
+                    fail_on_error: bool = True,
+                    append_log: bool = False) -> int:
     """执行 OpenCompass 命令，实时输出日志。"""
     print(f'[INFO] 执行命令: {" ".join(cmd)}')
     print(f'[INFO] 日志输出: {log_path}')
@@ -741,7 +805,13 @@ def run_opencompass(cmd: list, log_path: str):
     try:
         env = os.environ.copy()
         env.setdefault('HF_DATASETS_TRUST_REMOTE_CODE', '1')
-        with open(log_path, 'w', encoding='utf-8') as log_f:
+        env.setdefault('PYTORCH_CUDA_ALLOC_CONF', 'expandable_segments:True')
+        log_mode = 'a' if append_log else 'w'
+        with open(log_path, log_mode, encoding='utf-8') as log_f:
+            if append_log:
+                sep = f'\n{"=" * 60}\n[{time.strftime("%Y-%m-%d %H:%M:%S")}] 继续评测下一个数据集\n{"=" * 60}\n'
+                print(sep, end='')
+                log_f.write(sep)
             process = subprocess.Popen(
                 cmd,
                 stdout=subprocess.PIPE,
@@ -762,17 +832,23 @@ def run_opencompass(cmd: list, log_path: str):
         print(f'[ERROR] 命令未找到: {cmd[0]}，请确认 OpenCompass 已正确安装')
         with open(log_path, 'a', encoding='utf-8') as log_f:
             log_f.write(f'\n[FATAL] 命令未找到: {cmd[0]}\n')
-        sys.exit(1)
+        if fail_on_error:
+            sys.exit(1)
+        return 127
     except OSError as e:
         print(f'[ERROR] 系统调用失败: {e}')
         with open(log_path, 'a', encoding='utf-8') as log_f:
             log_f.write(f'\n[FATAL] 系统调用失败: {e}\n')
-        sys.exit(1)
+        if fail_on_error:
+            sys.exit(1)
+        return 1
     except Exception as e:
         print(f'[ERROR] 执行过程中发生未知错误: {e}')
         with open(log_path, 'a', encoding='utf-8') as log_f:
             log_f.write(f'\n[FATAL] 未知错误: {e}\n')
-        sys.exit(1)
+        if fail_on_error:
+            sys.exit(1)
+        return 1
 
     elapsed = time.time() - start_time
     print('=' * 60)
@@ -780,24 +856,130 @@ def run_opencompass(cmd: list, log_path: str):
 
     if process is None:
         print('[ERROR] 进程未能启动，无法获取退出码')
-        sys.exit(1)
+        if fail_on_error:
+            sys.exit(1)
+        return 1
 
     returncode = process.returncode
 
     if returncode == -9:
         print(f'[ERROR] OpenCompass 被 OOM Killer 强制终止（SIGKILL）')
-        sys.exit(1)
+        if fail_on_error:
+            sys.exit(1)
+        return returncode
 
     if returncode != 0:
         print(f'[ERROR] OpenCompass 运行失败，退出码: {returncode}')
-        sys.exit(returncode)
+        if fail_on_error:
+            sys.exit(returncode)
+        return returncode
 
     print(f'[OK] OpenCompass 运行完成')
+    return 0
+
+
+def save_dataset_status(output_path: str, succeeded: list, skipped: list):
+    """写入 dataset_status.json，记录各数据集运行状态。"""
+    status_path = os.path.join(output_path, 'dataset_status.json')
+    payload = {
+        'succeeded': succeeded,
+        'skipped': skipped,
+        'total': len(succeeded) + len(skipped),
+    }
+    with open(status_path, 'w', encoding='utf-8') as f:
+        json.dump(payload, f, indent=2, ensure_ascii=False)
+    print(f'[OK] 数据集运行状态已写入: {status_path}')
+
+
+def print_dataset_summary(succeeded: list, skipped: list):
+    """打印数据集运行汇总。"""
+    print('\n========== 数据集运行汇总 ==========')
+    print(f'  成功 ({len(succeeded)}): {", ".join(succeeded) if succeeded else "无"}')
+    if skipped:
+        skipped_desc = []
+        for item in skipped:
+            ds = item.get('dataset', item)
+            code = item.get('exit_code')
+            reason = item.get('reason', '')
+            if reason:
+                skipped_desc.append(f'{ds} ({reason})')
+            elif code is not None:
+                skipped_desc.append(f'{ds} (exit={code})')
+            else:
+                skipped_desc.append(str(ds))
+        print(f'  跳过 ({len(skipped)}): {", ".join(skipped_desc)}')
+    else:
+        print('  跳过 (0): 无')
+    print('====================================\n')
+
+
+def run_builtin_datasets_with_skip(args: argparse.Namespace) -> tuple[list, list]:
+    """逐数据集运行 OpenCompass；单个失败时跳过并继续。"""
+    dataset_list = [d.strip() for d in args.datasets.split(',') if d.strip()]
+    if not dataset_list:
+        print('[ERROR] --datasets 为空')
+        sys.exit(1)
+
+    log_path = os.path.join(args.output_path, 'eval_run.log')
+
+    pre_skipped = []
+    runnable = []
+    for ds in dataset_list:
+        reason = get_dataset_skip_reason(ds, args.model_type)
+        if reason:
+            pre_skipped.append({'dataset': ds, 'reason': reason})
+        else:
+            runnable.append(ds)
+
+    if pre_skipped:
+        names = ', '.join(item['dataset'] for item in pre_skipped)
+        print(f'[WARN] 以下数据集与 model_type={args.model_type} 不兼容，将自动跳过: {names}')
+        if args.model_type == 'hf_chat':
+            print('[HINT] hf_chat 仅支持 _gen 数据集；如需 _ppl 请改用 hf_base，或从列表中去掉 _ppl 项')
+
+    print(f'[INFO] 共 {len(dataset_list)} 个内置数据集'
+          f'（可运行 {len(runnable)}，预跳过 {len(pre_skipped)}），'
+          f'运行失败时将自动跳过并继续')
+
+    skipped = list(pre_skipped)
+    succeeded = []
+
+    for idx, ds in enumerate(runnable):
+        print(f'\n{"=" * 60}')
+        print(f'[INFO] 评测数据集 ({idx + 1}/{len(runnable)}): {ds}')
+        print(f'{"=" * 60}')
+
+        cmd = build_opencompass_cmd(args, dataset_list=[ds])
+        returncode = run_opencompass(
+            cmd, log_path,
+            fail_on_error=False,
+            append_log=(idx > 0),
+        )
+        if returncode == 0:
+            succeeded.append(ds)
+            print(f'[OK] 数据集 {ds} 评测完成')
+        else:
+            skipped.append({'dataset': ds, 'exit_code': returncode})
+            print(f'[WARN] 数据集 {ds} 评测失败(退出码 {returncode})，已跳过，继续下一个')
+
+    print_dataset_summary(succeeded, skipped)
+    save_dataset_status(args.output_path, succeeded, skipped)
+
+    if not succeeded:
+        if skipped:
+            print('[ERROR] 所有数据集均未能成功完成（含跳过/失败项）')
+        else:
+            print('[ERROR] 无可运行的数据集')
+        sys.exit(1)
+
+    return succeeded, skipped
 
 
 def run_parse_and_save(opencompass_dir: str, output_path: str,
                        model_name: str, model_version: str,
-                       model_path: str, datasets: str):
+                       model_path: str, datasets: str,
+                       succeeded_datasets: list | None = None,
+                       skipped_datasets: list | None = None):
     """调用 parse_and_save.py 解析结果。"""
     parse_script = os.path.join(os.path.dirname(__file__), 'parse_and_save.py')
     if not os.path.exists(parse_script):
@@ -814,6 +996,10 @@ def run_parse_and_save(opencompass_dir: str, output_path: str,
         '--model-path', model_path,
         '--datasets', datasets,
     ]
+    if succeeded_datasets is not None:
+        cmd.extend(['--succeeded-datasets', ','.join(succeeded_datasets)])
+    if skipped_datasets is not None:
+        cmd.extend(['--skipped-datasets', json.dumps(skipped_datasets, ensure_ascii=False)])
 
     print(f'[INFO] 解析评测结果: {" ".join(cmd)}')
     result = subprocess.run(cmd, capture_output=True, text=True)
@@ -911,6 +1097,7 @@ def main():
         sys.exit(1)
 
     check_opencompass()
+    apply_num_gpus_visibility(args.num_gpus)
     check_gpu_available(args.num_gpus)
     # 仅对本地路径做存在性检查，HF 模型 ID（如 Qwen/Qwen2.5-0.5B-Instruct）由 OpenCompass 自行下载
     is_local_path = args.model_path.startswith('/') or args.model_path.startswith('./')
@@ -943,9 +1130,14 @@ def main():
     os.makedirs(args.output_path, exist_ok=True)
 
     # ---- 1. 运行 OpenCompass ----
-    cmd = build_opencompass_cmd(args)
-    log_path = os.path.join(args.output_path, 'eval_run.log')
-    run_opencompass(cmd, log_path)
+    succeeded_datasets = None
+    skipped_datasets = None
+    if args.custom_dataset_path:
+        cmd = build_opencompass_cmd(args)
+        log_path = os.path.join(args.output_path, 'eval_run.log')
+        run_opencompass(cmd, log_path)
+    else:
+        succeeded_datasets, skipped_datasets = run_builtin_datasets_with_skip(args)
 
     # ---- 2. 解析结果 ----
     opencompass_out = os.path.join(args.output_path, 'opencompass_results')
@@ -956,6 +1148,8 @@ def main():
         model_version=args.model_version,
         model_path=args.model_path,
         datasets=args.datasets,
+        succeeded_datasets=succeeded_datasets,
+        skipped_datasets=skipped_datasets,
     )
 
     print(f'\n[OK] 评测完成！结果目录: {args.output_path}')
