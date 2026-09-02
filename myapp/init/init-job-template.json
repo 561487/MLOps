@@ -2982,6 +2982,107 @@
       }
     }
   },
+  "dataset-merge-split": {
+    "project_name": "数据处理工具",
+    "image_name": "10.121.177.20:8082/mlops/datasetmergesplit:20260902-r7",
+    "gitpath": "/job-template/job/datasetmergesplit",
+    "image_describe": "同结构数据集合并与训练验证比例分割",
+    "job_template_name": "dataset-merge-split",
+    "job_template_describe": "合并一个或多个Messages/QA数据集，并按比例输出训练集和验证集",
+    "job_template_command": "python3 launcher.py",
+    "job_template_volume": "",
+    "job_template_account": "",
+    "job_template_env": "",
+    "job_template_expand": {
+      "index": 3,
+      "rec_job_template": "dataset-preprocess",
+      "help_url": "/job-template/job/datasetmergesplit"
+    },
+    "job_template_args": {
+      "输入配置": {
+        "--dataset_paths": {
+          "type": "str",
+          "item_type": "str",
+          "label": "数据集路径列表",
+          "require": 1,
+          "choice": [],
+          "default": "",
+          "placeholder": "/mnt/admin/dataset-convert/alarm;/mnt/admin/dataset-convert/maintenance",
+          "describe": "填写一个或多个DatasetConvert输出目录，多个路径使用英文分号;分隔；单个路径时直接进行训练/验证比例分割",
+          "editable": 1
+        }
+      },
+      "合并配置": {
+        "--cross_dataset_dedup": {
+          "type": "enum",
+          "item_type": "str",
+          "label": "跨数据集去重",
+          "require": 0,
+          "choice": ["true", "false"],
+          "default": "true",
+          "describe": "按标准化后的核心训练内容去重",
+          "editable": 1
+        },
+        "--conflict_policy": {
+          "type": "enum",
+          "item_type": "str",
+          "label": "答案冲突处理",
+          "require": 0,
+          "choice": ["reject", "keep_all", "fail"],
+          "default": "reject",
+          "describe": "reject隔离全部冲突样本；keep_all保留；fail终止任务",
+          "editable": 1
+        }
+      },
+      "比例分割": {
+        "--train_ratio": {
+          "type": "float",
+          "item_type": "float",
+          "label": "训练集比例",
+          "require": 1,
+          "choice": [],
+          "range": "0,1",
+          "default": "0.9",
+          "describe": "与验证集比例之和必须等于1",
+          "editable": 1
+        },
+        "--validation_ratio": {
+          "type": "float",
+          "item_type": "float",
+          "label": "验证集比例",
+          "require": 1,
+          "choice": [],
+          "range": "0,1",
+          "default": "0.1",
+          "describe": "设为0时只输出训练集；与训练集比例之和必须等于1",
+          "editable": 1
+        }
+      },
+      "输出配置": {
+        "--output_dir": {
+          "type": "str",
+          "item_type": "str",
+          "label": "输出PVC目录",
+          "require": 1,
+          "choice": [],
+          "default": "/mnt/{{creator}}/dataset-merge-split/output/",
+          "placeholder": "/mnt/admin/dataset-merge-split/industrial-warning-v1/",
+          "describe": "输出train.jsonl、validation.jsonl、dataset_manifest.json及处理报告",
+          "editable": 1
+        },
+        "--overwrite": {
+          "type": "enum",
+          "item_type": "str",
+          "label": "覆盖已有输出",
+          "require": 0,
+          "choice": ["true", "false"],
+          "default": "false",
+          "describe": "默认拒绝覆盖已有输出目录",
+          "editable": 1
+        }
+      }
+    }
+  },
   "model-download": {
     "project_name": "数据导入导出",
     "image_name": "10.121.177.20:8082/mlops/model_download:20250601",
