@@ -123,7 +123,7 @@ def init():
     def create_template(repository_id, project_name, image_name, image_describe, job_template_name,
                         job_template_old_names=[], job_template_describe='',job_template_workdir='', job_template_command='',
                         job_template_args=None, job_template_volume='', job_template_account='',
-                        job_template_expand=None, job_template_env='', gitpath='',**kwargs):
+                        job_template_expand=None, job_template_env='', gitpath='', runtime_key='', **kwargs):
         if not repository_id:
             return
         images = db.session.query(Images).filter_by(name=image_name).first()
@@ -171,6 +171,7 @@ def init():
                     job_template.changed_by_fk = 1
                     job_template.project_id = project.id
                     job_template.images_id = images.id
+                    job_template.runtime_key = runtime_key or None
                     job_template.env = job_template_env
                     # if 'tip' in job_template_args:
                     #     job_template_args['tip']=job_template_args['tip'].replace('\n','<br>')
@@ -196,6 +197,7 @@ def init():
                     job_template.changed_by_fk = 1
                     job_template.project_id = project.id
                     job_template.images_id = images.id
+                    job_template.runtime_key = runtime_key or None
                     job_template.version = kwargs.get('job_template_version', 'Release')
                     job_template.env = job_template_env
                     job_template.args = json.dumps(job_template_args, indent=4, ensure_ascii=False) if job_template_args else '{}'

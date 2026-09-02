@@ -1672,13 +1672,14 @@ export default function TaskListManager(props?: IAppMenuItem) {
             });
         }}
       >
-        {(form: FormInstance) => (
+        {(form: FormInstance, formChangeRes: any) => (
           <DynamicForm
             form={form}
             primaryKey={primaryKey}
             config={dynamicFormConfigUpdate}
-            linkageConfig={columnRelateFormat}
             configGroup={dynamicFormGroupConfigUpdate}
+            linkageConfig={columnRelateFormat}
+            formChangeRes={formChangeRes}
           />
         )}
       </ModalForm>

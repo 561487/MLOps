@@ -1,0 +1,816 @@
+/* ================================================================
+   Aurora Glass — AI Floating Assistant
+   tokens:
+   glass      rgba(255,255,255,0.66)
+   aurora-a   #7B6CF6   aurora-b #4A7CF7
+   blush      #F7A8C9
+   ink        #232135   mist #F3F2FA
+   ================================================================ */
+
+.fa-root {
+  position: fixed;
+  z-index: 9999;
+  font-size: 14px;
+  will-change: left, top;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+    "Hiragino Sans GB", "Microsoft YaHei", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  color: #232135;
+}
+
+/* ===== 折叠态：图标 + 光环 ===== */
+.fa-collapsed .fa-bubble {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  user-select: none;
+  animation: fa-pop 0.25s ease-out;
+  transition: transform 0.2s ease;
+  overflow: visible;
+}
+
+.fa-bubble-icon {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  object-fit: cover;
+  filter: drop-shadow(0 6px 16px rgba(123, 108, 246, 0.45));
+  transition: filter 0.2s ease;
+}
+
+.fa-collapsed .fa-bubble:hover {
+  transform: scale(1.06);
+}
+
+.fa-collapsed .fa-bubble:hover .fa-bubble-icon {
+  filter: drop-shadow(0 8px 22px rgba(74, 124, 247, 0.55));
+}
+
+@keyframes fa-pop {
+  from { transform: scale(0.85); opacity: 0; }
+  to   { transform: scale(1);    opacity: 1; }
+}
+
+/* ===== 展开态 ===== */
+.fa-expanded {
+  animation: fa-panel-in 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes fa-panel-in {
+  from { transform: translateY(10px) scale(0.96); opacity: 0; }
+  to   { transform: translateY(0) scale(1);       opacity: 1; }
+}
+
+/* 拖拽条 */
+.fa-drag-handle {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 40px;
+  height: 52px;
+  cursor: move;
+  z-index: 2;
+}
+
+/* 面板：磨砂玻璃 */
+.fa-panel {
+  width: 384px;
+  height: 540px;
+  background: rgba(255, 255, 255, 0.66);
+  -webkit-backdrop-filter: blur(20px) saturate(1.4);
+  backdrop-filter: blur(20px) saturate(1.4);
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.75);
+  box-shadow:
+    0 4px 16px rgba(35, 33, 53, 0.06),
+    0 16px 48px rgba(123, 108, 246, 0.16);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* ===== Header：极光渐变 ===== */
+.fa-panel-header {
+  height: 52px;
+  padding: 0 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: linear-gradient(120deg, #7B6CF6 0%, #4A7CF7 70%, #6EE7F9 130%);
+  color: #fff;
+  flex-shrink: 0;
+  position: relative;
+}
+
+/* header 顶部微光星点（呼应图标 sparkle） */
+.fa-panel-header::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image:
+    radial-gradient(1.5px 1.5px at 18% 30%, rgba(255, 255, 255, 0.9) 50%, transparent 51%),
+    radial-gradient(1px 1px at 62% 62%, rgba(255, 255, 255, 0.7) 50%, transparent 51%),
+    radial-gradient(1.5px 1.5px at 84% 26%, rgba(255, 255, 255, 0.8) 50%, transparent 51%);
+  pointer-events: none;
+}
+
+.fa-title-icon {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  margin-right: 8px;
+  object-fit: cover;
+  display: inline-block;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.55);
+}
+
+.fa-panel-title {
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  display: flex;
+  align-items: center;
+}
+
+.fa-panel-close {
+  cursor: pointer;
+  font-size: 14px;
+  padding: 5px 7px;
+  border-radius: 8px;
+  position: relative;
+  z-index: 3;
+  transition: background 0.15s ease;
+}
+
+.fa-panel-close:hover {
+  background: rgba(255, 255, 255, 0.22);
+}
+
+/* Header 右侧操作按钮容器 */
+.fa-panel-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  position: relative;
+  z-index: 3;
+}
+
+/* Header 上的次要按钮（清空对话等） */
+.fa-header-btn {
+  cursor: pointer;
+  font-size: 15px;
+  padding: 5px 7px;
+  border-radius: 8px;
+  color: #fff;
+  transition: background 0.15s ease, transform 0.15s ease;
+}
+
+.fa-header-btn:hover {
+  background: rgba(255, 255, 255, 0.22);
+  transform: scale(1.05);
+}
+
+/* ===== 消息区 ===== */
+.fa-panel-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 14px;
+  background: #F3F2FA;
+  scroll-behavior: smooth;
+}
+
+.fa-panel-messages::-webkit-scrollbar {
+  width: 6px;
+}
+
+.fa-panel-messages::-webkit-scrollbar-thumb {
+  background: rgba(123, 108, 246, 0.25);
+  border-radius: 3px;
+}
+
+.fa-panel-messages::-webkit-scrollbar-thumb:hover {
+  background: rgba(123, 108, 246, 0.45);
+}
+
+.fa-msg {
+  display: flex;
+  margin-bottom: 14px;
+  align-items: flex-start;
+}
+
+.fa-msg-user {
+  flex-direction: row-reverse;
+}
+
+/* 消息内容容器（气泡 + 工具栏）
+   flex:1 让容器占满头像旁剩余宽度，避免气泡 max-width 百分比相对「收缩后的父级」
+   导致短中文被压成一字一行 */
+.fa-msg-content {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  max-width: calc(100% - 40px);
+}
+
+.fa-msg-user .fa-msg-content {
+  align-items: flex-end;
+}
+
+/* 消息工具栏（复制、重新生成） */
+.fa-msg-actions {
+  display: flex;
+  gap: 4px;
+  margin-top: 4px;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.fa-msg:hover .fa-msg-actions {
+  opacity: 1;
+}
+
+.fa-action-btn {
+  cursor: pointer;
+  font-size: 13px;
+  padding: 3px;
+  border-radius: 6px;
+  color: #6b7280;
+  background: rgba(0, 0, 0, 0.04);
+  transition: background 0.15s ease, color 0.15s ease, transform 0.15s ease;
+}
+
+.fa-action-btn:hover {
+  background: rgba(124, 108, 246, 0.15);
+  color: #4A7CF7;
+  transform: scale(1.1);
+}
+
+/* 头像 */
+.fa-msg-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  flex-shrink: 0;
+}
+
+.fa-msg-assistant .fa-msg-avatar {
+  margin-right: 8px;
+  padding: 0;
+  background: transparent;
+}
+
+.fa-msg-assistant .fa-msg-avatar-img {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  object-fit: cover;
+  display: block;
+  filter: drop-shadow(0 2px 6px rgba(123, 108, 246, 0.35));
+}
+
+.fa-msg-user .fa-msg-avatar {
+  background: linear-gradient(135deg, #7B6CF6, #4A7CF7);
+  color: #fff;
+  margin-left: 8px;
+}
+
+/* 气泡通用：按内容撑开，仅在触达 max-width 时再换行 */
+.fa-msg-bubble {
+  max-width: 100%;
+  width: fit-content;
+  padding: 9px 13px;
+  line-height: 1.6;
+  overflow-wrap: break-word;
+  word-break: normal;
+  white-space: pre-wrap;
+  font-size: 13.5px;
+}
+
+/* 用户气泡：极光渐变 */
+.fa-msg-user .fa-msg-bubble {
+  background: linear-gradient(135deg, #7B6CF6 0%, #4A7CF7 100%);
+  color: #fff;
+  border-radius: 16px 4px 16px 16px;
+  box-shadow: 0 4px 12px rgba(74, 124, 247, 0.25);
+}
+
+/* AI 气泡：白色玻璃 + 顶部极光滑条（签名元素） */
+.fa-msg-assistant .fa-msg-bubble {
+  background: rgba(255, 255, 255, 0.85);
+  color: #232135;
+  border: 1px solid rgba(123, 108, 246, 0.14);
+  border-radius: 4px 16px 16px 16px;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(35, 33, 53, 0.05);
+}
+
+.fa-msg-assistant .fa-msg-bubble::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, #7B6CF6, #4A7CF7, #6EE7F9);
+  opacity: 0.55;
+}
+
+/* 思考中：极光滑条流动 */
+.fa-msg-assistant .fa-msg-bubble.fa-thinking::before {
+  opacity: 1;
+  background: linear-gradient(90deg, #7B6CF6, #F7A8C9, #4A7CF7, #7B6CF6);
+  background-size: 300% 100%;
+  animation: fa-aurora-flow 1.6s linear infinite;
+}
+
+@keyframes fa-aurora-flow {
+  from { background-position: 0% 0; }
+  to   { background-position: 300% 0; }
+}
+
+/* Markdown */
+.fa-msg-bubble-md {
+  white-space: normal;
+}
+
+.fa-msg-bubble-md p {
+  margin: 0 0 8px;
+}
+
+.fa-msg-bubble-md p:last-child {
+  margin-bottom: 0;
+}
+
+.fa-msg-bubble-md ol,
+.fa-msg-bubble-md ul {
+  margin: 4px 0 8px;
+  padding-left: 20px;
+}
+
+.fa-msg-bubble-md li {
+  margin-bottom: 2px;
+}
+
+.fa-msg-bubble-md code {
+  background: #EFEDFA;
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-size: 12px;
+  color: #5B4FD1;
+}
+
+.fa-msg-bubble-md pre {
+  background: #232135;
+  padding: 10px 12px;
+  border-radius: 10px;
+  overflow-x: auto;
+  margin: 6px 0 8px;
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.fa-msg-bubble-md pre code {
+  background: none;
+  padding: 0;
+  color: #E4E1F5;
+}
+
+.fa-msg-bubble-md blockquote {
+  margin: 6px 0;
+  padding: 6px 12px;
+  border-left: 3px solid #7B6CF6;
+  background: #EFEDFA;
+  color: #5C5878;
+  border-radius: 0 8px 8px 0;
+}
+
+.fa-msg-bubble-md strong {
+  font-weight: 600;
+  color: #5B4FD1;
+}
+
+/* 思考指示：blush 弹跳三点 */
+.fa-typing {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 18px;
+}
+
+.fa-typing i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  animation: fa-bounce 1s ease-in-out infinite;
+}
+
+.fa-typing i:nth-child(1) { background: #F7A8C9; animation-delay: 0s; }
+.fa-typing i:nth-child(2) { background: #7B6CF6; animation-delay: 0.15s; }
+.fa-typing i:nth-child(3) { background: #4A7CF7; animation-delay: 0.3s; }
+
+@keyframes fa-bounce {
+  0%, 100% { transform: translateY(0); opacity: 0.5; }
+  50%      { transform: translateY(-4px); opacity: 1; }
+}
+
+/* ===== 快捷问题：玻璃胶囊 ===== */
+.fa-panel-quick {
+  padding: 10px 14px 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  background: transparent;
+  flex-shrink: 0;
+  border-top: 1px solid rgba(123, 108, 246, 0.1);
+}
+
+.fa-quick-btn {
+  padding: 4px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(123, 108, 246, 0.25);
+  background: rgba(255, 255, 255, 0.6);
+  color: #5B4FD1;
+  font-size: 12px;
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.15s ease;
+}
+
+.fa-quick-btn:hover {
+  background: linear-gradient(135deg, #7B6CF6, #4A7CF7);
+  border-color: transparent;
+  color: #fff;
+  box-shadow: 0 3px 10px rgba(74, 124, 247, 0.3);
+}
+
+/* ===== 输入区：占满横向空间 ===== */
+.fa-panel-input {
+  padding: 10px 14px 14px;
+  display: flex;
+  align-items: stretch;
+  gap: 10px;
+  background: transparent;
+  flex-shrink: 0;
+  border-top: 1px solid rgba(123, 108, 246, 0.1);
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* antd v4 Input.TextArea 的实际渲染元素 */
+.fa-panel-input .ant-input-affix-wrapper,
+.fa-panel-input .ant-input {
+  border-radius: 12px;
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+}
+
+.fa-panel-input textarea.ant-input {
+  resize: none;
+  min-height: 36px !important;
+  height: 36px !important;
+  line-height: 22px;
+  padding-top: 7px;
+  padding-bottom: 7px;
+  overflow-y: auto;
+  border: 1.5px solid rgba(123, 108, 246, 0.2);
+  background: rgba(255, 255, 255, 0.7);
+  border-radius: 12px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+  box-sizing: border-box;
+}
+
+.fa-panel-input textarea.ant-input:focus {
+  border-color: #7B6CF6;
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(123, 108, 246, 0.15);
+  outline: none;
+}
+
+/* antd v4 Input.TextArea 是原生 <textarea> 而非 wrapper，所以旧 wrapper 规则重置 */
+.fa-panel-input .ant-input-textarea-wrapper {
+  border: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  display: block;
+  flex: 1;
+  min-width: 0;
+}
+
+.fa-panel-input .ant-input-textarea {
+  display: block;
+  flex: 1;
+  min-width: 0;
+  width: 100%;
+}
+
+.fa-send-btn {
+  height: 36px !important;
+  min-height: 36px;
+  border-radius: 12px;
+  flex-shrink: 0;
+  align-self: flex-start;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  background: linear-gradient(135deg, #7B6CF6, #4A7CF7) !important;
+  border: none !important;
+  box-shadow: 0 4px 12px rgba(74, 124, 247, 0.3) !important;
+  transition: box-shadow 0.15s ease, transform 0.15s ease, opacity 0.15s ease;
+}
+
+.fa-send-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(74, 124, 247, 0.4) !important;
+}
+
+.fa-send-btn:disabled {
+  background: #D8D5E8 !important;
+  box-shadow: none !important;
+  cursor: not-allowed;
+}
+
+/* ============================================================
+   Markdown 渲染样式（AI 消息气泡内的内容）
+   风格：与 Aurora Glass 主题一致——紫蓝调玻璃质感
+   ============================================================ */
+
+.fa-msg-bubble-md {
+  font-size: 13.5px;
+  line-height: 1.65;
+  color: #2c2a3a;
+  word-break: break-word;
+}
+
+/* 段落间距 */
+.fa-msg-bubble-md p {
+  margin: 0 0 8px 0;
+}
+.fa-msg-bubble-md p:last-child {
+  margin-bottom: 0;
+}
+
+/* 标题 */
+.fa-msg-bubble-md h1,
+.fa-msg-bubble-md h2,
+.fa-msg-bubble-md h3,
+.fa-msg-bubble-md h4 {
+  margin: 12px 0 6px 0;
+  font-weight: 600;
+  line-height: 1.35;
+  color: #1f1b3a;
+}
+.fa-msg-bubble-md h1 {
+  font-size: 18px;
+  border-bottom: 1px solid rgba(99, 102, 241, 0.2);
+  padding-bottom: 4px;
+}
+.fa-msg-bubble-md h2 {
+  font-size: 16px;
+}
+.fa-msg-bubble-md h3 {
+  font-size: 14.5px;
+}
+.fa-msg-bubble-md h4 {
+  font-size: 13.5px;
+  color: #5b5478;
+}
+
+/* 行内代码 */
+.fa-msg-bubble-md code {
+  font-family: 'SF Mono', Menlo, Monaco, Consolas, 'Courier New', monospace;
+  font-size: 12.5px;
+  background: rgba(99, 102, 241, 0.12);
+  color: #4338ca;
+  padding: 1px 6px;
+  border-radius: 4px;
+  border: 1px solid rgba(99, 102, 241, 0.18);
+}
+
+/* 代码块 */
+.fa-msg-bubble-md pre {
+  margin: 8px 0;
+  padding: 12px 14px;
+  background: #232135;
+  border-radius: 8px;
+  overflow-x: auto;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  position: relative;
+}
+.fa-msg-bubble-md pre code {
+  display: block;
+  background: transparent;
+  color: #e6e4f0;
+  padding: 0;
+  border: none;
+  font-size: 12.5px;
+  line-height: 1.55;
+  border-radius: 0;
+}
+
+/* 列表 */
+.fa-msg-bubble-md ul,
+.fa-msg-bubble-md ol {
+  margin: 6px 0;
+  padding-left: 22px;
+}
+.fa-msg-bubble-md ul li {
+  list-style: disc;
+  margin: 3px 0;
+}
+.fa-msg-bubble-md ol li {
+  list-style: decimal;
+  margin: 3px 0;
+}
+.fa-msg-bubble-md li > p {
+  margin: 0;
+}
+
+/* 引用块 */
+.fa-msg-bubble-md blockquote {
+  margin: 8px 0;
+  padding: 6px 12px;
+  border-left: 3px solid #6366f1;
+  background: rgba(99, 102, 241, 0.06);
+  color: #5b5478;
+  border-radius: 0 4px 4px 0;
+}
+.fa-msg-bubble-md blockquote p {
+  margin: 0;
+}
+
+/* 表格 */
+.fa-msg-bubble-md table {
+  margin: 8px 0;
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 12.5px;
+  display: block;
+  overflow-x: auto;
+}
+.fa-msg-bubble-md thead {
+  background: rgba(99, 102, 241, 0.08);
+}
+.fa-msg-bubble-md th,
+.fa-msg-bubble-md td {
+  padding: 6px 10px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  text-align: left;
+}
+.fa-msg-bubble-md th {
+  font-weight: 600;
+  color: #1f1b3a;
+}
+
+/* 链接 */
+.fa-msg-bubble-md a {
+  color: #6366f1;
+  text-decoration: none;
+  border-bottom: 1px solid rgba(99, 102, 241, 0.4);
+}
+.fa-msg-bubble-md a:hover {
+  color: #4338ca;
+  border-bottom-color: #4338ca;
+}
+
+/* 分割线 */
+.fa-msg-bubble-md hr {
+  margin: 12px 0;
+  border: none;
+  border-top: 1px solid rgba(99, 102, 241, 0.18);
+}
+
+/* 图片 */
+.fa-msg-bubble-md img {
+  max-width: 100%;
+  border-radius: 6px;
+  margin: 6px 0;
+}
+
+/* ============================================================
+   历史会话侧边栏（覆盖在面板上）
+   ============================================================ */
+.fa-history-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  border-radius: 20px;
+  overflow: hidden;
+  animation: fa-slide-in 0.2s ease-out;
+}
+
+@keyframes fa-slide-in {
+  from { opacity: 0; transform: translateX(20px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+.fa-history-header {
+  padding: 16px 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: 600;
+  font-size: 15px;
+  color: #232135;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  background: linear-gradient(135deg, rgba(123, 108, 246, 0.08), rgba(74, 124, 247, 0.08));
+}
+
+.fa-history-close {
+  cursor: pointer;
+  font-size: 16px;
+  color: #6b6b7e;
+  padding: 4px;
+  border-radius: 8px;
+  transition: all 0.15s;
+}
+.fa-history-close:hover {
+  background: rgba(0, 0, 0, 0.06);
+  color: #232135;
+}
+
+.fa-history-new {
+  padding: 12px 20px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #4A7CF7;
+  cursor: pointer;
+  font-weight: 500;
+  font-size: 14px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.04);
+  transition: background 0.15s;
+}
+.fa-history-new:hover {
+  background: rgba(74, 124, 247, 0.06);
+}
+
+.fa-history-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 0;
+}
+
+.fa-history-empty {
+  padding: 40px 20px;
+  text-align: center;
+  color: #9b9bab;
+  font-size: 13px;
+}
+
+.fa-history-item {
+  padding: 10px 20px;
+  cursor: pointer;
+  border-left: 3px solid transparent;
+  transition: all 0.15s;
+}
+.fa-history-item:hover {
+  background: rgba(123, 108, 246, 0.06);
+}
+.fa-history-item.active {
+  background: linear-gradient(90deg, rgba(74, 124, 247, 0.1), rgba(123, 108, 246, 0.04));
+  border-left-color: #4A7CF7;
+}
+
+.fa-history-item-title {
+  font-size: 13px;
+  color: #232135;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 4px;
+}
+
+.fa-history-item-time {
+  font-size: 11px;
+  color: #9b9bab;
+}
+
+/* 加载状态 */
+.fa-loading-state {
+  padding: 40px 20px;
+  text-align: center;
+  color: #9b9bab;
+  font-size: 13px;
+}

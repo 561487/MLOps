@@ -48,6 +48,7 @@ def dump_launcher_diagnostics():
 
 # print(os.environ)
 from job.pkgs.k8s.py_k8s import K8s
+from job.pkgs.k8s.affinity import build_pod_anti_affinity
 k8s_client = K8s()
 
 KFJ_NAMESPACE = os.getenv('KFJ_NAMESPACE', '')
@@ -256,22 +257,10 @@ def make_volcanojob(name,num_workers,image,working_dir,command,env):
                     ]
                 }
             },
-            "podAntiAffinity": {
-                "preferredDuringSchedulingIgnoredDuringExecution": [
-                    {
-                        "weight": 20,
-                        "podAffinityTerm": {
-                            "topologyKey": "kubernetes.io/hostname",
-                            "labelSelector": {
-                                "matchLabels": {
-                                    "component": name,
-                                    "type": "volcanojob"
-                                }
-                            }
-                        }
-                    }
-                ]
-            }
+            "podAntiAffinity": build_pod_anti_affinity(
+                {"component": name, "type": "volcanojob"},
+                num_workers,
+            )
         },
         "containers": [
             {
@@ -337,7 +326,6 @@ def make_volcanojob(name,num_workers,image,working_dir,command,env):
             producer_pod_spec['nodeSelector'] = {}
         producer_pod_spec['nodeSelector'].pop('cpu', None)
         producer_pod_spec['nodeSelector']['gpu'] = 'true'
-        producer_pod_spec['nodeSelector']['mps'] = 'false'
     elif int(gpu_num) < 0:
         shared_count, _, shared_resource_name = k8s_client.get_gpu_shared_resource(GPU_RESOURCE)
         producer_pod_spec['containers'][0]['resources']['requests'][shared_resource_name] = shared_count
@@ -346,7 +334,6 @@ def make_volcanojob(name,num_workers,image,working_dir,command,env):
             producer_pod_spec['nodeSelector'] = {}
         producer_pod_spec['nodeSelector'].pop('cpu', None)
         producer_pod_spec['nodeSelector']['gpu'] = 'true'
-        producer_pod_spec['nodeSelector']['mps'] = 'true'
     else:
         producer_pod_spec['containers'][0]['env'].append({
             "name": "NVIDIA_VISIBLE_DEVICES",
@@ -385,7 +372,6 @@ def make_volcanojob(name,num_workers,image,working_dir,command,env):
                 consumer_pod_spec['nodeSelector'] = {}
             consumer_pod_spec['nodeSelector'].pop('cpu', None)
             consumer_pod_spec['nodeSelector']['gpu'] = 'true'
-            consumer_pod_spec['nodeSelector']['mps'] = 'false'
         elif int(gpu_num) < 0:
             shared_count, _, shared_resource_name = k8s_client.get_gpu_shared_resource(GPU_RESOURCE)
             consumer_pod_spec['containers'][0]['resources']['requests'][shared_resource_name] = shared_count
@@ -394,7 +380,6 @@ def make_volcanojob(name,num_workers,image,working_dir,command,env):
                 consumer_pod_spec['nodeSelector'] = {}
             consumer_pod_spec['nodeSelector'].pop('cpu', None)
             consumer_pod_spec['nodeSelector']['gpu'] = 'true'
-            consumer_pod_spec['nodeSelector']['mps'] = 'true'
         else:
             consumer_pod_spec['containers'][0]['env'].append({
                 "name": "NVIDIA_VISIBLE_DEVICES",
@@ -639,17 +624,18 @@ if __name__ == "__main__":
     args = arg_parser.parse_args()
     log("{} args: {}".format(__file__, args))
 
-    # 从统一配置文件读取 worker 镜像 tag
+    # worker 镜像 tag 优先级：命令行 --image > 环境变量 LLM_OFFLINE_PREDICT > image_tags.conf（兼容旧镜像）
     _conf_dir = os.path.dirname(os.path.abspath(__file__))
-    _worker_image = ''
-    _conf_path = os.path.join(_conf_dir, 'image_tags.conf')
-    if os.path.exists(_conf_path):
-        with open(_conf_path, 'r') as _f:
-            for _line in _f:
-                _line = _line.strip()
-                if _line.startswith('LLM_OFFLINE_PREDICT='):
-                    _worker_image = _line.split('=', 1)[1]
-                    break
+    _worker_image = os.environ.get('LLM_OFFLINE_PREDICT', '')
+    if not _worker_image:
+        _conf_path = os.path.join(_conf_dir, 'image_tags.conf')
+        if os.path.exists(_conf_path):
+            with open(_conf_path, 'r') as _f:
+                for _line in _f:
+                    _line = _line.strip()
+                    if _line.startswith('LLM_OFFLINE_PREDICT='):
+                        _worker_image = _line.split('=', 1)[1]
+                        break
     worker_image = args.image if args.image else _worker_image
     worker_command = args.command if args.command else "python3 /app/predict.py"
 

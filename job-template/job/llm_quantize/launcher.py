@@ -343,7 +343,7 @@ def quantize_gptq(model_path, output, bits, group_size, dataset, nsamples):
     texts = _load_calib_text(dataset, nsamples)
     _emit("quantize", "开始 GPTQ 量化", method="gptq", bits=bits,
           group_size=group_size, samples=len(texts))
-    model.quantize(texts, batch_size=2)
+    model.quantize(texts, batch_size=1)
     _emit("save_model", "保存 GPTQ 量化模型", method="gptq", output=output)
     os.makedirs(output, exist_ok=True)
     model.save(output)

@@ -21,14 +21,22 @@ const ModalForm = (props: ModalFormProps): JSX.Element => {
 	const forceUpdate = React.useCallback(() => updateState({}), []);
 
 	useEffect(() => {
-		if (props.formData) {
+		// 编辑回填：setFieldsValue 不触发 onValuesChange，需要显式发出 init 信号，
+		// 让 DynamicForm 按已有值初始化联动（scene → runtime_key → runtime_image）并保留当前值
+		if (props.formData && Object.keys(props.formData).length) {
 			form.setFieldsValue(props.formData);
+			setFormChangeRes({
+				currentChange: props.formData,
+				allValues: props.formData,
+				init: true
+			})
 		}
 	}, [props]);
 
 	const [formChangeRes, setFormChangeRes] = useState<{
 		currentChange: Record<string, any>
 		allValues: Record<string, any>
+		init?: boolean
 	}>({
 		currentChange: {},
 		allValues: {}
@@ -48,6 +56,7 @@ const ModalForm = (props: ModalFormProps): JSX.Element => {
 			cancelText={t('取消')}
 			onCancel={() => {
 				form.resetFields();
+				setFormChangeRes({ currentChange: {}, allValues: {} });
 				props.onCancel();
 			}}
 			onOk={() => {

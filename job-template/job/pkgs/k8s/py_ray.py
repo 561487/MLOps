@@ -6,6 +6,7 @@ import sys, json
 import time
 
 from job.pkgs.k8s.py_k8s import K8s
+from job.pkgs.k8s.affinity import build_pod_anti_affinity
 k8s_client = K8s()
 
 import argparse
@@ -171,22 +172,10 @@ def create_header_deploy(name):
                                 ]
                             }
                         },
-                        "podAntiAffinity": {
-                            "preferredDuringSchedulingIgnoredDuringExecution": [
-                                {
-                                    "weight": 5,
-                                    "podAffinityTerm": {
-                                        "topologyKey": "kubernetes.io/hostname",
-                                        "labelSelector": {
-                                            "matchLabels": {
-                                                "component": name,
-                                                "type":"ray"
-                                            }
-                                        }
-                                    }
-                                }
-                            ]
-                        }
+                        "podAntiAffinity": build_pod_anti_affinity(
+                            {"component": name, "type": "ray"},
+                            1,
+                        )
                     },
                     "containers": [
                         {
@@ -301,21 +290,10 @@ def create_worker_deploy(header_name,worker_name):
                                 ]
                             }
                         },
-                        "podAntiAffinity": {
-                            "preferredDuringSchedulingIgnoredDuringExecution": [
-                                {
-                                    "weight": 5,
-                                    "podAffinityTerm": {
-                                        "topologyKey": "kubernetes.io/hostname",
-                                        "labelSelector": {
-                                            "matchLabels": {
-                                                "component": worker_name
-                                            }
-                                        }
-                                    }
-                                }
-                            ]
-                        }
+                        "podAntiAffinity": build_pod_anti_affinity(
+                            {"component": worker_name, "type": "ray"},
+                            NUM_WORKER,
+                        )
                     },
                     "restartPolicy": "Always",
                     "volumes": k8s_volumes,

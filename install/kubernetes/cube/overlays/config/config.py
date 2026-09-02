@@ -743,7 +743,7 @@ VGPU_RESOURCE={
 VGPU_DRIVE_TYPE = "vgpu"
 
 
-RDMA_RESOURCE_NAME=''
+RDMA_RESOURCE_NAME='rdma/rdma_shared_device_a'
 
 DEFAULT_POD_RESOURCES={}
 
@@ -851,13 +851,13 @@ HUBSECRET_NAMESPACE=[PIPELINE_NAMESPACE,AUTOML_NAMESPACE,NOTEBOOK_NAMESPACE,SERV
 
 # notebook使用的镜像
 NOTEBOOK_IMAGES=[
-    ['ccr.ccs.tencentyun.com/cube-studio/notebook:vscode-ubuntu-cpu-base', 'vscode（cpu）'],
-    ['ccr.ccs.tencentyun.com/cube-studio/notebook:vscode-ubuntu-gpu-base', 'vscode（gpu）'],
-    ['ccr.ccs.tencentyun.com/cube-studio/notebook:jupyter-ubuntu22.04', 'jupyter（cpu）'],
-    ['ccr.ccs.tencentyun.com/cube-studio/notebook:jupyter-ubuntu22.04-cuda11.8.0-cudnn8','jupyter（gpu）'],
-    ['ccr.ccs.tencentyun.com/cube-studio/notebook:jupyter-ubuntu-bigdata', 'jupyter（bigdata）'],
-    ['ccr.ccs.tencentyun.com/cube-studio/notebook:jupyter-ubuntu-machinelearning', 'jupyter（machinelearning）'],
-    ['ccr.ccs.tencentyun.com/cube-studio/notebook:jupyter-ubuntu-deeplearning', 'jupyter（deeplearning）'],
+    ['10.121.177.20:8082/notebook/notebook:vscode-ubuntu-cpu-base', 'vscode（cpu）'],
+    ['10.121.177.20:8082/notebook/notebook:vscode-ubuntu-gpu-base', 'vscode（gpu）'],
+    ['10.121.177.20:8082/notebook/notebook:jupyter-ubuntu22.04', 'jupyter（cpu）'],
+    ['10.121.177.20:8082/notebook/notebook:jupyter-ubuntu22.04-cuda11.8.0-cudnn8','jupyter（gpu）'],
+    ['10.121.177.20:8082/notebook/notebook:jupyter-ubuntu-bigdata', 'jupyter（bigdata）'],
+    ['10.121.177.20:8082/notebook/notebook:jupyter-ubuntu-machinelearning', 'jupyter（machinelearning）'],
+    ['10.121.177.20:8082/notebook/notebook:jupyter-ubuntu-deeplearning', 'jupyter（deeplearning）'],
     ['10.121.177.20:8082/mlops/notebook:tensorboard-jupyter-cpu', 'jupyter-tensorboard（cpu）'],
     ['10.121.177.20:8082/mlops/notebook:tensorboard-jupyter-bigdata', 'jupyter-tensorboard（bigdata）'],
     ['10.121.177.20:8082/mlops/notebook:tensorboard-vscode-cpu', 'vscode-tensorboard（cpu）'],
@@ -911,8 +911,10 @@ PROMETHEUS_BASE_URL = _normalize_prometheus_url(
 PROMETHEUS_QUERY_TIMEOUT = int(os.environ.get("PROMETHEUS_QUERY_TIMEOUT", "10"))
 INFERENCE_MONITOR_SUMMARY_CACHE_TTL = int(os.environ.get("INFERENCE_MONITOR_SUMMARY_CACHE_TTL", "10"))
 INFERENCE_MONITOR_TIMESERIES_CACHE_TTL = int(os.environ.get("INFERENCE_MONITOR_TIMESERIES_CACHE_TTL", "30"))
+# 固定计算窗口（秒）：Counter rate 和 Histogram quantile 的计算窗口，不随显示范围变化
+INFERENCE_MONITOR_CALCULATION_WINDOW_SECONDS = int(os.environ.get("INFERENCE_MONITOR_CALCULATION_WINDOW_SECONDS", "120"))
 # nni默认镜像
-NNI_IMAGES='ccr.ccs.tencentyun.com/cube-studio/nni:20240501'
+NNI_IMAGES='10.121.177.20:8082/notebook/nni:20240501'
 
 # 数据集的存储地址
 DATASET_SAVEPATH = '/dataset/'
@@ -1037,6 +1039,11 @@ CHATGPT_CHAT_URL = []
 CHATGPT_ARGS = {
     "model": 'gpt-5-chat'
 }
+
+# 浮窗 AI 助手 LLM：未注入环境变量时写入进程环境，供 view_assistant 的 os.environ.get 读取
+os.environ.setdefault('ASSISTANT_LLM_URL', 'http://10.80.10.146:9998/v1')
+os.environ.setdefault('ASSISTANT_LLM_API_KEY', 'xf-SpqvDfjjdQVKsB9h0LETqHhkuJrO6AOKqR29YSIDhh3MDXuo')
+os.environ.setdefault('ASSISTANT_LLM_MODEL', 'qwen3')
 
 
 # 所有训练集群的信息

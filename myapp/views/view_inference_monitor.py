@@ -12,7 +12,8 @@ from myapp.services.inference_monitor_service import (
     get_service_timeseries,
     get_target_status,
 )
-from myapp.services.vllm_metric_adapter import SUPPORTED_METRICS, ALLOWED_RANGES
+from myapp.services.inference_monitor_time_range import ALLOWED_RANGES
+from myapp.services.vllm_metric_adapter import SUPPORTED_METRICS
 
 
 class InferenceMonitorApi(BaseApi):
@@ -61,11 +62,12 @@ class InferenceMonitorApi(BaseApi):
             return self._error_response("未登录", 401)
 
         project_id = request.args.get("project_id")
-        engine_filter = request.args.get("engine")
+        engine_filter = str(request.args.get("engine", "all")).strip().lower()
         status_filter = request.args.get("status")
 
         # 白名单校验引擎
-        if engine_filter and engine_filter not in ("vllm",):
+        ALLOWED_ENGINES = {"all", "vllm", "sglang"}
+        if engine_filter not in ALLOWED_ENGINES:
             return self._error_response("不支持的引擎类型")
 
         try:

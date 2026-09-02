@@ -263,8 +263,12 @@ def _seed_default_templates():
         if template_name not in seed_data:
             continue
         cfg = seed_data[template_name]
-        existing = db.session.query(Job_Template).filter_by(
-            name=template_name).first()
+        try:
+            existing = db.session.query(Job_Template).filter_by(
+                name=template_name).first()
+        except Exception:
+            db.session.rollback()
+            return
         if existing:
             # 自动补全 JSON 新增的字段（如 input_path），避免重启后表单丢失
             existing_args = _json.loads(existing.args or '{}')

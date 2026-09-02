@@ -293,7 +293,7 @@
         "resource_rdma": "0",
         "timeout": 0,
         "retry": 0,
-        "node_selector": "gpu=true,train=true;mps=false",
+        "node_selector": "gpu=true,train=true",
         "args": {
           "--model_name": "/mnt/storage/models-share-volume/models/Qwen3-0.6B",
           "--dataset": "yuki_identity_sft",
@@ -320,7 +320,7 @@
         "resource_rdma": "0",
         "timeout": 0,
         "retry": 0,
-        "node_selector": "gpu=true;train=true;mps=false",
+        "node_selector": "gpu=true;train=true",
         "args": {
           "--model_path": "/mnt/storage/models-share-volume/output/lora/qwen3-0.6b-lora",
           "--model_name": "qwen3-0.6b-lora",
@@ -632,7 +632,7 @@
         "resource_rdma": "0",
         "timeout": 0,
         "retry": 0,
-        "node_selector": "gpu=true,train=true;mps=false",
+        "node_selector": "gpu=true,train=true",
         "args": {
           "--teacher_model": "/mnt/storage/models-share-volume/models/Qwen2.5-0.5B-Instruct",
           "--student_model": "/mnt/storage/models-share-volume/models/Qwen2.5-0.5B",
@@ -655,7 +655,7 @@
         "resource_rdma": "0",
         "timeout": 0,
         "retry": 0,
-        "node_selector": "gpu=true;train=true;mps=false",
+        "node_selector": "gpu=true;train=true",
         "args": {
           "--model_path": "/mnt/storage/models-share-volume/output/distill/qwen-05b-kd",
           "--model_name": "qwen-05b-kd",
@@ -920,7 +920,7 @@
       "resource_rdma": "0",
       "timeout": 0,
       "retry": 0,
-      "node_selector": "gpu=true;train=true;mps=false",
+      "node_selector": "gpu=true;train=true",
       "args": {
         "--model_path": "/mnt/storage/models-share-volume/models/Qwen2.5-0.5B-Instruct",
         "--model_name": "qwen25-05b-fp16",
@@ -949,7 +949,7 @@
       "resource_rdma": "0",
       "timeout": 0,
       "retry": 0,
-      "node_selector": "gpu=true;train=true;mps=false",
+      "node_selector": "gpu=true;train=true",
       "args": {
         "--model_source": "pvc",
         "--model": "/mnt/storage/models-share-volume/models/Qwen2.5-0.5B-Instruct",
@@ -975,7 +975,7 @@
       "resource_rdma": "0",
       "timeout": 0,
       "retry": 0,
-      "node_selector": "gpu=true;train=true;mps=false",
+      "node_selector": "gpu=true;train=true",
       "args": {
         "--model_path": "/mnt/storage/models-share-volume/output/quantize/qwen25-05b-gptq-int4",
         "--model_name": "qwen25-05b-gptq-int4",

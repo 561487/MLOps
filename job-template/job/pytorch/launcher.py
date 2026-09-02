@@ -14,12 +14,13 @@ import os,sys
 import re
 import threading
 import psutil
-import copy
 
 from kubernetes import client
 
 # print(os.environ)
 from job.pkgs.k8s.py_k8s import K8s
+from job.pkgs.k8s.affinity import build_pod_anti_affinity
+from job.pkgs.k8s.replica_specs import build_master_worker_replica_specs
 k8s_client = K8s()
 
 KFJ_NAMESPACE = os.getenv('KFJ_NAMESPACE', '')
@@ -218,22 +219,10 @@ def make_pytorchjob(name,num_workers,image,working_dir,command):
                     #         ]
                     #     }
                     # },
-                    "podAntiAffinity": {
-                        "preferredDuringSchedulingIgnoredDuringExecution": [
-                            {
-                                "weight": 5,
-                                "podAffinityTerm": {
-                                    "topologyKey": "kubernetes.io/hostname",
-                                    "labelSelector": {
-                                        "matchLabels": {
-                                            "component": name,
-                                            "type": "pytorchjob"
-                                        }
-                                    }
-                                }
-                            }
-                        ]
-                    }
+                    "podAntiAffinity": build_pod_anti_affinity(
+                        {"component": name, "type": "pytorchjob"},
+                        num_workers,
+                    )
                 },
                 "containers": [
                     {
@@ -281,14 +270,12 @@ def make_pytorchjob(name,num_workers,image,working_dir,command):
         pod_spec['template']['spec']['containers'][0]['resources']['limits'][GPU_RESOURCE_NAME] = int(gpu_num)
         pod_spec['template']['spec']['nodeSelector'].pop('cpu', None)
         pod_spec['template']['spec']['nodeSelector']['gpu'] = 'true'
-        pod_spec['template']['spec']['nodeSelector']['mps'] = 'false'
     elif int(gpu_num)<0:
         shared_count, _, shared_resource_name = k8s_client.get_gpu_shared_resource(GPU_RESOURCE)
         pod_spec['template']['spec']['containers'][0]['resources']['requests'][shared_resource_name] = shared_count
         pod_spec['template']['spec']['containers'][0]['resources']['limits'][shared_resource_name] = shared_count
         pod_spec['template']['spec']['nodeSelector'].pop('cpu', None)
         pod_spec['template']['spec']['nodeSelector']['gpu'] = 'true'
-        pod_spec['template']['spec']['nodeSelector']['mps'] = 'true'
     else:
         # 添加禁用指令
         pod_spec['template']['spec']['containers'][0]['env'].append({
@@ -309,9 +296,7 @@ def make_pytorchjob(name,num_workers,image,working_dir,command):
         }
 
 
-    worker_pod_spec = copy.deepcopy(pod_spec)
-    worker_pod_spec['replicas']=int(num_workers)-1   # 因为master是其中一个worker
-
+    # num_workers 含 Master；单机时不写 Worker，避免多占一份资源/默认出 worker-0
     pytorch_deploy = {
         "apiVersion": "kubeflow.org/v1",
         "kind": "PyTorchJob",
@@ -334,11 +319,7 @@ def make_pytorchjob(name,num_workers,image,working_dir,command):
         "spec": {
             "backoffLimit":num_workers,
             "cleanPodPolicy": "None",
-            "pytorchReplicaSpecs": {
-                "Master":pod_spec,
-                "Worker":worker_pod_spec
-            }
-
+            "pytorchReplicaSpecs": build_master_worker_replica_specs(pod_spec, num_workers),
         }
     }
 

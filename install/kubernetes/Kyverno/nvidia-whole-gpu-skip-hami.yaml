@@ -1,0 +1,345 @@
+# 整卡（gpu-plugin=nvidia）跳过 HAMi webhook
+#
+# 前置：集群已安装 Kyverno（建议 >= 1.10）
+#   kubectl create -f https://github.com/kyverno/kyverno/releases/download/v1.12.7/install.yaml
+#
+# 部署本策略：
+#   kubectl apply -f install/kubernetes/Kyverno/nvidia-whole-gpu-skip-hami.yaml
+#
+# 行为：
+#   Pod / 训练 CR 的 nodeSelector 或 nodeAffinity 含 gpu-plugin=nvidia 时：
+#   1. 打上 label+annotation hami.io/webhook=ignore（HAMi objectSelector 只认 label）
+#   2. 去掉 nvidia.com/gpucores（防止 Kyverno 晚于 HAMi 执行时配额残留）
+#   3. 若 schedulerName 已被改成 hami-scheduler，训练任务改回 volcano，其余改回 default-scheduler
+#
+# webhook 顺序：Kyverno mutate 名一般为 mutate.kyverno.*，字典序早于 vgpu.hami.io，会先执行。
+# 同时改写 PyTorchJob/TFJob/PaddleJob/Volcano Job 的 Pod 模板，operator 建出来的子 Pod 自带 ignore。
+---
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: nvidia-whole-gpu-skip-hami
+  annotations:
+    pod-policies.kyverno.io/autogen-controllers: none
+    policies.kyverno.io/title: NVIDIA whole GPU skips HAMi
+    policies.kyverno.io/category: GPU
+    policies.kyverno.io/severity: medium
+    policies.kyverno.io/subject: Pod
+    policies.kyverno.io/description: >-
+      gpu-plugin=nvidia 走英伟达整卡调度，禁止 HAMi webhook 注入 gpucores 或改写 schedulerName。
+spec:
+  admission: true
+  background: false
+  failurePolicy: Ignore
+  rules:
+    # ---------- Pod：打 ignore ----------
+    - name: pod-add-hami-webhook-ignore
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+              operations:
+                - CREATE
+      exclude:
+        any:
+          - resources:
+              namespaces:
+                - kube-system
+                - kyverno
+      preconditions:
+        any:
+          - key: "{{ request.object.spec.nodeSelector.\"gpu-plugin\" || '' }}"
+            operator: Equals
+            value: nvidia
+          - key: "{{ request.object.spec.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[].matchExpressions[?key=='gpu-plugin'].values[] || [] }}"
+            operator: AnyIn
+            value:
+              - nvidia
+      mutate:
+        patchStrategicMerge:
+          metadata:
+            labels:
+              hami.io/webhook: ignore
+            annotations:
+              hami.io/webhook: ignore
+
+    # ---------- Pod：去掉 HAMi 注入的 gpucores ----------
+    - name: pod-strip-gpucores-limits
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+              operations:
+                - CREATE
+      exclude:
+        any:
+          - resources:
+              namespaces:
+                - kube-system
+                - kyverno
+      preconditions:
+        any:
+          - key: "{{ request.object.spec.nodeSelector.\"gpu-plugin\" || '' }}"
+            operator: Equals
+            value: nvidia
+          - key: "{{ request.object.spec.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[].matchExpressions[?key=='gpu-plugin'].values[] || [] }}"
+            operator: AnyIn
+            value:
+              - nvidia
+      mutate:
+        foreach:
+          - list: request.object.spec.containers
+            preconditions:
+              all:
+                - key: "{{ element.resources.limits.\"nvidia.com/gpucores\" || '' }}"
+                  operator: NotEquals
+                  value: ""
+            patchesJson6902: |-
+              - op: remove
+                path: /spec/containers/{{elementIndex}}/resources/limits/nvidia.com~1gpucores
+
+    - name: pod-strip-gpucores-requests
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+              operations:
+                - CREATE
+      exclude:
+        any:
+          - resources:
+              namespaces:
+                - kube-system
+                - kyverno
+      preconditions:
+        any:
+          - key: "{{ request.object.spec.nodeSelector.\"gpu-plugin\" || '' }}"
+            operator: Equals
+            value: nvidia
+          - key: "{{ request.object.spec.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[].matchExpressions[?key=='gpu-plugin'].values[] || [] }}"
+            operator: AnyIn
+            value:
+              - nvidia
+      mutate:
+        foreach:
+          - list: request.object.spec.containers
+            preconditions:
+              all:
+                - key: "{{ element.resources.requests.\"nvidia.com/gpucores\" || '' }}"
+                  operator: NotEquals
+                  value: ""
+            patchesJson6902: |-
+              - op: remove
+                path: /spec/containers/{{elementIndex}}/resources/requests/nvidia.com~1gpucores
+
+    # ---------- Pod：训练 CR 子 Pod 被改成 hami-scheduler 时改回 volcano ----------
+    - name: pod-revert-scheduler-volcano
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+              operations:
+                - CREATE
+      exclude:
+        any:
+          - resources:
+              namespaces:
+                - kube-system
+                - kyverno
+      preconditions:
+        all:
+          - key: "{{ request.object.spec.schedulerName || '' }}"
+            operator: Equals
+            value: hami-scheduler
+          - key: "{{ request.object.metadata.labels.type || '' }}"
+            operator: AnyIn
+            value:
+              - pytorchjob
+              - tfjob
+              - volcanojob
+              - paddlejob
+              - mxjob
+              - deepspeed
+              - rayjob
+        any:
+          - key: "{{ request.object.spec.nodeSelector.\"gpu-plugin\" || '' }}"
+            operator: Equals
+            value: nvidia
+          - key: "{{ request.object.spec.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[].matchExpressions[?key=='gpu-plugin'].values[] || [] }}"
+            operator: AnyIn
+            value:
+              - nvidia
+      mutate:
+        patchStrategicMerge:
+          spec:
+            schedulerName: volcano
+
+    # ---------- Pod：其余整卡任务改回 default-scheduler ----------
+    - name: pod-revert-scheduler-default
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+              operations:
+                - CREATE
+      exclude:
+        any:
+          - resources:
+              namespaces:
+                - kube-system
+                - kyverno
+      preconditions:
+        all:
+          - key: "{{ request.object.spec.schedulerName || '' }}"
+            operator: Equals
+            value: hami-scheduler
+          - key: "{{ request.object.metadata.labels.type || '' }}"
+            operator: AnyNotIn
+            value:
+              - pytorchjob
+              - tfjob
+              - volcanojob
+              - paddlejob
+              - mxjob
+              - deepspeed
+              - rayjob
+        any:
+          - key: "{{ request.object.spec.nodeSelector.\"gpu-plugin\" || '' }}"
+            operator: Equals
+            value: nvidia
+          - key: "{{ request.object.spec.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[].matchExpressions[?key=='gpu-plugin'].values[] || [] }}"
+            operator: AnyIn
+            value:
+              - nvidia
+      mutate:
+        patchStrategicMerge:
+          spec:
+            schedulerName: default-scheduler
+
+    # ---------- PyTorchJob 模板提前打 ignore ----------
+    - name: pytorchjob-template-ignore
+      match:
+        any:
+          - resources:
+              kinds:
+                - kubeflow.org/v1/PyTorchJob
+              operations:
+                - CREATE
+                - UPDATE
+      mutate:
+        foreach:
+          - list: request.object.spec.pytorchReplicaSpecs
+            preconditions:
+              any:
+                - key: "{{ element.template.spec.nodeSelector.\"gpu-plugin\" || '' }}"
+                  operator: Equals
+                  value: nvidia
+                - key: "{{ element.template.spec.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[].matchExpressions[?key=='gpu-plugin'].values[] || [] }}"
+                  operator: AnyIn
+                  value:
+                    - nvidia
+            patchesJson6902: |-
+              - op: add
+                path: /spec/pytorchReplicaSpecs/{{elementIndex}}/template/metadata/labels/hami.io~1webhook
+                value: ignore
+              - op: add
+                path: /spec/pytorchReplicaSpecs/{{elementIndex}}/template/metadata/annotations/hami.io~1webhook
+                value: ignore
+
+    # ---------- TFJob ----------
+    - name: tfjob-template-ignore
+      match:
+        any:
+          - resources:
+              kinds:
+                - kubeflow.org/v1/TFJob
+              operations:
+                - CREATE
+                - UPDATE
+      mutate:
+        foreach:
+          - list: request.object.spec.tfReplicaSpecs
+            preconditions:
+              any:
+                - key: "{{ element.template.spec.nodeSelector.\"gpu-plugin\" || '' }}"
+                  operator: Equals
+                  value: nvidia
+                - key: "{{ element.template.spec.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[].matchExpressions[?key=='gpu-plugin'].values[] || [] }}"
+                  operator: AnyIn
+                  value:
+                    - nvidia
+            patchesJson6902: |-
+              - op: add
+                path: /spec/tfReplicaSpecs/{{elementIndex}}/template/metadata/labels/hami.io~1webhook
+                value: ignore
+              - op: add
+                path: /spec/tfReplicaSpecs/{{elementIndex}}/template/metadata/annotations/hami.io~1webhook
+                value: ignore
+
+    # ---------- PaddleJob ----------
+    - name: paddlejob-template-ignore
+      match:
+        any:
+          - resources:
+              kinds:
+                - kubeflow.org/v1/PaddleJob
+              operations:
+                - CREATE
+                - UPDATE
+      mutate:
+        foreach:
+          - list: request.object.spec.paddleReplicaSpecs
+            preconditions:
+              any:
+                - key: "{{ element.template.spec.nodeSelector.\"gpu-plugin\" || '' }}"
+                  operator: Equals
+                  value: nvidia
+                - key: "{{ element.template.spec.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[].matchExpressions[?key=='gpu-plugin'].values[] || [] }}"
+                  operator: AnyIn
+                  value:
+                    - nvidia
+            patchesJson6902: |-
+              - op: add
+                path: /spec/paddleReplicaSpecs/{{elementIndex}}/template/metadata/labels/hami.io~1webhook
+                value: ignore
+              - op: add
+                path: /spec/paddleReplicaSpecs/{{elementIndex}}/template/metadata/annotations/hami.io~1webhook
+                value: ignore
+
+    # ---------- Volcano Job ----------
+    - name: volcanojob-template-ignore
+      match:
+        any:
+          - resources:
+              kinds:
+                - batch.volcano.sh/v1alpha1/Job
+              operations:
+                - CREATE
+                - UPDATE
+      mutate:
+        foreach:
+          - list: request.object.spec.tasks
+            preconditions:
+              any:
+                - key: "{{ element.template.spec.nodeSelector.\"gpu-plugin\" || '' }}"
+                  operator: Equals
+                  value: nvidia
+                - key: "{{ element.template.spec.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[].matchExpressions[?key=='gpu-plugin'].values[] || [] }}"
+                  operator: AnyIn
+                  value:
+                    - nvidia
+            patchStrategicMerge:
+              spec:
+                tasks:
+                  - name: "{{ element.name }}"
+                    template:
+                      metadata:
+                        labels:
+                          hami.io/webhook: ignore
+                        annotations:
+                          hami.io/webhook: ignore

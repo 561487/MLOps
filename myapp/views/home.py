@@ -228,6 +228,14 @@ class Myapp(BaseMyappView):
                                 "menu_type": "api",
                                 "url": "/images_modelview/api/"
                             },
+                            {
+                                "name": 'model_runtime_mapping',
+                                "title": __('模型映射'),
+                                "icon": '<svg t="1653295961491" class="icon" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="4397" width="200" height="200"><path d="M512 0c-141.4 0-256 114.6-256 256 0 89.6 46.2 168.4 116.1 214.4C173.8 493.6 96 584.3 96 696c0 181.1 146.9 328 328 328s328-146.9 328-328c0-111.7-77.8-202.4-276.1-225.6C721.8 424.4 768 345.6 768 256 768 114.6 653.4 0 512 0z" p-id="4398"></path></svg>',
+                                "menu_type": "api",
+                                "url": "/modelruntimemapping_modelview/api/" if is_admin else "",
+                                "disable": not is_admin
+                            },
                         ]
                     },
                     {

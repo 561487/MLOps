@@ -2,6 +2,8 @@ kubernetes==25.3.0
 pysnooper
 psutil
 requests
-llamafactory
+llamafactory>=0.9.5
+transformers>=4.57
+peft>=0.18
 pyyaml
 email-validator

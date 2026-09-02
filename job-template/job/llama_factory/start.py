@@ -185,7 +185,9 @@ def install_llamafactory():
     except ImportError:
         pass
     result = subprocess.run(
-        [sys.executable, "-m", "pip", "install", "-U", "llamafactory", "pyyaml", "email-validator"],
+        [sys.executable, "-m", "pip", "install", "-U",
+         "llamafactory>=0.9.5", "transformers>=4.57", "peft>=0.18",
+         "pyyaml", "email-validator"],
     )
     if result.returncode != 0:
         print(f"[start.py] pip install 失败，退出码: {result.returncode}")
