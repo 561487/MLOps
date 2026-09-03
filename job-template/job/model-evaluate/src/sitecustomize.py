@@ -157,5 +157,23 @@ def _patch_smart_data_source():
           '(submodule + package)')
 
 
+def _patch_tokenizer_compat():
+    """transformers 5.x 移除了 encode_plus / batch_encode_plus 公开 API。
+
+    构建期已对 opencompass 源码打补丁；此处为运行时兜底，防止遗漏的动态调用。
+    """
+    try:
+        from transformers import PreTrainedTokenizerBase
+    except ImportError:
+        return
+
+    if not hasattr(PreTrainedTokenizerBase, 'encode_plus'):
+        PreTrainedTokenizerBase.encode_plus = PreTrainedTokenizerBase.__call__
+    if not hasattr(PreTrainedTokenizerBase, 'batch_encode_plus'):
+        PreTrainedTokenizerBase.batch_encode_plus = PreTrainedTokenizerBase.__call__
+    print('[sitecustomize] tokenizer encode_plus/batch_encode_plus aliased to __call__')
+
+
 _patch_msdataset()
 _patch_smart_data_source()
+_patch_tokenizer_compat()

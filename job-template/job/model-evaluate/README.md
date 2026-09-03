@@ -154,21 +154,25 @@ question,A,B,C,D,answer
 
 ## 构建镜像
 
+镜像分为两层，日常改业务代码只需重建业务层（快）：
+
 ```bash
 cd /path/to/project/root
-bash job-template/job/model-evaluate-opencompass/build.sh
+
+# 首次 / 升级 PyTorch、OpenCompass、transformers 等重依赖时（慢，偶尔执行）
+bash job-template/job/model-evaluate/build-base.sh
+
+# 日常改 src/ 业务逻辑后（快，几十秒）
+bash job-template/job/model-evaluate/build.sh
 ```
 
-或手动构建：
-
-```bash
-docker build -t 10.121.177.20:8082/model-evaluate-opencompass:latest \
-    -f job-template/job/model-evaluate-opencompass/Dockerfile .
-```
+| 镜像 | Tag 示例 | 内容 |
+|------|----------|------|
+| `model-evaluate` | `base-py310-cu128` | CUDA、PyTorch、OpenCompass、transformers 补丁 |
+| `model-evaluate` | `main-py310-cu128-r10` | base + `/app` 入口脚本 |
 
 ## 镜像内容
 
-- 基础镜像: `nvidia/cuda:12.1.0-runtime-ubuntu22.04`
-- PyTorch 2.3.0 (CUDA 12.1)
-- OpenCompass (通过 pip 安装)
+- BASE: `nvidia/cuda:12.8.0-runtime-ubuntu22.04` + PyTorch 2.7.0+cu128
+- OpenCompass main + transformers ≥5.2 + encode_plus 兼容补丁
 - 国内镜像源加速 (清华 apt/pypi + hf-mirror + ModelScope)

@@ -224,6 +224,10 @@ def save_metric_json(output_path: str, results: dict, metadata: dict):
         'eval_results': results,
         'overall_score': compute_overall(results),
     }
+    if metadata.get('succeeded_datasets') is not None:
+        data['succeeded_datasets'] = metadata['succeeded_datasets']
+    if metadata.get('skipped_datasets') is not None:
+        data['skipped_datasets'] = metadata['skipped_datasets']
     metric_path = os.path.join(output_path, 'metric.json')
     with open(metric_path, 'w', encoding='utf-8') as f:
         json.dump(data, f, indent=2, ensure_ascii=False)
@@ -261,6 +265,10 @@ def main():
     parser.add_argument('--model-version', default='', help='模型版本号')
     parser.add_argument('--model-path', default='', help='模型文件路径')
     parser.add_argument('--datasets', default='', help='评测数据集列表（逗号分隔）')
+    parser.add_argument('--succeeded-datasets', default='',
+                        help='成功完成的数据集（逗号分隔）')
+    parser.add_argument('--skipped-datasets', default='',
+                        help='跳过的数据集（JSON 数组）')
     args = parser.parse_args()
 
     os.makedirs(args.output_path, exist_ok=True)
@@ -275,6 +283,15 @@ def main():
         'model_path': args.model_path,
         'datasets': [d.strip() for d in args.datasets.split(',') if d.strip()],
     }
+    if args.succeeded_datasets:
+        metadata['succeeded_datasets'] = [
+            d.strip() for d in args.succeeded_datasets.split(',') if d.strip()
+        ]
+    if args.skipped_datasets:
+        try:
+            metadata['skipped_datasets'] = json.loads(args.skipped_datasets)
+        except json.JSONDecodeError:
+            print(f'[WARN] skipped-datasets 不是合法 JSON，已忽略: {args.skipped_datasets}')
 
     # 输出结构化文件
     save_metric_json(args.output_path, results, metadata)
@@ -289,6 +306,13 @@ def main():
         )
         print(f'  {ds}: {metrics_str}')
     print(f'  综合得分: {compute_overall(results)}')
+    if metadata.get('succeeded_datasets') is not None:
+        print(f'  成功数据集: {", ".join(metadata["succeeded_datasets"]) or "无"}')
+    if metadata.get('skipped_datasets'):
+        skipped_names = [
+            item.get('dataset', str(item)) for item in metadata['skipped_datasets']
+        ]
+        print(f'  跳过数据集: {", ".join(skipped_names) or "无"}')
     print(f'  输出目录: {args.output_path}')
     print('==================================\n')
 
