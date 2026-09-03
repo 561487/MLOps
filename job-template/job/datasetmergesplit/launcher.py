@@ -316,49 +316,73 @@ def create_database(path):
     return connection
 
 
-def validate_ratios(train_ratio, validation_ratio):
+def validate_ratios(train_ratio, validation_ratio, test_ratio):
     if not 0 < train_ratio <= 1:
         raise MergeSplitError("--train_ratio must be in (0, 1]")
     if not 0 <= validation_ratio < 1:
         raise MergeSplitError("--validation_ratio must be in [0, 1)")
-    if not math.isclose(train_ratio + validation_ratio, 1.0, abs_tol=1e-8):
-        raise MergeSplitError("--train_ratio + --validation_ratio must equal 1")
+    if not 0 <= test_ratio < 1:
+        raise MergeSplitError("--test_ratio must be in [0, 1)")
+    if not math.isclose(train_ratio + validation_ratio + test_ratio, 1.0, abs_tol=1e-8):
+        raise MergeSplitError("--train_ratio + --validation_ratio + --test_ratio must equal 1")
 
 
-def assign_splits(connection, total, validation_ratio, shuffle, seed):
+def assign_splits(connection, total, validation_ratio, test_ratio, shuffle, seed):
     if total <= 0:
         raise MergeSplitError("no valid records remain after validation, deduplication and conflict handling")
-    if validation_ratio == 0:
+    requested_splits = [("validation", validation_ratio), ("test", test_ratio)]
+    requested_splits = [(name, ratio) for name, ratio in requested_splits if ratio > 0]
+    if not requested_splits:
         connection.execute("UPDATE records SET split='train' WHERE conflict=0")
         connection.commit()
-        return total, 0
-    if total < 2:
-        raise MergeSplitError("at least 2 valid records are required when validation_ratio > 0")
-    target = int(total * validation_ratio + 0.5)
-    target = max(1, min(total - 1, target))
+        return total, 0, 0
+    minimum_records = len(requested_splits) + 1
+    if total < minimum_records:
+        raise MergeSplitError(
+            "at least %d valid records are required for the requested train/validation/test splits" % minimum_records
+        )
     order = "MIN(random_key), MIN(id)" if shuffle else "MIN(id)"
     groups = connection.execute(
         "SELECT prompt_hash, COUNT(*) FROM records WHERE conflict=0 GROUP BY prompt_hash ORDER BY %s" % order
     ).fetchall()
-    validation_count = 0
+    minimum_groups = len(requested_splits) + 1
+    if len(groups) < minimum_groups:
+        raise MergeSplitError(
+            "cannot create the requested train/validation/test sets without splitting identical prompts; "
+            "at least %d independent prompts are required" % minimum_groups
+        )
+    split_counts = {"validation": 0, "test": 0}
     assignments = []
-    group_total = len(groups)
-    for group_index, (prompt_hash, group_count) in enumerate(groups, 1):
-        if validation_count < target and total - validation_count - group_count >= 1:
-            split = "validation"
-            validation_count += group_count
-        else:
-            split = "train"
-        assignments.append((prompt_hash, split))
-        if group_index % 5000 == 0 or group_index == group_total:
+    cursor = 0
+    for split_index, (split_name, split_ratio) in enumerate(requested_splits):
+        target = max(1, int(total * split_ratio + 0.5))
+        remaining_required_groups = len(requested_splits) - split_index
+        while cursor < len(groups) - remaining_required_groups:
+            prompt_hash, group_count = groups[cursor]
+            assignments.append((prompt_hash, split_name))
+            split_counts[split_name] += group_count
+            cursor += 1
+            if cursor % 5000 == 0:
+                emit_progress(
+                    "split_progress",
+                    processed_prompt_groups=cursor,
+                    total_prompt_groups=len(groups),
+                    validation_records=split_counts["validation"],
+                    test_records=split_counts["test"],
+                )
+            if split_counts[split_name] >= target:
+                break
+    for prompt_hash, group_count in groups[cursor:]:
+        assignments.append((prompt_hash, "train"))
+        cursor += 1
+        if cursor % 5000 == 0 or cursor == len(groups):
             emit_progress(
                 "split_progress",
-                processed_prompt_groups=group_index,
-                total_prompt_groups=group_total,
-                validation_records=validation_count,
+                processed_prompt_groups=cursor,
+                total_prompt_groups=len(groups),
+                validation_records=split_counts["validation"],
+                test_records=split_counts["test"],
             )
-    if validation_count == 0:
-        raise MergeSplitError("cannot create validation set without splitting identical prompts; add more independent samples or set validation_ratio=0")
     connection.execute("CREATE TEMP TABLE split_assignments (prompt_hash TEXT PRIMARY KEY, split TEXT NOT NULL)")
     connection.executemany("INSERT INTO split_assignments(prompt_hash, split) VALUES (?, ?)", assignments)
     connection.execute("""
@@ -368,7 +392,9 @@ def assign_splits(connection, total, validation_ratio, shuffle, seed):
     """)
     connection.execute("CREATE INDEX idx_records_split ON records(split)")
     connection.commit()
-    return total - validation_count, validation_count
+    validation_count = split_counts["validation"]
+    test_count = split_counts["test"]
+    return total - validation_count - test_count, validation_count, test_count
 
 
 def write_split(connection, output_path, split, shuffle):
@@ -396,7 +422,7 @@ def validate_output_path(output_dir, datasets):
 
 
 def process(config):
-    validate_ratios(config.train_ratio, config.validation_ratio)
+    validate_ratios(config.train_ratio, config.validation_ratio, config.test_ratio)
     dataset_items = build_dataset_items(config)
     datasets = [resolve_dataset(item, config.require_manifest, config.format_type, config.schema_version) for item in dataset_items]
     formats = {item["format_type"] for item in datasets}
@@ -428,7 +454,8 @@ def process(config):
     counters = {key: 0 for key in [
         "input_datasets", "input_records", "invalid_records", "rejected_records",
         "duplicate_records", "conflict_events", "conflict_records", "valid_records",
-        "train_records", "validation_records", "train_validation_overlap",
+        "train_records", "validation_records", "test_records",
+        "train_validation_overlap", "cross_split_prompt_overlap",
     ]}
     counters["input_datasets"] = len(datasets)
     source_statistics = {}
@@ -439,7 +466,10 @@ def process(config):
         with rejected_path.open("w", encoding="utf-8") as rejected, conflicts_path.open("w", encoding="utf-8") as conflicts:
             for dataset in datasets:
                 source = dataset["source_dataset"]
-                stats = {key: 0 for key in ["input_records", "valid_input_records", "invalid_records", "duplicate_records", "conflict_events", "train_records", "validation_records"]}
+                stats = {key: 0 for key in [
+                    "input_records", "valid_input_records", "invalid_records", "duplicate_records",
+                    "conflict_events", "train_records", "validation_records", "test_records",
+                ]}
                 source_statistics[source] = stats
                 emit_progress("dataset_started", source_dataset=source, data_file=dataset["data_file"])
                 with Path(dataset["data_file"]).open("r", encoding="utf-8") as stream:
@@ -529,8 +559,15 @@ def process(config):
             conflict_events=counters["conflict_events"],
             conflict_records=counters["conflict_records"],
         )
-        train_count, validation_count = assign_splits(connection, total, config.validation_ratio, config.shuffle_before_split, config.seed)
-        emit_progress("split_assigned", train_records=train_count, validation_records=validation_count)
+        train_count, validation_count, test_count = assign_splits(
+            connection, total, config.validation_ratio, config.test_ratio, config.shuffle_before_split, config.seed
+        )
+        emit_progress(
+            "split_assigned",
+            train_records=train_count,
+            validation_records=validation_count,
+            test_records=test_count,
+        )
         emit_progress("output_writing", output_dir=str(destination))
         train_by_source = write_split(connection, temporary / "train.jsonl", "train", config.shuffle_before_split)
         validation_by_source = {}
@@ -538,31 +575,42 @@ def process(config):
         if config.validation_ratio > 0:
             validation_file = "validation.jsonl"
             validation_by_source = write_split(connection, temporary / validation_file, "validation", config.shuffle_before_split)
+        test_by_source = {}
+        test_file = None
+        if config.test_ratio > 0:
+            test_file = "test.jsonl"
+            test_by_source = write_split(connection, temporary / test_file, "test", config.shuffle_before_split)
         counters["train_records"] = train_count
         counters["validation_records"] = validation_count
+        counters["test_records"] = test_count
         overlap = connection.execute("""
             SELECT COUNT(*) FROM (
                 SELECT prompt_hash FROM records WHERE conflict=0 GROUP BY prompt_hash HAVING COUNT(DISTINCT split) > 1
             )
         """).fetchone()[0]
         counters["train_validation_overlap"] = overlap
+        counters["cross_split_prompt_overlap"] = overlap
         if overlap:
-            raise MergeSplitError("internal split validation failed: train/validation prompt overlap=%d" % overlap)
+            raise MergeSplitError("internal split validation failed: cross-split prompt overlap=%d" % overlap)
         for source, stats in source_statistics.items():
             stats["train_records"] = train_by_source.get(source, 0)
             stats["validation_records"] = validation_by_source.get(source, 0)
+            stats["test_records"] = test_by_source.get(source, 0)
 
         output_manifest = {
             "schema_version": output_schema_version,
             "format_type": data_format,
-            "dataset_type": "sft_train_validation",
+            "dataset_type": "sft_train_validation_test" if config.test_ratio > 0 else "sft_train_validation",
             "train_file": "train.jsonl",
             "validation_file": validation_file,
-            "total_samples": train_count + validation_count,
+            "test_file": test_file,
+            "total_samples": train_count + validation_count + test_count,
             "train_samples": train_count,
             "validation_samples": validation_count,
+            "test_samples": test_count,
             "train_ratio": config.train_ratio,
             "validation_ratio": config.validation_ratio,
+            "test_ratio": config.test_ratio,
             "source_datasets": [item["source_dataset"] for item in datasets],
             "seed": config.seed,
             "created_by": "DatasetMergeSplit",
@@ -586,6 +634,7 @@ def process(config):
                 "source_field": config.source_field,
                 "train_ratio": config.train_ratio,
                 "validation_ratio": config.validation_ratio,
+                "test_ratio": config.test_ratio,
                 "shuffle_before_split": config.shuffle_before_split,
                 "seed": config.seed,
             },
@@ -610,7 +659,9 @@ def process(config):
             output_dir=str(destination),
             train_records=train_count,
             validation_records=validation_count,
+            test_records=test_count,
             train_validation_overlap=overlap,
+            cross_split_prompt_overlap=overlap,
         )
         print(json.dumps(report, ensure_ascii=False, indent=2), flush=True)
         return report
@@ -623,7 +674,7 @@ def process(config):
 
 
 def build_parser():
-    parser = argparse.ArgumentParser(description="Merge same-format SFT datasets and split train/validation by ratio")
+    parser = argparse.ArgumentParser(description="Merge same-format SFT datasets and split train/validation/test by ratio")
     parser.add_argument("--dataset_paths", default="", help="DatasetConvert output directories separated by ';'")
     parser.add_argument("--dataset1", default="", help=argparse.SUPPRESS)
     parser.add_argument("--dataset2", default="", help=argparse.SUPPRESS)
@@ -641,6 +692,7 @@ def build_parser():
     parser.add_argument("--source_field", default="source_dataset")
     parser.add_argument("--train_ratio", type=float, default=0.9)
     parser.add_argument("--validation_ratio", type=float, default=0.1)
+    parser.add_argument("--test_ratio", type=float, default=0.0)
     parser.add_argument("--shuffle_before_split", type=parse_bool, default=True)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--output_dir", required=True)
