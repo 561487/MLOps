@@ -33,6 +33,8 @@ def validate_paths(input_path, output_dir):
     destination = Path(output_dir).expanduser().resolve()
     if source == destination:
         raise DatasetIOError("output directory cannot equal input path")
+    if destination in source.parents:
+        raise DatasetIOError("output directory cannot contain the input path")
     if source.is_file() and destination == source.parent:
         raise DatasetIOError("output directory cannot be the input file parent directory")
     if str(destination) in {"/", ""} or len(destination.parts) < 3:
@@ -60,10 +62,26 @@ def discover_files(input_path, requested_format, file_pattern, recursive, output
         raise DatasetIOError("input path does not exist: %s" % source)
     if source.is_file():
         return [source]
+    for name in ('dataset_manifest.json', 'manifest.json'):
+        manifest_path = source / name
+        if manifest_path.is_file():
+            with manifest_path.open(encoding='utf-8') as stream:
+                manifest = json.load(stream)
+            declared = manifest.get('output_file') or manifest.get('data_file')
+            if not isinstance(declared, str):
+                raise DatasetIOError('Manifest 缺少 output_file/data_file')
+            data_path = (source / declared).resolve()
+            if source not in data_path.parents or not data_path.is_file():
+                raise DatasetIOError('Manifest 数据文件不存在或超出输入目录')
+            return [data_path]
+    if file_pattern in ('', '*') and (source / 'dataset.jsonl').is_file():
+        return [(source / 'dataset.jsonl').resolve()]
     excluded = Path(output_dir).expanduser().resolve() if output_dir else None
     iterator = source.rglob("*") if recursive else source.glob("*")
     files = []
     for path in iterator:
+        if path.name in ('rejected.jsonl', 'conflicts.jsonl', 'dataset_manifest.json', 'manifest.json', 'conversion_preview.json') or path.name.endswith('_report.json'):
+            continue
         if not path.is_file() or not fnmatch.fnmatch(path.name, file_pattern or "*"):
             continue
         resolved = path.resolve()

@@ -2899,11 +2899,11 @@
   },
   "dataset-convert": {
     "project_name": "数据处理工具",
-    "image_name": "10.121.177.20:8082/mlops/dataset-convert:20260828",
+    "image_name": "10.121.177.20:8082/mlops/dataset-convert:20260907-r1",
     "gitpath": "/job-template/job/dataset-convert",
     "image_describe": "数据集格式转换（Schema 驱动）",
     "job_template_name": "dataset-convert",
-    "job_template_describe": "读取并识别用户数据集，转换为平台标准 JSONL（messages / text / eval_qa）",
+    "job_template_describe": "自动识别中英文问答、单选、多选和对话数据，输出 SFT messages 或评测 eval_qa",
     "job_template_command": "python3 launcher.py",
     "job_template_volume": "",
     "job_template_account": "",
@@ -2923,27 +2923,7 @@
           "choice": [],
           "default": "/mnt/{{creator}}/pipeline/example/dataset/",
           "placeholder": "/mnt/admin/raw/fault.jsonl",
-          "describe": "输入数据集文件或目录（目录支持递归扫描）",
-          "editable": 1
-        },
-        "--input_format": {
-          "type": "enum",
-          "item_type": "str",
-          "label": "输入文件格式",
-          "require": 1,
-          "choice": ["auto", "json", "jsonl", "csv", "tsv", "parquet", "txt"],
-          "default": "auto",
-          "describe": "auto 根据文件扩展名自动识别",
-          "editable": 1
-        },
-        "--source_schema": {
-          "type": "enum",
-          "item_type": "str",
-          "label": "源数据结构",
-          "require": 1,
-          "choice": ["auto", "text", "alpaca", "messages", "sharegpt", "qa", "prompt_response", "custom"],
-          "default": "auto",
-          "describe": "auto 按优先级自动识别（messages→conversations→instruction+output→prompt+response→question+answer→query+response→text）；custom 必须配合 field_mapping",
+          "describe": "PVC 文件或目录；自动读取 manifest 指向的数据或 dataset.jsonl，排除报告文件",
           "editable": 1
         },
         "--target_schema": {
@@ -2951,9 +2931,22 @@
           "item_type": "str",
           "label": "目标数据结构",
           "require": 1,
-          "choice": ["messages", "text", "eval_qa"],
+          "choice": [
+            "messages",
+            "eval_qa"
+          ],
           "default": "messages",
-          "describe": "messages → 对话训练格式（Messages）；text → 纯文本格式（Text）；eval_qa → 模型评测格式（Input / Target）",
+          "describe": "messages：SFT 对话训练；eval_qa：模型评测（问答、单选、多选）",
+          "editable": 1
+        },
+        "--system_prompt": {
+          "type": "str",
+          "item_type": "str",
+          "label": "系统提示词",
+          "require": 0,
+          "choice": [],
+          "default": "",
+          "describe": "仅 messages 生效；留空不额外注入，原 system 优先保留。样本背景自动拼接到问题前，不作为系统提示词。",
           "editable": 1
         },
         "--output_dir": {
@@ -2966,6 +2959,19 @@
           "placeholder": "/mnt/admin/dataset-convert/fault-v1/",
           "describe": "输出 converted.jsonl、dataset_manifest.json（无拒绝记录时不生成 rejected.jsonl）",
           "editable": 1
+        },
+        "--overwrite": {
+          "type": "enum",
+          "item_type": "str",
+          "label": "覆盖已有输出",
+          "require": 0,
+          "choice": [
+            "true",
+            "false"
+          ],
+          "default": "false",
+          "describe": "默认拒绝覆盖已有输出目录",
+          "editable": 1
         }
       },
       "高级配置": {
@@ -2976,28 +2982,25 @@
           "require": 0,
           "choice": [],
           "default": "",
-          "placeholder": "{\"query_text\":\"user\",\"reply_text\":\"assistant\"}",
-          "describe": "仅 source_schema=custom 必填。JSON 对象，目标字段需匹配 target_schema（messages→user/assistant；text→text；eval_qa→input/target）",
+          "placeholder": "{\"problem_text\":\"question\",\"solution_text\":\"answer\"}",
+          "describe": "留空自动识别中英文字段；有歧义时指定源字段到 question/answer/context/system/choices/choice_labels/correct 的映射",
           "editable": 1
         },
-        "--system_prompt": {
-          "type": "str",
-          "item_type": "str",
-          "label": "系统提示词",
-          "require": 0,
-          "choice": [],
-          "default": "",
-          "describe": "仅 target_schema=messages 生效；原 messages 已有 system 轮次时不重复注入",
-          "editable": 1
-        },
-        "--keep_metadata": {
+        "--answer_encoding": {
           "type": "enum",
           "item_type": "str",
-          "label": "保留原字段",
+          "label": "答案编码",
           "require": 0,
-          "choice": ["true", "false"],
-          "default": "false",
-          "describe": "true 时转换未使用的原字段统一收进 metadata 对象输出（不平铺）",
+          "choice": [
+            "auto",
+            "label",
+            "text",
+            "index0",
+            "index1",
+            "bool_array"
+          ],
+          "default": "auto",
+          "describe": "自动识别标签、选项文本、布尔数组；数字索引有歧义时必须指定 index0 或 index1",
           "editable": 1
         },
         "--invalid_policy": {
@@ -3005,50 +3008,12 @@
           "item_type": "str",
           "label": "异常处理",
           "require": 0,
-          "choice": ["reject", "skip", "fail"],
+          "choice": [
+            "reject",
+            "fail"
+          ],
           "default": "reject",
-          "describe": "reject 写入 rejected.jsonl；skip 跳过仅计数；fail 遇首条无效记录即失败。有效样本为 0 时任务一律失败",
-          "editable": 1
-        },
-        "--recursive": {
-          "type": "enum",
-          "item_type": "str",
-          "label": "递归子目录",
-          "require": 0,
-          "choice": ["true", "false"],
-          "default": "true",
-          "describe": "目录输入时是否递归扫描",
-          "editable": 1
-        },
-        "--file_pattern": {
-          "type": "str",
-          "item_type": "str",
-          "label": "文件匹配",
-          "require": 0,
-          "choice": [],
-          "default": "*",
-          "placeholder": "*.csv",
-          "describe": "目录输入时按文件名筛选",
-          "editable": 1
-        },
-        "--encoding": {
-          "type": "str",
-          "item_type": "str",
-          "label": "文件编码",
-          "require": 0,
-          "choice": [],
-          "default": "utf-8",
-          "describe": "文本类文件编码",
-          "editable": 1
-        },
-        "--overwrite": {
-          "type": "enum",
-          "item_type": "str",
-          "label": "覆盖已有输出",
-          "require": 0,
-          "choice": ["true", "false"],
-          "default": "false",
-          "describe": "默认拒绝覆盖已有输出目录",
+          "describe": "reject：记录异常样本和原因并继续；fail：首条异常即失败。有效样本为零始终失败",
           "editable": 1
         }
       }

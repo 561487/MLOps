@@ -24,6 +24,8 @@ import tempfile
 from pathlib import Path
 
 from converter import check_supported, convert, validate_field_mapping
+from semantic import parse_mapping, convert_semantic
+from schema import detect_record_schema
 from dataset_io import (
     DatasetIOError,
     detect_format,
@@ -102,7 +104,8 @@ def build_parser():
     # 高级参数
     parser.add_argument("--field_mapping", default="", help="source_schema=custom 必填：JSON 对象，如 {\"query_text\":\"user\",\"reply_text\":\"assistant\"}")
     parser.add_argument("--system_prompt", default="", help="仅 target_schema=messages 生效；已存在 system 轮次时不重复注入")
-    parser.add_argument("--keep_metadata", type=parse_bool, default=False, help="true 时将多余字段收进 metadata 对象输出")
+    parser.add_argument("--keep_metadata", type=parse_bool, default=True, help="true 时将多余字段收进 metadata 对象输出")
+    parser.add_argument("--answer_encoding", default="auto", choices=["auto", "label", "text", "index0", "index1", "bool_array"])
     parser.add_argument("--invalid_policy", choices=["reject", "skip", "fail"], default="reject", help="reject 写 rejected.jsonl；skip 仅计数；fail 遇首条无效记录即失败")
     parser.add_argument("--recursive", type=parse_bool, default=True, help="目录输入时递归扫描")
     parser.add_argument("--file_pattern", default="*", help="目录输入时按文件名匹配，如 *.csv")
@@ -119,19 +122,24 @@ def handle_invalid(policy, rejected_stream, metadata, reason, message, record, c
     if policy == "fail":
         raise PolicyFailError("[invalid_policy=fail] 首条无效记录: %s" % detail)
     if policy == "reject":
-        write_json_line(rejected_stream, {"source_file": metadata.get("file"), "line": metadata.get("line", metadata.get("index")), "reason": reason, "record": record})
+        write_json_line(rejected_stream, {"source_file": metadata.get("file"), "line": metadata.get("line", metadata.get("index")), "reason": reason, "message": message, "record": record})
     # skip：不写 rejected，仅计入统计
 
 
 def run_convert(config):
+    semantic_mode = config.target_schema != 'text' and config.source_schema in ('auto', 'custom')
+    try:
+        semantic_mapping = parse_mapping(config.field_mapping) if semantic_mode else {}
+    except SchemaError as error:
+        raise MappingError(error.message)
     # ---- 1. 配置级校验（转换矩阵 / field_mapping），失败即退出 ----
-    if config.source_schema != "auto":
+    if config.source_schema != "auto" and not semantic_mode:
         try:
             check_supported(config.source_schema, config.target_schema)
         except SchemaError as error:
             raise UnsupportedConversionError(error.message)
     try:
-        field_mapping = validate_field_mapping(config.field_mapping, config.source_schema, config.target_schema)
+        field_mapping = None if semantic_mode else validate_field_mapping(config.field_mapping, config.source_schema, config.target_schema)
     except SchemaError as error:
         raise MappingError(error.message)
 
@@ -154,7 +162,7 @@ def run_convert(config):
 
     # ---- 4. 源结构识别（auto → 实际 schema） ----
     source_schema = config.source_schema
-    if source_schema == "auto":
+    if source_schema == "auto" and not semantic_mode:
         try:
             source_schema, warnings = detect_dataset_schema(files, config.input_format, config.encoding)
         except DatasetIOError as error:
@@ -175,6 +183,8 @@ def run_convert(config):
     temporary = Path(tempfile.mkdtemp(prefix=".%s-staging-" % destination.name, dir=str(destination.parent)))
     counters = {"total_samples": 0, "valid_samples": 0, "invalid_samples": 0}
     invalid_reasons = {}
+    preview = []
+    task_types = set()
     try:
         with (temporary / "converted.jsonl").open("w", encoding="utf-8") as converted, (temporary / "rejected.jsonl").open("w", encoding="utf-8") as rejected:
             for path in files:
@@ -188,7 +198,28 @@ def run_convert(config):
                         multimodal_reason = check_multimodal_record(record)
                         if multimodal_reason:
                             raise SchemaError(multimodal_reason, "检测到多模态字段（image/images/video/audio 等），V1 仅支持文本数据转换")
-                        output, consumed = convert(record, source_schema, config.target_schema, field_mapping)
+                        detected = detect_record_schema(record)
+                        if semantic_mode and (semantic_mapping or detected not in ('messages', 'sharegpt', 'alpaca')):
+                            output, consumed = convert_semantic(record, config.target_schema, semantic_mapping, config.answer_encoding)
+                        else:
+                            effective = detected if semantic_mode else source_schema
+                            if config.target_schema == 'eval_qa' and effective in ('messages', 'sharegpt'):
+                                chat, consumed = convert(record, effective, 'messages')
+                                turns = chat['messages']
+                                if turns[-1]['role'] != 'assistant':
+                                    raise SchemaError('missing_answer', '评测对话必须以 assistant 答案结束')
+                                output = {'input': '\n\n'.join('%s: %s' % (m['role'], m['content']) for m in turns[:-1]), 'target': turns[-1]['content'], 'type': 'short_answer'}
+                            else:
+                                output, consumed = convert(record, effective, config.target_schema, field_mapping)
+                            if config.target_schema == 'eval_qa':
+                                output.setdefault('type', 'short_answer')
+                        if config.target_schema == 'messages' and not semantic_mapping:
+                            original_system = record.get('system', record.get('system_prompt'))
+                            if original_system:
+                                if not isinstance(original_system, str):
+                                    raise SchemaError('invalid_system', 'system 必须为字符串')
+                                inject_system_prompt(output, original_system)
+                                consumed.update({'system', 'system_prompt'})
                         if config.target_schema == "messages" and config.system_prompt:
                             inject_system_prompt(output, config.system_prompt)
                         if config.keep_metadata:
@@ -196,6 +227,10 @@ def run_convert(config):
                             if extras:
                                 output["metadata"] = extras
                         write_json_line(converted, output)
+                        if len(preview) < 3:
+                            preview.append(output)
+                        if output.get('type'):
+                            task_types.add(output['type'])
                         counters["valid_samples"] += 1
                     except SchemaError as error:
                         handle_invalid(config.invalid_policy, rejected, metadata, error.reason, error.message, record, counters, invalid_reasons)
@@ -206,6 +241,10 @@ def run_convert(config):
         report = {
             "tool": TOOL,
             "version": VERSION,
+            "schema_version": "1.0",
+            "format_type": config.target_schema,
+            "dataset_type": "evaluation" if config.target_schema == 'eval_qa' else "training",
+            "task_types": sorted(task_types),
             "input_path": str(source),
             "input_files": [str(path) for path in files],
             "input_format": input_format,
@@ -218,11 +257,15 @@ def run_convert(config):
             "output_file": "converted.jsonl",
             "parameters": {"system_prompt": config.system_prompt, "keep_metadata": config.keep_metadata},
             "invalid_policy": config.invalid_policy,
-            "field_mapping": field_mapping or None,
+            "field_mapping": semantic_mapping if semantic_mode else field_mapping,
+            "answer_encoding": config.answer_encoding,
             "exit_code": EXIT_OK,
         }
         with (temporary / "dataset_manifest.json").open("w", encoding="utf-8") as stream:
             json.dump(report, stream, ensure_ascii=False, indent=2)
+        with (temporary / "conversion_preview.json").open("w", encoding="utf-8") as stream:
+            json.dump(preview, stream, ensure_ascii=False, indent=2)
+        print('[dataset-convert] preview=' + json.dumps(preview, ensure_ascii=False), flush=True)
         if not counters["invalid_samples"]:
             (temporary / "rejected.jsonl").unlink()
         if destination.exists():
