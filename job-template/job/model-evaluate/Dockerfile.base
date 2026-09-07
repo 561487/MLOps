@@ -64,6 +64,12 @@ RUN git config --global http.version HTTP/1.1 && \
     ) && \
     pip3 install --no-cache-dir /tmp/opencompass Evaluate modelscope "transformers>=5.2" && \
     rm -rf /tmp/opencompass
+# ── 4.1. 安装 FAISS（CommonsenseQA ICL Top-K Retriever 依赖） ──
+# OpenCompass Topk/MDL Retriever 当前使用 CPU IndexFlatIP；
+# SentenceTransformer embedding 本身在 CUDA 可用时会使用 GPU。
+# 因此这里只需提供 FAISS CPU runtime，无需引入额外 CUDA FAISS 依赖。
+RUN pip3 install --no-cache-dir "faiss-cpu==1.15.0" && \
+    python3 -c "import faiss; print('[OK] faiss', faiss.__version__)"
 
 # ── 5.【强制】patch encode_plus / batch_encode_plus（transformers 5.x 兼容） ──
 # transformers 5.x 移除了 encode_plus / batch_encode_plus 公开 API，而 OpenCompass main 仍在调用

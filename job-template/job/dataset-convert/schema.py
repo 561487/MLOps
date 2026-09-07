@@ -4,8 +4,7 @@
 - 源结构：text / alpaca / messages / sharegpt / qa / prompt_response / custom
 - 目标结构：messages / text / eval_qa
 - 自动识别按固定优先级（见 DETECTION_ORDER），不做机器学习式推断。
-- V1 仅支持文本；发现多模态字段/内容一律明确拒绝（reason=multimodal_schema_not_supported_v1）。
-  多模态扩展位置：未来 V1.1 在此处识别 multimodal_messages 并分派媒体处理。
+- 目前仅支持文本；发现多模态字段/内容一律明确拒绝
 """
 
 import collections
@@ -21,7 +20,7 @@ ROLE_ALIASES = {
     "gpt": "assistant", "bot": "assistant", "assistant": "assistant", "answer": "assistant",
     "system": "system",
 }
-# 多模态字段探测表（V1 扩展位置）：顶层发现任一字段即拒绝，不允许悄悄丢弃。
+# 多模态字段探测表：顶层发现任一字段即拒绝，不允许悄悄丢弃。
 MULTIMODAL_FIELDS = {"image", "images", "image_path", "video", "videos", "video_path", "audio", "audios", "audio_path"}
 MULTIMODAL_REASON = "multimodal_schema_not_supported_v1"
 MULTIMODAL_MESSAGE = "multimodal messages not supported in V1"

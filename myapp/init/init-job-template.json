@@ -9639,7 +9639,7 @@
   },
   "model-evaluate": {
     "project_name": "模型处理",
-    "image_name": "10.121.177.20:8082/mlops/model-evaluate:main-py310-cu128-r8",
+    "image_name": "10.121.177.20:8082/mlops/model-evaluate:main-py310-cu128-r12",
     "gitpath": "/job-template/job/model-evaluate",
     "image_describe": "大模型评测",
     "job_template_name": "model-evaluate",
@@ -9647,7 +9647,7 @@
     "job_template_command": "python3 /app/run_evaluation.py",
     "job_template_volume": "models-storage(storage):/mnt/storage/models-storage",
     "job_template_account": "",
-    "job_template_env": "HF_ENDPOINT=https://hf-mirror.com",
+    "job_template_env": "HF_ENDPOINT=https://hf-mirror.com\nHF_HOME=/mnt/storage/models-share-volume/opencompass-cache/huggingface\nHF_HUB_CACHE=/mnt/storage/models-share-volume/opencompass-cache/huggingface/hub\nHF_HUB_DISABLE_XET=1\nHF_HUB_DOWNLOAD_TIMEOUT=600",
     "job_template_expand": {
       "index": 7,
       "rec_job_template": "自定义镜像",

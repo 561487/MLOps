@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
-"""dataset-convert 转换层：纯函数实现 V1 转换矩阵。
+"""dataset-convert 转换层：纯函数实现转换矩阵。
 
-矩阵（严格按 V1 方案，不实现无明确语义的转换）：
+矩阵：
 
     Source\Target      messages     text          eval_qa
     messages           规范化 ✅     ❌            暂不支持 ❌
@@ -12,8 +12,8 @@
     text               ❌(明确报错) 透传 ✅        ❌
     custom             ✅          ✅            ✅
 
-多模态扩展位置：未来 V1.1 在 convert() 分派前识别 multimodal_messages，
-并在 media 字段上调用媒体校验/路径规范化；V1 一律抛 multimodal_schema_not_supported_v1。
+多模态扩展位置：未来 在 convert() 分派前识别 multimodal_messages，
+并在 media 字段上调用媒体校验/路径规范化；一律抛 multimodal_schema_not_supported_v1。
 """
 
 import json

@@ -37,11 +37,12 @@
 
 | 文件 | 说明 |
 |------|------|
-| `metric.json` | 平台自动采集的指标文件 |
-| `eval_summary.json` | 结构化评测摘要 |
-| `eval_report.csv` | 评测结果表格 |
+| `metric.json` | 平台自动采集的指标文件；`eval_results` 按 benchmark 分层（`status/metric/score/details`，多 subset benchmark 如 ceval/bbh 含 `details` 明细），`overall_score` 为成功 benchmark 等权平均 |
+| `eval_summary.json` | 结构化评测摘要（与 metric.json `eval_results` 同源） |
+| `eval_report.csv` | 评测结果表格（benchmark 行 + subset 明细行） |
+| `dataset_status.json` | 数据集运行状态；`runs` 字段记录 dataset -> run_dir -> summary_file 映射（路径相对 `opencompass_results/`） |
 | `eval_run.log` | OpenCompass 运行日志 |
-| `opencompass_results/` | OpenCompass 原始输出目录 |
+| `opencompass_results/` | OpenCompass 原始输出；多内置数据集评测时按 `opencompass_results/<dataset>/<时间戳>/` 分层存放，一次运行一个数据集 |
 
 ## 使用自定义数据集
 
@@ -168,8 +169,8 @@ bash job-template/job/model-evaluate/build.sh
 
 | 镜像 | Tag 示例 | 内容 |
 |------|----------|------|
-| `model-evaluate` | `base-py310-cu128` | CUDA、PyTorch、OpenCompass、transformers 补丁 |
-| `model-evaluate` | `main-py310-cu128-r10` | base + `/app` 入口脚本 |
+| `model-evaluate` | `base-py310-cu128-r1` | CUDA、PyTorch、OpenCompass、FAISS(cpu)、transformers 补丁 |
+| `model-evaluate` | `main-py310-cu128-r12` | base + `/app` 入口脚本 |
 
 ## 镜像内容
 
