@@ -1,17 +1,36 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-解析 OpenCompass 评测结果，保存为结构化文件。
+解析 OpenCompass 评测结果，保存为结构化文件（多 benchmark 聚合版）。
 
-OpenCompass 输出目录结构大致如下（--work-dir 指定的目录）：
-  {work_dir}/
-    ├── summary/
-    │   ├── {timestamp}_summary.csv
-    │   └── {timestamp}_summary.txt
-    └── predictions/
-         └── ...
+执行模型（run_evaluation.py）：用户一次选择多个内置数据集时，每个数据集
+单独启动一次 OpenCompass run，每次 run 使用独立 work_dir：
 
-本脚本解析 summary CSV，输出到用户指定的 output_path。
+  {output_path}/opencompass_results/<dataset>/{YYYYMMDD_HHMMSS}/
+      ├── summary/summary_<timestamp>.csv
+      └── results/<model>_hf/*.json
+
+dataset -> run_dir -> summary_file 的映射由 run_evaluation.py 写入
+{output_path}/dataset_status.json 的 runs 字段（路径相对 opencompass_results）。
+
+本脚本不再"全局找最新的一个 summary"来代表整个 job，而是按 dataset_status.runs
+逐数据集读取其自己的 summary，然后做 benchmark / subset 两层聚合：
+
+  - 单结果 benchmark（gsm8k）：summary 一行 gsm8k -> benchmark score
+  - 多 subset benchmark（ceval_gen / bbh_gen）：summary 每行一个 subset
+    （ceval-xxx / bbh-xxx）-> details；benchmark score = 有效 subset 等权平均
+    （与 OpenCompass 官方 leaderboard 口径一致）
+  - overall_score = 成功 benchmark 的 benchmark-level score 等权平均
+    （每个 benchmark 权重相同，不按 subset 行数加权）
+
+输出三个文件共享同一聚合结果对象 report：
+  metric.json        -> eval_results = report（平台采集）
+  eval_summary.json  -> report（结构化摘要）
+  eval_report.csv    -> report 展开成 benchmark/subset 行
+
+兼容性回退：当 dataset_status.json 缺失或没有 runs 字段（旧版本产物 / 自定义
+数据集单次运行），退化为解析整个 opencompass_results 中最新的一个 summary
+（旧行为，仅用于历史产物兜底）。
 """
 
 import argparse
@@ -20,11 +39,35 @@ import glob
 import json
 import os
 
+# 常见指标的优先级（按通用性降序）。注意：OpenCompass 对 BBH 的 summary
+# 中 metric 名为 'score'，CEval/GSM8K 为 'accuracy'，因此不能写死 metric。
+METRIC_PRIORITY = ['accuracy', 'acc', 'score', 'exact_match', 'f1', 'bleu', 'rouge']
+
+# OpenCompass 实际输出的 metric 名归一化映射
+METRIC_ALIAS = {
+    'accuracy_score': 'accuracy',
+    'acc_score': 'acc',
+    'exact': 'exact_match',
+    'exact_match_score': 'exact_match',
+    'bleu_score': 'bleu',
+    'bleu': 'bleu',
+    'rouge_1': 'rouge',
+    'rouge_2': 'rouge',
+    'rouge_l': 'rouge',
+    'rouge': 'rouge',
+    'f1_score': 'f1',
+}
+
+
+# --------------------------------------------------------------------------
+# summary 文件解析（单文件粒度，兼容旧格式）
+# --------------------------------------------------------------------------
 
 def find_summary_file(opencompass_dir: str) -> str:
-    """在 opencompass_dir 中查找 summary CSV 文件。
+    """在 opencompass_dir 中查找 summary CSV 文件（兼容回退用）。
 
-    优先选择 CSV 格式；如果存在多个同名 summary，取最新修改的文件。
+    仅用于旧布局/自定义数据集等"无 dataset_status.runs 映射"的场景；
+    新布局下聚合走 dataset -> run -> summary 的确定性路径，不调用本函数。
     """
     patterns = [
         os.path.join(opencompass_dir, '**', '*summary*.csv'),
@@ -49,7 +92,7 @@ def parse_summary_csv(summary_path: str) -> dict:
       v2: dataset,version,metric,mode,model_score
 
     返回:
-        { "ceval": {"accuracy": 0.65}, "gsm8k": {"accuracy": 0.58} }
+        { "ceval-accountant": {"accuracy": 44.9}, "gsm8k": {"accuracy": 70.96} }
     """
     results = {}
     with open(summary_path, 'r', encoding='utf-8') as f:
@@ -139,7 +182,7 @@ def parse_summary_txt(summary_path: str) -> dict:
 
 
 def parse_results(opencompass_dir: str) -> dict:
-    """自动识别并解析 summary 文件。"""
+    """自动识别并解析 summary 文件（兼容回退：取整个目录最新的一个）。"""
     summary_path = find_summary_file(opencompass_dir)
     if not summary_path:
         print(f"[WARN] 未找到 summary 文件，目录: {opencompass_dir}")
@@ -152,67 +195,266 @@ def parse_results(opencompass_dir: str) -> dict:
         return parse_summary_txt(summary_path)
 
 
-def compute_overall(results: dict) -> float:
-    """计算综合得分：对每个数据集优先取 accuracy，否则取第一个数值型指标。"""
-    # 常见指标的优先级（按通用性降序）
-    METRIC_PRIORITY = ['accuracy', 'acc', 'exact_match', 'f1', 'bleu', 'rouge']
+# --------------------------------------------------------------------------
+# benchmark / subset 两层聚合
+# --------------------------------------------------------------------------
 
-    # OpenCompass 实际输出的 metric 名归一化映射
-    # （bleu_score -> bleu, rouge_1/rouge_l -> rouge, accuracy_score -> accuracy 等）
-    METRIC_ALIAS = {
-        'accuracy_score': 'accuracy',
-        'acc_score': 'acc',
-        'exact': 'exact_match',
-        'exact_match_score': 'exact_match',
-        'bleu_score': 'bleu',
-        'bleu': 'bleu',
-        'rouge_1': 'rouge',
-        'rouge_2': 'rouge',
-        'rouge_l': 'rouge',
-        'rouge': 'rouge',
-        'f1_score': 'f1',
-    }
+def benchmark_root_name(dataset_arg: str) -> str:
+    """平台数据集名 -> OpenCompass summary 中的数据集根名。
 
-    def _normalize(name: str) -> str:
-        return METRIC_ALIAS.get(name.lower(), name.lower())
+    'ceval_gen'/'ceval_ppl' -> 'ceval'；'gsm8k_gen' -> 'gsm8k'。
+    OpenCompass summary 行中：单结果 benchmark 的行名 == 根名（gsm8k），
+    多 subset benchmark 的行名 == '{根名}-{subset}'（ceval-accountant）。
+    """
+    for suffix in ('_gen', '_ppl'):
+        if dataset_arg.endswith(suffix):
+            return dataset_arg[:-len(suffix)]
+    return dataset_arg
 
-    scores = []
-    for ds, metrics in results.items():
-        if not metrics:
+
+def _pick_metric_value(metrics: dict):
+    """从某 summary 行（{metric: value}）中按优先级挑选 (metric名, 数值)。
+
+    返回 (metric_name, value)，metric_name 为 summary 中的原名（如 'accuracy'
+    或 'score'）；无任何数值型指标返回 None。
+    """
+    for preferred in METRIC_PRIORITY:
+        for name, value in metrics.items():
+            norm = METRIC_ALIAS.get(name.lower(), name.lower())
+            if norm == preferred and isinstance(value, (int, float)):
+                return name, value
+    for name, value in metrics.items():
+        if isinstance(value, (int, float)):
+            return name, value
+    return None
+
+
+def aggregate_rows_into(report: dict, benchmark: str, rows: dict):
+    """把一个 benchmark 自己的 summary 行聚合进 report（benchmark/subset 分层）。
+
+    rows: {summary 行 dataset 名: {metric: 数值}}，全部来自该 benchmark 的 run。
+
+    规则（不使用字符串猜测以外的启发式，见 benchmark_root_name）：
+      - 行名 == 根名（如 gsm8k）→ 显式根行，其 score 直接作为 benchmark score；
+      - 行名 == '{根名}-{subset}'（如 ceval-accountant / bbh-boolean_expressions）
+        → 进入 details，benchmark score = 全部有效 subset 值等权平均；
+      - 行名与根名无关（不应出现；自定义数据集场景由调用方走 flat 路径）
+        → 各自独立成条，不进 details。
+
+    多 subset benchmark 同时存在显式根行与 subset 行时（个别 benchmark 的
+    summary 两者都有），benchmark score 优先取显式根行。
+    """
+    root = benchmark_root_name(benchmark)
+    subsets = {}       # subset 名 -> (metric, value)
+    explicit = None    # 显式根行 (metric, value)
+    independent = {}   # 与根名无关的行
+
+    for row_name, metrics in rows.items():
+        picked = _pick_metric_value(metrics)
+        if picked is None:
+            print(f'[WARN] {benchmark}: 行 {row_name} 无数值型指标，跳过: {metrics}')
             continue
+        metric, value = picked
+        if row_name == root:
+            explicit = (metric, value)
+        elif root and row_name.startswith(root + '-'):
+            subsets[row_name[len(root) + 1:]] = (metric, value)
+        else:
+            independent[row_name] = (metric, value)
 
-        chosen_metric = None
-        chosen_value = None
+    # ---- benchmark 主条目 ----
+    used_metrics = {m for m, _ in subsets.values()}
+    if explicit is not None:
+        used_metrics.add(explicit[0])
+    metric_label = explicit[0] if explicit is not None else (
+        sorted(used_metrics)[0] if len(used_metrics) == 1 else '/'.join(sorted(used_metrics)))
 
-        # 按优先级寻找可用的指标
-        for preferred in METRIC_PRIORITY:
-            for name, value in metrics.items():
-                if _normalize(name) == preferred and isinstance(value, (int, float)):
-                    chosen_metric = name
-                    chosen_value = value
-                    break
-            if chosen_metric:
-                break
+    if explicit is not None or subsets:
+        if explicit is not None:
+            score = explicit[1]
+        else:
+            score = round(sum(v for _, v in subsets.values()) / len(subsets), 4)
+        entry = {
+            'status': 'succeeded',
+            'metric': metric_label,
+            'score': score,
+        }
+        if subsets:
+            entry['details'] = {name: value for name, (_, value) in subsets.items()}
+        report[benchmark] = entry
 
-        # 如果没有命中优先级列表，取第一个数值型指标
-        if chosen_metric is None:
-            for name, value in metrics.items():
-                if isinstance(value, (int, float)):
-                    chosen_metric = name
-                    chosen_value = value
-                    break
+    # ---- 与根名无关的行：各自独立成条（正常只出现在 flat/兼容路径） ----
+    for name, (metric, value) in independent.items():
+        print(f'[WARN] {benchmark}: 行 {name} 与数据集根名 {root} 不匹配，'
+              f'按独立结果保存')
+        report[name] = {
+            'status': 'succeeded',
+            'metric': metric,
+            'score': value,
+        }
 
-        if chosen_value is not None:
-            scores.append((ds, chosen_metric, chosen_value))
 
+def load_dataset_status(output_path: str, explicit_path: str = '') -> dict:
+    """读取 dataset_status.json（含 runs 映射）。文件缺失/损坏返回 {}。"""
+    status_path = explicit_path or os.path.join(output_path, 'dataset_status.json')
+    if not os.path.exists(status_path):
+        return {}
+    try:
+        with open(status_path, 'r', encoding='utf-8') as f:
+            status = json.load(f)
+        if not isinstance(status, dict):
+            print(f'[WARN] {status_path} 顶层不是 JSON 对象，忽略')
+            return {}
+        return status
+    except (json.JSONDecodeError, OSError) as e:
+        print(f'[WARN] 读取 {status_path} 失败: {e}')
+        return {}
+
+
+def _status_of(ds: str, succeeded: list, skipped: list) -> dict | None:
+    """在 succeeded/skipped 列表中查找某数据集的旧式状态描述。"""
+    if ds in succeeded:
+        return {'status': 'succeeded'}
+    for item in skipped:
+        name = item.get('dataset', item) if isinstance(item, dict) else item
+        if name == ds:
+            if isinstance(item, dict):
+                return {'status': 'failed', **item}
+            return {'status': 'failed'}
+    return None
+
+
+def _entry_from_failed(ds: str, run: dict | None, item: dict | None) -> dict:
+    """构造失败/跳过数据集的 metric.json 条目。"""
+    entry = {'status': 'failed', 'metric': None, 'score': None}
+    src = run or item or {}
+    if src.get('exit_code') is not None:
+        entry['exit_code'] = src['exit_code']
+    if src.get('reason'):
+        entry['status'] = 'skipped'
+        entry['reason'] = src['reason']
+    error = src.get('error')
+    if error:
+        entry['error'] = error
+    return entry
+
+
+def aggregate_job_results(opencompass_dir: str, output_path: str,
+                          datasets: list, succeeded: list, skipped: list,
+                          status: dict) -> dict:
+    """多 benchmark job 结果聚合：逐数据集 → benchmark-level 条目。
+
+    report: {平台数据集名(或 summary 行名): {status, metric, score, details?...}}
+    顺序与用户选择的 datasets 一致；flat 场景多余行按 summary 顺序追加。
+    """
+    report: dict = {}
+    runs = status.get('runs') if isinstance(status, dict) else None
+
+    if runs:
+        # ---- 新布局：dataset_status.runs 提供 dataset -> run -> summary 映射 ----
+        run_by_ds = {}
+        for run in runs:
+            if isinstance(run, dict) and run.get('dataset'):
+                run_by_ds[run['dataset']] = run
+
+        for ds in datasets:
+            run = run_by_ds.get(ds)
+            if run is None:
+                # runs 缺失该数据集（不应发生）：用 succeeded/skipped 兜底
+                item = _status_of(ds, succeeded, skipped)
+                print(f'[WARN] dataset_status.runs 缺少数据集 {ds}'
+                      f'{"" if item is None else "，按状态列表兜底"}')
+                if item is None:
+                    continue
+                run = {'dataset': ds, **item}
+
+            run_status = run.get('status')
+            if run_status == 'succeeded':
+                rows = {}
+                summary_rel = run.get('summary_file')
+                if summary_rel:
+                    summary_path = os.path.join(opencompass_dir, summary_rel)
+                    if os.path.exists(summary_path):
+                        rows = parse_summary_csv(summary_path)
+                    else:
+                        print(f'[WARN] 数据集 {ds} 的 summary 文件不存在: '
+                              f'{summary_path}，跳过其结果解析')
+                aggregate_rows_into(report, ds, rows)
+                if ds not in report:
+                    # summary 为空（运行成功但无 summary 的异常场景）
+                    report[ds] = {'status': 'succeeded', 'metric': None,
+                                  'score': None}
+                    print(f'[WARN] 数据集 {ds} 的 summary 无任何可解析行')
+            elif run_status == 'failed':
+                report[ds] = _entry_from_failed(ds, run, None)
+            else:  # skipped（预跳过）等
+                entry = {'status': run_status or 'skipped', 'metric': None,
+                         'score': None}
+                if run.get('reason'):
+                    entry['reason'] = run['reason']
+                report[ds] = entry
+        return report
+
+    # ---- 兼容回退：无 runs 映射（旧版本产物 / 自定义数据集单次运行） ----
+    print('[INFO] dataset_status.json 无 runs 映射，按旧布局解析整个目录中最新的 summary')
+    rows = parse_results(opencompass_dir)
+    covered = set()
+
+    for ds in datasets:
+        root = benchmark_root_name(ds)
+        matched = {n: v for n, v in rows.items()
+                   if n == root or (root and n.startswith(root + '-'))}
+        if matched:
+            aggregate_rows_into(report, ds, matched)
+            covered.update(matched.keys())
+        else:
+            item = _status_of(ds, succeeded, skipped)
+            if item is not None and item['status'] != 'succeeded':
+                report[ds] = _entry_from_failed(ds, None, item)
+            elif ds in succeeded:
+                report[ds] = {'status': 'succeeded', 'metric': None, 'score': None}
+                print(f'[WARN] 数据集 {ds} 在 summary 中无对应行，无法给出分数')
+
+    for name, metrics in rows.items():
+        if name in covered:
+            continue
+        picked = _pick_metric_value(metrics)
+        if picked is None:
+            continue
+        metric, value = picked
+        report[name] = {'status': 'succeeded', 'metric': metric, 'score': value}
+
+    return report
+
+
+def compute_overall(results: dict) -> float:
+    """综合得分：成功 benchmark 的 benchmark-level score 等权平均。
+
+    每个 benchmark（无论含多少 subset）只贡献一个 score，杜绝多 subset
+    benchmark 因行数多而被过度加权的问题。无成功分数时返回 0.0。
+    """
+    scores = []
+    for entry in results.values():
+        if not isinstance(entry, dict):
+            continue
+        if entry.get('status') != 'succeeded':
+            continue
+        score = entry.get('score')
+        if isinstance(score, (int, float)):
+            scores.append(score)
     if not scores:
         return 0.0
-
-    avg = round(sum(s[2] for s in scores) / len(scores), 4)
-    metric_summary = ', '.join(f'{s[0]}={s[1]}:{s[2]}' for s in scores)
-    print(f'[INFO] 综合得分基于: {metric_summary} -> overall={avg}')
+    avg = round(sum(scores) / len(scores), 4)
+    detail = ', '.join(f'{k}={v.get("score")}' for k, v in results.items()
+                       if isinstance(v, dict) and isinstance(v.get('score'), (int, float)))
+    print(f'[INFO] 综合得分基于 {len(scores)} 个成功 benchmark'
+          f'（等权平均）: {detail} -> overall={avg}')
     return avg
 
+
+# --------------------------------------------------------------------------
+# 输出文件
+# --------------------------------------------------------------------------
 
 def save_metric_json(output_path: str, results: dict, metadata: dict):
     """写入 metric.json（平台自动采集）。"""
@@ -235,7 +477,7 @@ def save_metric_json(output_path: str, results: dict, metadata: dict):
 
 
 def save_summary_json(output_path: str, results: dict):
-    """写入 eval_summary.json（简洁摘要）。"""
+    """写入 eval_summary.json（与 metric.json.eval_results 同源）。"""
     summary_path = os.path.join(output_path, 'eval_summary.json')
     with open(summary_path, 'w', encoding='utf-8') as f:
         json.dump(results, f, indent=2, ensure_ascii=False)
@@ -243,16 +485,62 @@ def save_summary_json(output_path: str, results: dict):
 
 
 def save_report_csv(output_path: str, results: dict):
-    """写入 eval_report.csv（可读表格）。"""
+    """写入 eval_report.csv（benchmark 行 + subset 明细行）。
+
+    表头: benchmark,subset,status,metric,score,exit_code
+      ceval_gen,,succeeded,accuracy,51.84,
+      ceval_gen,accountant,succeeded,accuracy,44.9,
+      ...
+      commonsenseqa_gen,,failed,,,1
+    """
     csv_path = os.path.join(output_path, 'eval_report.csv')
     with open(csv_path, 'w', newline='', encoding='utf-8') as f:
         writer = csv.writer(f)
-        writer.writerow(['dataset', 'metric', 'score'])
-        for ds in sorted(results.keys()):
-            metrics = results[ds]
-            for metric in sorted(metrics.keys()):
-                writer.writerow([ds, metric, metrics[metric]])
+        writer.writerow(['benchmark', 'subset', 'status', 'metric', 'score',
+                         'exit_code'])
+        for bench in results:
+            entry = results[bench]
+            if not isinstance(entry, dict):
+                continue
+            status = entry.get('status', 'succeeded')
+            metric = entry.get('metric') or ''
+            score = entry.get('score')
+            exit_code = entry.get('exit_code') if entry.get('exit_code') is not None else ''
+            writer.writerow([bench, '', status, metric,
+                             '' if score is None else score, exit_code])
+            details = entry.get('details') or {}
+            for subset in sorted(details.keys()):
+                v = details[subset]
+                writer.writerow([bench, subset, status, metric,
+                                 '' if v is None else v, ''])
     print(f"[OK] 写入 eval_report.csv: {csv_path}")
+
+
+def print_report(report: dict):
+    """控制台打印聚合结果摘要。"""
+    print('\n========== 评测结果摘要（benchmark 层） ==========')
+    for name in report:
+        entry = report[name]
+        if not isinstance(entry, dict):
+            continue
+        status = entry.get('status', 'succeeded')
+        if status == 'succeeded' and entry.get('score') is not None:
+            details = entry.get('details') or {}
+            suffix = f' ({len(details)} 个 subset)' if details else ''
+            print(f'  {name}: [{status}] {entry.get("metric")}={entry["score"]}{suffix}')
+        elif status == 'succeeded':
+            print(f'  {name}: [{status}] 无分数')
+        else:
+            extras = []
+            if entry.get('exit_code') is not None:
+                extras.append(f'exit_code={entry["exit_code"]}')
+            if entry.get('reason'):
+                extras.append(f'reason={entry["reason"]}')
+            if entry.get('error'):
+                extras.append(f'error={entry["error"][:120]}')
+            print(f'  {name}: [{status}] '
+                  + (', '.join(extras) if extras else '无详情'))
+    print('==================================================\n')
 
 
 def main():
@@ -269,43 +557,58 @@ def main():
                         help='成功完成的数据集（逗号分隔）')
     parser.add_argument('--skipped-datasets', default='',
                         help='跳过的数据集（JSON 数组）')
+    parser.add_argument('--status-file', default='',
+                        help='dataset_status.json 路径（缺省取 output-path 下同名文件）')
     args = parser.parse_args()
 
     os.makedirs(args.output_path, exist_ok=True)
 
-    # 解析 OpenCompass 结果
-    results = parse_results(args.opencompass_dir)
+    # 数据集状态：优先用 dataset_status.json 的 runs 映射；无则退回命令行参数
+    status = load_dataset_status(args.output_path, args.status_file)
+    succeeded_arg = [d.strip() for d in args.succeeded_datasets.split(',')
+                     if d.strip()] if args.succeeded_datasets else []
+    skipped_arg = []
+    if args.skipped_datasets:
+        try:
+            skipped_arg = json.loads(args.skipped_datasets)
+        except json.JSONDecodeError:
+            print(f'[WARN] skipped-datasets 不是合法 JSON，已忽略: '
+                  f'{args.skipped_datasets}')
+    if not succeeded_arg and not skipped_arg and status:
+        succeeded_arg = status.get('succeeded', [])
+        skipped_arg = status.get('skipped', [])
+
+    datasets_arg = [d.strip() for d in args.datasets.split(',') if d.strip()]
+
+    # 聚合：核心入口（替代旧的"只取最新一个 summary"）
+    report = aggregate_job_results(
+        args.opencompass_dir, args.output_path,
+        datasets=datasets_arg,
+        succeeded=succeeded_arg,
+        skipped=skipped_arg,
+        status=status,
+    )
 
     # 元数据
     metadata = {
         'model_name': args.model_name,
         'model_version': args.model_version,
         'model_path': args.model_path,
-        'datasets': [d.strip() for d in args.datasets.split(',') if d.strip()],
+        'datasets': datasets_arg,
     }
-    if args.succeeded_datasets:
-        metadata['succeeded_datasets'] = [
-            d.strip() for d in args.succeeded_datasets.split(',') if d.strip()
-        ]
-    if args.skipped_datasets:
-        try:
-            metadata['skipped_datasets'] = json.loads(args.skipped_datasets)
-        except json.JSONDecodeError:
-            print(f'[WARN] skipped-datasets 不是合法 JSON，已忽略: {args.skipped_datasets}')
+    if succeeded_arg:
+        metadata['succeeded_datasets'] = succeeded_arg
+    if skipped_arg:
+        metadata['skipped_datasets'] = skipped_arg
 
-    # 输出结构化文件
-    save_metric_json(args.output_path, results, metadata)
-    save_summary_json(args.output_path, results)
-    save_report_csv(args.output_path, results)
+    # 输出结构化文件（三者同源于 report）
+    save_metric_json(args.output_path, report, metadata)
+    save_summary_json(args.output_path, report)
+    save_report_csv(args.output_path, report)
 
     # 打印摘要
-    print('\n========== 评测结果摘要 ==========')
-    for ds in sorted(results.keys()):
-        metrics_str = ', '.join(
-            f'{k}={v}' for k, v in results[ds].items()
-        )
-        print(f'  {ds}: {metrics_str}')
-    print(f'  综合得分: {compute_overall(results)}')
+    print_report(report)
+    print(f'  综合得分: {compute_overall(report)}')
     if metadata.get('succeeded_datasets') is not None:
         print(f'  成功数据集: {", ".join(metadata["succeeded_datasets"]) or "无"}')
     if metadata.get('skipped_datasets'):

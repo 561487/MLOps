@@ -8,8 +8,8 @@
 
 | 项目 | 值 |
 |---|---|
-| 业务镜像 | `10.121.177.20:8082/mlops/model-evaluate:main-py310-cu128-r10` |
-| BASE 镜像 | `10.121.177.20:8082/mlops/model-evaluate:base-py310-cu128` |
+| 业务镜像 | `10.121.177.20:8082/mlops/model-evaluate:main-py310-cu128-r12` |
+| BASE 镜像 | `10.121.177.20:8082/mlops/model-evaluate:base-py310-cu128-r1` |
 | 底层 CUDA | nvidia/cuda:12.8.0-runtime-ubuntu22.04 |
 | Python | 3.10 |
 | PyTorch | 2.7.0+cu128（支持 RTX 5090 / Blackwell sm_120） |
@@ -32,9 +32,15 @@
 
 | 文件 | 内容 |
 |---|---|
-| `metric.json` | 各数据集原始指标（OpenCompass 输出） |
-| `eval_summary.json` | 汇总指标（含模型名/版本/数据集/指标/得分） |
-| `eval_report.csv` | 表格化结果（便于对比多次评测） |
+| `metric.json` | 按 benchmark 分层的评测指标：`eval_results.<benchmark>.score` 为 benchmark 总分，多 subset benchmark（如 ceval/bbh）另有 `details` 子任务明细；`overall_score` = 成功 benchmark 总分等权平均 |
+| `eval_summary.json` | 汇总指标（与 metric.json 的 `eval_results` 同源） |
+| `eval_report.csv` | benchmark + subset 两层表格化结果 |
+| `dataset_status.json` | 各数据集运行状态 + `runs` 映射（dataset -> run_dir -> summary_file） |
+| `opencompass_results/<dataset>/<时间戳>/` | OpenCompass 原始输出，每个数据集一次独立运行，目录与数据集一一对应 |
+
+多数据集评测说明：平台对每个选中的内置数据集**单独启动一次 OpenCompass 运行**
+（独立 `--work-dir`），单个数据集失败自动跳过、不影响其他数据集；结果解析按
+`dataset_status.json` 的 runs 映射逐数据集聚合，不使用"最新 summary"猜测整个任务的结果。
 
 ---
 
@@ -291,7 +297,7 @@
 
 1. **互斥校验**：`--custom_dataset_path` 与 `--datasets` 必须二选一，同时填写会报错
 2. **目录格式统一**：自定义数据集目录内所有文件必须同格式（不可混用 jsonl 和 csv）
-3. **镜像版本**：业务镜像 `main-py310-cu128-r10`；重依赖在 `model-evaluate:base-py310-cu128`，日常改代码只重建业务层
+3. **镜像版本**：业务镜像 `main-py310-cu128-r12`；重依赖在 `model-evaluate:base-py310-cu128-r1`，日常改代码只重建业务层
 4. **构建方式**：升级依赖跑 `build-base.sh`，改 `src/` 跑 `build.sh`
 5. **首次运行**：OpenCompass CLI 冷启动较慢（import torch/transformers），属正常现象
 6. **结果对比**：`eval_report.csv` 累积多次评测结果，便于横向对比不同模型/版本

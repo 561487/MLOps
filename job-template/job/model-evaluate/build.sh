@@ -1,6 +1,6 @@
 #!/bin/bash
 # job-template/job/model-evaluate/build.sh
-# 构建并推送业务镜像（基于 model-evaluate:base-py310-cu128，仅含入口脚本层，日常迭代走此脚本）
+# 构建并推送业务镜像（基于 model-evaluate:base-py310-cu128-r1，仅含入口脚本层，日常迭代走此脚本）
 #
 # Tag 规范: Runtime 类 - <framework-version>-py<python>-cu<cuda>-r<revision>
 # 说明: 重依赖在 BASE 镜像；本脚本只重建 /app 业务层，通常几十秒内完成。
@@ -14,8 +14,8 @@ REGISTRY="10.121.177.20:8082"
 PROJECT="mlops"
 IMAGE_NAME="model-evaluate"
 BASE_IMAGE_NAME="model-evaluate"
-BASE_IMAGE_VERSION="base-py310-cu128"
-IMAGE_VERSION="main-py310-cu128-r8"
+BASE_IMAGE_VERSION="base-py310-cu128-r1"
+IMAGE_VERSION="${IMAGE_VERSION:?请通过 IMAGE_VERSION 指定未使用的新镜像版本，禁止覆盖已有标签}"
 
 BASE_IMAGE="${REGISTRY}/${PROJECT}/${BASE_IMAGE_NAME}:${BASE_IMAGE_VERSION}"
 IMAGE="${REGISTRY}/${PROJECT}/${IMAGE_NAME}:${IMAGE_VERSION}"
@@ -52,16 +52,19 @@ echo ""
 echo "=== 冒烟测试 ==="
 
 docker run --rm --entrypoint python3 "${IMAGE}" -c "
-import opencompass, transformers, torch
+import opencompass, transformers, torch, faiss, peft
 assert transformers.__version__.split('.')[0] == '5'
 assert torch.__version__.split('.')[0] == '2'
+assert faiss.__version__ == '1.15.0', f'faiss 版本不符: {faiss.__version__}'
 print('opencompass', opencompass.__version__,
       '| transformers', transformers.__version__,
-      '| torch', torch.__version__)
+      '| torch', torch.__version__,
+      '| faiss', faiss.__version__)
 " || { echo "[FAIL] 版本断言失败"; exit 1; }
 
 docker run --rm --entrypoint python3 "${IMAGE}" -m py_compile \
     /app/run_evaluation.py /app/parse_and_save.py /app/sitecustomize.py \
+    /app/evaluation_bridge.py /app/custom_evaluator.py /app/model_artifact.py \
     || { echo "[FAIL] 入口脚本语法错误"; exit 1; }
 
 docker run --rm --entrypoint python3 "${IMAGE}" -c "

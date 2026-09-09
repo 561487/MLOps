@@ -65,6 +65,31 @@ def resolve_model_kwargs(model_kwargs_str: str) -> dict:
     return kwargs
 
 
+def resolve_num_gpus(explicit=None):
+    """Use pipeline allocation; retain the legacy CLI override for old jobs."""
+    if explicit is not None:
+        if explicit < 1:
+            raise ValueError('num_gpus 必须大于 0')
+        return explicit
+    import math
+    import re
+    raw = os.environ.get('KFJ_TASK_RESOURCE_GPU', '').strip()
+    amount = re.split(r'[（(]', raw)[0].strip()
+    if amount and ',' not in amount:
+        try:
+            requested = float(amount)
+        except ValueError:
+            raise ValueError('无法解析流水线 GPU 申请: %s' % raw)
+        if not math.isfinite(requested) or requested <= 0:
+            raise ValueError('请在公共资源参数中申请 GPU')
+        return math.ceil(requested)
+    import torch
+    visible = torch.cuda.device_count()
+    if visible < 1:
+        raise ValueError('未检测到分配的 GPU，请检查公共资源配置')
+    return visible
+
+
 def apply_num_gpus_visibility(num_gpus: int):
     """限制进程可见 GPU，使 device_map=auto 与 --num_gpus 一致。
 
@@ -564,6 +589,80 @@ def build_custom_config(args: argparse.Namespace) -> str:
     return config_path
 
 
+def list_exp_dirs(work_dir: str) -> list:
+    """列出 work_dir 下已有的 OpenCompass 时间戳运行目录（如 20260902_100358）。
+
+    只按目录名排序，不依赖 mtime。"""
+    if not os.path.isdir(work_dir):
+        return []
+    return sorted(name for name in os.listdir(work_dir)
+                  if os.path.isdir(os.path.join(work_dir, name)))
+
+
+def find_run_summary_csv(run_dir: str) -> str | None:
+    """在单个 OpenCompass run 目录内定位 summary CSV（确定性规则）。
+
+    OpenCompass 每次运行在 {run_dir}/summary/ 下写 summary_<run_name>.csv，
+    run_name 即时间戳目录名。优先精确匹配 run_name；匹配不到时若目录内
+    只有一个 csv 则取它。不依赖 mtime。找不到返回 None。
+    """
+    summary_dir = os.path.join(run_dir, 'summary')
+    if not os.path.isdir(summary_dir):
+        return None
+    run_name = os.path.basename(run_dir.rstrip('/'))
+    csvs = sorted(
+        f for f in os.listdir(summary_dir)
+        if f.endswith('.csv') and f.startswith('summary')
+    )
+    if not csvs:
+        # 兜底：目录里没有任何 summary_*.csv 时，接受任意 csv
+        csvs = sorted(f for f in os.listdir(summary_dir) if f.endswith('.csv'))
+    if not csvs:
+        return None
+    for f in csvs:
+        if f.startswith(run_name):
+            return os.path.join(summary_dir, f)
+    if len(csvs) == 1:
+        return os.path.join(summary_dir, csvs[0])
+    # 同 run 目录内多份 csv：文件名排序取第一个并告警（本 run 一次只应产出一份）
+    print(f'[WARN] {summary_dir} 存在多个 summary csv，取 {csvs[0]}')
+    return os.path.join(summary_dir, csvs[0])
+
+
+def extract_failure_summary(log_path: str, start_offset: int,
+                            max_chars: int = 800) -> str:
+    """从 eval_run.log 的指定区段（一次 OpenCompass 运行的输出）提取可读错误摘要。
+
+    start_offset 为该次运行写入日志前的文件字节偏移。从区段末尾向前找
+    Traceback/Error 等特征行并取其后的文本；找不到特征行时取区段末尾。
+    """
+    try:
+        with open(log_path, 'r', encoding='utf-8', errors='replace') as f:
+            f.seek(start_offset)
+            chunk = f.read()
+    except OSError as e:
+        return f'无法读取运行日志({log_path}): {e}'
+    if not chunk.strip():
+        return ''
+    marks = ('Traceback', 'Error', 'ERROR', 'Exception', 'raise ',
+             'FileNotFoundError', 'No valid url', 'AssertionError',
+             'KeyError', 'ValueError', 'RuntimeError')
+    lines = chunk.splitlines()
+    hit = None
+    for i in range(len(lines) - 1, -1, -1):
+        if any(m in lines[i] for m in marks):
+            hit = i
+            break
+    if hit is not None:
+        text = '\n'.join(lines[max(0, hit - 2):])
+    else:
+        text = chunk[-2000:]
+    text = text.strip()
+    if len(text) > max_chars:
+        text = '...(truncated)\n' + text[-max_chars:].lstrip()
+    return text
+
+
 def get_dataset_skip_reason(dataset: str, model_type: str) -> str | None:
     """返回数据集与模型类型不兼容时的跳过原因；兼容则返回 None。"""
     if model_type == 'hf_chat' and dataset.endswith('_ppl'):
@@ -572,7 +671,8 @@ def get_dataset_skip_reason(dataset: str, model_type: str) -> str | None:
 
 
 def build_opencompass_cmd(args: argparse.Namespace,
-                          dataset_list: list | None = None) -> list:
+                          dataset_list: list | None = None,
+                          work_dir: str | None = None) -> list:
     """构建 OpenCompass 执行命令。
 
     由于 C-Eval 等数据集需要 trust_remote_code=True 才能加载，
@@ -583,8 +683,14 @@ def build_opencompass_cmd(args: argparse.Namespace,
     数据集来源二选一：
       - --custom_dataset_path：生成自定义 config，作为位置参数传给 OpenCompass
       - --datasets：用 OpenCompass 内置数据集名，走 --datasets
+
+    work_dir：本次运行的 OpenCompass --work-dir（OpenCompass 会在其下生成
+    {YYYYMMDD_HHMMSS} 运行子目录）。缺省时用 {output_path}/opencompass_results
+    （自定义数据集等单次运行场景）。多内置数据集逐数据集运行时由调用方传入
+    各数据集独立的 work_dir，保证 dataset -> run_dir 一一对应。
     """
-    work_dir = os.path.join(args.output_path, 'opencompass_results')
+    if work_dir is None:
+        work_dir = os.path.join(args.output_path, 'opencompass_results')
     os.makedirs(work_dir, exist_ok=True)
 
     # ---- 构建 opencompass CLI 参数（不含可执行文件） ----
@@ -878,17 +984,40 @@ def run_opencompass(cmd: list, log_path: str, *,
     return 0
 
 
-def save_dataset_status(output_path: str, succeeded: list, skipped: list):
-    """写入 dataset_status.json，记录各数据集运行状态。"""
+def save_dataset_status(output_path: str, succeeded: list, skipped: list,
+                        runs: list | None = None):
+    """写入 dataset_status.json，记录各数据集运行状态。
+
+    runs（可选）：每次 OpenCompass 运行的明细，与用户选择顺序一致，字段：
+      dataset / status(succeeded|failed|skipped) /
+      run_dir / summary_file / exit_code / error / reason
+    其中 run_dir、summary_file 为相对 {output_path}/opencompass_results 的路径。
+    """
     status_path = os.path.join(output_path, 'dataset_status.json')
     payload = {
         'succeeded': succeeded,
         'skipped': skipped,
         'total': len(succeeded) + len(skipped),
     }
+    if runs is not None:
+        payload['runs'] = runs
     with open(status_path, 'w', encoding='utf-8') as f:
         json.dump(payload, f, indent=2, ensure_ascii=False)
     print(f'[OK] 数据集运行状态已写入: {status_path}')
+    if runs:
+        print('[INFO] 运行目录映射:')
+        for r in runs:
+            ds = r['dataset']
+            run_dir = r.get('run_dir') or '-'
+            summary = r.get('summary_file') or '-'
+            print(f'  - {ds}: status={r.get("status")}, '
+                  f'run_dir={run_dir}, summary={summary}')
+            for k in ('exit_code', 'reason'):
+                if r.get(k) is not None:
+                    print(f'      {k}={r[k]}')
+            if r.get('error'):
+                err = r['error'].replace('\n', ' ')[:160]
+                print(f'      error={err}')
 
 
 def print_dataset_summary(succeeded: list, skipped: list):
@@ -914,13 +1043,23 @@ def print_dataset_summary(succeeded: list, skipped: list):
 
 
 def run_builtin_datasets_with_skip(args: argparse.Namespace) -> tuple[list, list]:
-    """逐数据集运行 OpenCompass；单个失败时跳过并继续。"""
+    """逐数据集运行 OpenCompass；单个失败时跳过并继续。
+
+    每个数据集使用独立的 --work-dir: {output_path}/opencompass_results/<dataset>/
+    OpenCompass 在其中再生成 {YYYYMMDD_HHMMSS} 运行子目录。运行前后对
+    work_dir 做目录快照差集，即可确定 dataset -> run_dir -> summary_file 的
+    明确对应关系（不依赖全局 mtime / latest 目录猜测）。
+
+    每次运行的 run_dir/summary_file 连同 status/exit_code/error 写入
+    dataset_status.json 的 runs 字段，供 parse_and_save.py 逐数据集聚合。
+    """
     dataset_list = [d.strip() for d in args.datasets.split(',') if d.strip()]
     if not dataset_list:
         print('[ERROR] --datasets 为空')
         sys.exit(1)
 
     log_path = os.path.join(args.output_path, 'eval_run.log')
+    opencompass_root = os.path.join(args.output_path, 'opencompass_results')
 
     pre_skipped = []
     runnable = []
@@ -943,27 +1082,85 @@ def run_builtin_datasets_with_skip(args: argparse.Namespace) -> tuple[list, list
 
     skipped = list(pre_skipped)
     succeeded = []
+    runs_by_ds: dict[str, dict] = {}
 
     for idx, ds in enumerate(runnable):
         print(f'\n{"=" * 60}')
         print(f'[INFO] 评测数据集 ({idx + 1}/{len(runnable)}): {ds}')
         print(f'{"=" * 60}')
 
-        cmd = build_opencompass_cmd(args, dataset_list=[ds])
+        # 每数据集独立 work_dir；运行前快照已有 run 目录
+        work_dir = os.path.join(opencompass_root, ds)
+        os.makedirs(work_dir, exist_ok=True)
+        existed = set(list_exp_dirs(work_dir))
+
+        # 记录本轮日志起点，失败时用于提取错误摘要
+        log_offset = 0
+        if os.path.exists(log_path):
+            log_offset = os.path.getsize(log_path)
+
+        cmd = build_opencompass_cmd(args, dataset_list=[ds], work_dir=work_dir)
         returncode = run_opencompass(
             cmd, log_path,
             fail_on_error=False,
             append_log=(idx > 0),
         )
+
+        # 快照差集 = 本次运行新增的 OpenCompass 时间戳目录（一次调用应恰好 1 个）
+        new_dirs = [d for d in list_exp_dirs(work_dir) if d not in existed]
+        if len(new_dirs) > 1:
+            print(f'[WARN] 数据集 {ds} 一次运行新增了 {len(new_dirs)} 个目录: '
+                  f'{new_dirs}，取最后一个')
+        run_name = new_dirs[-1] if new_dirs else None
+        run_rel = f'{ds}/{run_name}' if run_name else None
+
+        # 定位该 run 的 summary CSV
+        summary_rel = None
+        if run_name is not None:
+            summary_abs = find_run_summary_csv(os.path.join(work_dir, run_name))
+            if summary_abs:
+                summary_rel = os.path.relpath(summary_abs, opencompass_root)
+
         if returncode == 0:
             succeeded.append(ds)
-            print(f'[OK] 数据集 {ds} 评测完成')
+            runs_by_ds[ds] = {
+                'dataset': ds,
+                'status': 'succeeded',
+                'run_dir': run_rel,
+                'summary_file': summary_rel,
+            }
+            print(f'[OK] 数据集 {ds} 评测完成'
+                  + (f' (run_dir={run_rel})' if run_rel else ''))
+            if summary_rel is None:
+                print(f'[WARN] 数据集 {ds} 未找到 summary 文件，其结果将无法被解析')
         else:
             skipped.append({'dataset': ds, 'exit_code': returncode})
+            runs_by_ds[ds] = {
+                'dataset': ds,
+                'status': 'failed',
+                'run_dir': run_rel,
+                'summary_file': None,
+                'exit_code': returncode,
+                'error': extract_failure_summary(log_path, log_offset),
+            }
             print(f'[WARN] 数据集 {ds} 评测失败(退出码 {returncode})，已跳过，继续下一个')
 
+    # 预跳过项也补 runs 记录，保证每个用户选择的数据集都有明确状态
+    for item in pre_skipped:
+        ds = item['dataset']
+        runs_by_ds[ds] = {
+            'dataset': ds,
+            'status': 'skipped',
+            'run_dir': None,
+            'summary_file': None,
+            'reason': item.get('reason'),
+        }
+
+    # 按用户选择顺序输出 runs
+    runs = [runs_by_ds[ds] for ds in dataset_list if ds in runs_by_ds]
+
     print_dataset_summary(succeeded, skipped)
-    save_dataset_status(args.output_path, succeeded, skipped)
+    save_dataset_status(args.output_path, succeeded, skipped, runs=runs)
 
     if not succeeded:
         if skipped:
@@ -1041,7 +1238,7 @@ def main():
                         help='评测结果输出根目录，所有文件写入此路径')
 
     # ---- 推理参数 ----
-    parser.add_argument('--num_gpus', type=int, default=1,
+    parser.add_argument('--num_gpus', type=int, default=None,
                         help='使用的 GPU 数量，默认 1')
     parser.add_argument('--batch_size', type=int, default=64,
                         help='推理 batch size，默认 64')
@@ -1077,6 +1274,7 @@ def main():
                              '空=自动(MCQ 用 ANSWER 模板 / 生成式用 {input})')
 
     args = parser.parse_args()
+    args.num_gpus = resolve_num_gpus(args.num_gpus)
 
     # ---- 打印参数 ----
     print('========== OpenCompass 评测配置 ==========')
@@ -1095,6 +1293,12 @@ def main():
     if not args.custom_dataset_path and not args.datasets:
         print('[ERROR] 必须指定 --datasets 或 --custom_dataset_path 之一')
         sys.exit(1)
+
+    from evaluation_bridge import run_standard_evaluation, prepare_public_adapter
+    if args.custom_dataset_path and run_standard_evaluation(args):
+        return
+    # Preserve the master OpenCompass path for public and legacy custom datasets.
+    prepare_public_adapter(args)
 
     check_opencompass()
     apply_num_gpus_visibility(args.num_gpus)

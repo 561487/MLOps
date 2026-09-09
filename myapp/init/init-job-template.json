@@ -9604,7 +9604,7 @@
   },
   "model-evaluate": {
     "project_name": "模型处理",
-    "image_name": "10.121.177.20:8082/mlops/model-evaluate:main-py310-cu128-r8",
+    "image_name": "10.121.177.20:8082/mlops/model-evaluate:main-py310-cu128-r1",
     "gitpath": "/job-template/job/model-evaluate",
     "image_describe": "大模型评测",
     "job_template_name": "model-evaluate",
@@ -9612,7 +9612,7 @@
     "job_template_command": "python3 /app/run_evaluation.py",
     "job_template_volume": "models-storage(storage):/mnt/storage/models-storage",
     "job_template_account": "",
-    "job_template_env": "HF_ENDPOINT=https://hf-mirror.com",
+    "job_template_env": "HF_ENDPOINT=https://hf-mirror.com\nHF_HOME=/mnt/storage/models-share-volume/opencompass-cache/huggingface\nHF_HUB_CACHE=/mnt/storage/models-share-volume/opencompass-cache/huggingface/hub\nHF_HUB_DISABLE_XET=1\nHF_HUB_DOWNLOAD_TIMEOUT=600",
     "job_template_expand": {
       "index": 7,
       "rec_job_template": "自定义镜像",
@@ -9629,19 +9629,7 @@
           "range": "",
           "default": "/mnt/storage/models-storage/models/",
           "placeholder": "如 /mnt/storage/models-storage/models/qwen-7b 或 Qwen/Qwen-7B-Chat",
-          "describe": "HuggingFace 模型路径或本地模型目录，<a target='_blank' href='https://huggingface.co/models'>HF Models 参考</a>",
-          "editable": 1
-        },
-        "--model_name": {
-          "type": "str",
-          "item_type": "str",
-          "label": "模型名称",
-          "require": 1,
-          "choice": [],
-          "range": "",
-          "default": "",
-          "placeholder": "如 qwen-7b-chat",
-          "describe": "用于结果标识的模型名称",
+          "describe": "完整模型或 LoRA checkpoint；LoRA 自动定位基础模型，无法定位时明确报错",
           "editable": 1
         },
         "--model_type": {
@@ -9649,35 +9637,14 @@
           "item_type": "str",
           "label": "模型类型",
           "require": 1,
-          "choice": ["hf_chat", "hf_base"],
+          "choice": [
+            "hf_chat",
+            "hf_base"
+          ],
           "range": "",
           "default": "hf_chat",
           "placeholder": "",
           "describe": "对话模型选 hf_chat，基座模型选 hf_base",
-          "editable": 1
-        },
-        "--model_version": {
-          "type": "str",
-          "item_type": "str",
-          "label": "模型版本",
-          "require": 0,
-          "choice": [],
-          "range": "",
-          "default": "v1",
-          "placeholder": "",
-          "describe": "模型版本号，用于区分同一模型的不同版本评测结果",
-          "editable": 1
-        },
-        "--output_path": {
-          "type": "str",
-          "item_type": "str",
-          "label": "输出路径",
-          "require": 1,
-          "choice": [],
-          "range": "",
-          "default": "/mnt/storage/models-storage/output/opencompass",
-          "placeholder": "",
-          "describe": "评测结果输出目录，metric.json / eval_summary.json / eval_report.csv 将写入此路径",
           "editable": 1
         }
       },
@@ -9685,8 +9652,8 @@
         "--datasets": {
           "type": "list",
           "item_type": "str",
-          "label": "评测数据集",
-          "require": 1,
+          "label": "公共数据集",
+          "require": 0,
           "choice": [
             "agieval_gen",
             "bbh_gen",
@@ -9713,35 +9680,47 @@
             "winogrande_gen"
           ],
           "range": "",
-          "default": "ceval_gen",
+          "default": "",
           "placeholder": "",
-          "describe": "选择评测数据集，可多选。后缀说明：_gen=生成式评测(需生成文本)，_ppl=困惑度评测(仅选择题，更快省显存)。均有 OSS 直链可自动下载：C-Eval(中文综合)/MMLU(英文综合)/CMMLU(中文多任务)/GSM8K(数学)/BBH(推理)/HumanEval(代码)/MBPP(代码)/HellaSwag(常识)/PIQA(物理)/WinoGrande(代词)/LAMBADA(语言)/TriviaQA(问答)/AGIEval(考试)/MATH(竞赛数学)/RACE(英文阅读)/CommonsenseQA(常识)。约束：hf_chat 模型只能选 _gen 数据集(_ppl 会自动跳过)；hf_base 两者均可。OBQA/SIQA/StrategyQA/XSum/NQ 等因无 OSS 直链且 ModelScope 加载有兼容性问题，暂未列入",
+          "describe": "可多选，与自定义数据集二选一。对话模型选 _gen；基座模型也支持 _ppl。",
           "editable": 1
         },
-        "--num_gpus": {
+        "--custom_dataset_path": {
+          "type": "str",
+          "item_type": "str",
+          "label": "自定义数据集路径",
+          "require": 0,
+          "choice": [],
+          "range": "",
+          "default": "",
+          "placeholder": "/mnt/storage/models-storage/datasets/my_eval.jsonl",
+          "describe": "与 datasets 二选一。支持 Convert 的 eval_qa 文件或 manifest 目录（问答/单选/多选）；旧自定义数据保持 OpenCompass 流程。",
+          "editable": 1
+        },
+        "--max_samples": {
           "type": "int",
           "item_type": "int",
-          "label": "GPU 数量",
-          "require": 1,
+          "label": "每数据集样本数上限",
+          "require": 0,
           "choice": [],
-          "range": [1, 8],
-          "default": 1,
-          "step": 1,
-          "placeholder": "",
-          "describe": "评测使用的 GPU 数量，默认 1 卡",
+          "range": [
+            0,
+            999999
+          ],
+          "default": 0,
+          "step": 100,
+          "placeholder": "0=全量，设N则每个数据集取前N条",
+          "describe": "0=全量；测试可填 20。",
           "editable": 1
         },
         "--batch_size": {
           "type": "int",
           "item_type": "int",
-          "label": "Batch Size",
+          "label": "推理批次大小",
           "require": 0,
-          "choice": [],
-          "range": [1, 512],
-          "default": 64,
-          "step": 1,
-          "placeholder": "",
-          "describe": "推理批次大小，显存不足时可减小",
+          "default": 4,
+          "range": [1, 64],
+          "describe": "每批处理的样本数，建议从4开始；标准评测显存不足时自动缩小批次重试。",
           "editable": 1
         },
         "--max_seq_len": {
@@ -9750,7 +9729,10 @@
           "label": "最大输入长度",
           "require": 0,
           "choice": [],
-          "range": [128, 8192],
+          "range": [
+            128,
+            8192
+          ],
           "default": 2048,
           "step": 128,
           "placeholder": "",
@@ -9763,118 +9745,28 @@
           "label": "最大输出长度",
           "require": 0,
           "choice": [],
-          "range": [64, 4096],
+          "range": [
+            64,
+            4096
+          ],
           "default": 512,
           "step": 64,
           "placeholder": "",
           "describe": "模型最大输出 token 数",
           "editable": 1
-        },
-        "--few_shot": {
-          "type": "int",
-          "item_type": "int",
-          "label": "Few-Shot 样本数",
-          "require": 0,
-          "choice": [],
-          "range": [0, 10],
-          "default": 0,
-          "step": 1,
-          "placeholder": "",
-          "describe": "少样本提示数量，0 表示零样本评测(Zero-Shot)",
-          "editable": 1
-        },
-        "--max_samples": {
-          "type": "int",
-          "item_type": "int",
-          "label": "每数据集样本数上限",
-          "require": 0,
-          "choice": [],
-          "range": [0, 999999],
-          "default": 0,
-          "step": 100,
-          "placeholder": "0=全量，设N则每个数据集取前N条",
-          "describe": "每个数据集最多取前N条样本。0=全量评测；设100则每个数据集只取前100条。数据集不足N条则全取。用于快速验证或节省评测时间",
-          "editable": 1
-        },
-        "--datasets_cache_dir": {
-          "type": "str",
-          "item_type": "str",
-          "label": "数据集缓存目录",
-          "require": 0,
-          "choice": [],
-          "range": "",
-          "default": "",
-          "placeholder": "/mnt/storage/datasets-cache",
-          "describe": "数据集缓存目录(挂载卷路径)。有数据集则直接复用，没有则下载到此目录。留空则使用容器内置缓存(Pod销毁即丢失)",
-          "editable": 1
         }
       },
-      "自定义数据集": {
-        "--custom_dataset_path": {
+      "输出配置": {
+        "--output_path": {
           "type": "str",
           "item_type": "str",
-          "label": "自定义数据集路径",
-          "require": 0,
+          "label": "输出路径",
+          "require": 1,
           "choice": [],
           "range": "",
-          "default": "",
-          "placeholder": "/mnt/storage/models-storage/datasets/my_eval.jsonl",
-          "describe": "自定义数据集路径(容器内绝对路径，支持文件或目录)。提供时走自定义评测路径，与“评测数据集”互斥。列名/题型/指标自动推断；目录内每个文件作为独立数据集。目录需统一为 .json/.jsonl 或 .csv",
-          "editable": 1
-        },
-        "--custom_columns": {
-          "type": "str",
-          "item_type": "str",
-          "label": "列名覆盖(JSON)",
-          "require": 0,
-          "choice": [],
-          "range": "",
-          "default": "",
-          "placeholder": "如 {\"input\":\"q\",\"target\":\"ans\",\"choices\":\"opt1,opt2,opt3,opt4\"}",
-          "describe": "列名覆盖(JSON)，仅在自动推断不准时使用。字段: input=问题列名, target=答案列名, choices=选项列名(逗号分隔，非空=选择题)。留空=自动推断",
-          "editable": 1
-        },
-        "--custom_metric": {
-          "type": "str",
-          "item_type": "str",
-          "label": "评测指标",
-          "require": 0,
-          "choice": [
-            "accuracy",
-            "exact_match",
-            "bleu",
-            "rouge"
-          ],
-          "range": "",
-          "default": "",
+          "default": "/mnt/storage/models-storage/output/opencompass",
           "placeholder": "",
-          "describe": "评测指标覆盖。留空=自动(选择题→accuracy / 生成式→exact_match)。若对应 Evaluator 类在镜像中不存在，自动 fallback 到 accuracy",
-          "editable": 1
-        },
-        "--custom_prompt_template": {
-          "type": "str",
-          "item_type": "str",
-          "label": "自定义 Prompt 模板",
-          "require": 0,
-          "choice": [],
-          "range": "",
-          "default": "",
-          "placeholder": "如: 请回答以下问题:\\n{input}",
-          "describe": "自定义 prompt(含 {input}/{A} 等占位符)。留空=自动(选择题用 ANSWER 模板 / 生成式用 {input})。占位符需与数据列名对齐",
-          "editable": 1
-        }
-      },
-      "高级配置": {
-        "--model_kwargs": {
-          "type": "json",
-          "item_type": "json",
-          "label": "模型加载参数",
-          "require": 0,
-          "choice": [],
-          "range": "",
-          "default": "",
-          "placeholder": "如 {\"device_map\": \"auto\", \"torch_dtype\": \"float16\"}",
-          "describe": "额外模型加载参数(JSON)，如 device_map、torch_dtype 等。留空时默认 {\"device_map\":\"auto\",\"torch_dtype\":\"bfloat16\"}；填写后与默认值合并，同名字段以用户配置为准",
+          "describe": "评测结果输出目录，metric.json / eval_summary.json / eval_report.csv 将写入此路径",
           "editable": 1
         }
       }

@@ -174,6 +174,65 @@ def _patch_tokenizer_compat():
     print('[sitecustomize] tokenizer encode_plus/batch_encode_plus aliased to __call__')
 
 
+def _patch_chat_template_defaults():
+    """Keep evaluation deterministic and disable Qwen thinking by default."""
+    try:
+        from transformers import PreTrainedTokenizerBase
+    except ImportError:
+        return
+
+    original = getattr(PreTrainedTokenizerBase, 'apply_chat_template', None)
+    if original is None or getattr(original, '_mlops_eval_patched', False):
+        return
+
+    def patched(self, *args, **kwargs):
+        kwargs.setdefault('enable_thinking', False)
+        try:
+            return original(self, *args, **kwargs)
+        except TypeError as exc:
+            if 'enable_thinking' not in str(exc):
+                raise
+            kwargs.pop('enable_thinking', None)
+            return original(self, *args, **kwargs)
+
+    patched._mlops_eval_patched = True
+    PreTrainedTokenizerBase.apply_chat_template = patched
+    print('[sitecustomize] chat template default installed: enable_thinking=False')
+
+
+def _patch_lora_loading():
+    """Attach a resolved LoRA adapter when OpenCompass loads the base model."""
+    adapter_path = os.environ.get('MLOPS_LORA_ADAPTER_PATH', '').strip()
+    if not adapter_path:
+        return
+    if not os.path.isdir(adapter_path):
+        raise RuntimeError(
+            f'MLOPS_LORA_ADAPTER_PATH 不存在或不是目录: {adapter_path}')
+
+    try:
+        from transformers import AutoModelForCausalLM
+        from peft import PeftModel
+    except ImportError as exc:
+        raise RuntimeError('加载 LoRA 需要 transformers 和 peft') from exc
+
+    original = AutoModelForCausalLM.from_pretrained
+
+    def patched(cls, *args, **kwargs):
+        from model_artifact import select_model_loader
+        base_path = args[0] if args else kwargs.get('pretrained_model_name_or_path')
+        loader = select_model_loader(base_path)
+        model = (original(*args, **kwargs) if loader is AutoModelForCausalLM
+                 else loader.from_pretrained(*args, **kwargs))
+        print(f'[sitecustomize] loading LoRA adapter: {adapter_path}')
+        return PeftModel.from_pretrained(
+            model, adapter_path, is_trainable=False)
+
+    AutoModelForCausalLM.from_pretrained = classmethod(patched)
+    print('[sitecustomize] OpenCompass LoRA loading patch installed')
+
+
 _patch_msdataset()
 _patch_smart_data_source()
 _patch_tokenizer_compat()
+_patch_chat_template_defaults()
+_patch_lora_loading()
