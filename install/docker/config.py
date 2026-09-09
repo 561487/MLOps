@@ -781,7 +781,7 @@ TRAINING_JOB_TEMPLATES = [
     'kmean', 'bayesian', 'adaboost', 'arima', 'ar',
     # 大模型微调
     'llama-factory', 'llama-factory-ppo', 'llama-factory-rm', 'llama-factory-sft',
-    'baichuan2', 'chatglm4', 'deepseek', 'llama3', 'qwen3',
+    'baichuan2', 'chatglm4', 'deepseek', 'llama3', 'qwen3','msswift',
     # 模型操作（评估/转换/蒸馏/裁剪/量化/注册/离线预测）
     'model-evaluate', 'model-convert', 'model-distillation', 'model-download',
     'model-prune', 'model-quantization', 'model-quantize',
