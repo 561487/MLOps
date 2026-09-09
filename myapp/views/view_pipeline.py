@@ -753,7 +753,7 @@ def dag_to_pipeline(pipeline, dbsession, workflow_label=None, **kwargs):
                 },
                 "volumeMounts": k8s_volume_mounts,
                 "workingDir": working_dir,
-                "imagePullPolicy": conf.get('IMAGE_PULL_POLICY', 'IfNotPresent')
+                "imagePullPolicy": pipeline.image_pull_policy or conf.get('IMAGE_PULL_POLICY', 'Always')
             },
             "nodeSelector": nodeSelector,
             "securityContext": {
