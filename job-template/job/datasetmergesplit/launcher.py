@@ -275,7 +275,9 @@ def prepare_output_record(record, source, preserve_metadata, source_field):
         metadata.setdefault(source_field, source)
         output["metadata"] = metadata
     else:
-        output.pop("metadata", None)
+        metadata = output.pop("metadata", None)
+        if isinstance(metadata, dict) and 'evaluation' in metadata:
+            output['metadata'] = {'evaluation': metadata['evaluation']}
     return output
 
 

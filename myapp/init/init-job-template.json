@@ -2899,7 +2899,7 @@
   },
   "dataset-convert": {
     "project_name": "数据处理工具",
-    "image_name": "10.121.177.20:8082/mlops/dataset-convert:20260907-r1",
+    "image_name": "10.121.177.20:8082/mlops/dataset-convert:20260909",
     "gitpath": "/job-template/job/dataset-convert",
     "image_describe": "数据集格式转换（Schema 驱动）",
     "job_template_name": "dataset-convert",
@@ -3021,7 +3021,7 @@
   },
   "dataset-merge-split": {
     "project_name": "数据处理工具",
-    "image_name": "10.121.177.20:8082/mlops/datasetmergesplit:20260903-r8",
+    "image_name": "10.121.177.20:8082/mlops/datasetmergesplit:20260909",
     "gitpath": "/job-template/job/datasetmergesplit",
     "image_describe": "同结构数据集合并与训练验证测试比例分割",
     "job_template_name": "dataset-merge-split",

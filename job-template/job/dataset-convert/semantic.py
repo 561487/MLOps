@@ -161,13 +161,51 @@ def convert_semantic(record, target, mapping, encoding):
             output['keywords'] = record['keywords']
             consumed.add('keywords')
     elif target == 'messages':
+        evaluation = None
         if choices:
+            evaluation = {'version': 1, 'input': question, 'choices': choices, 'type': kind}
+            for field in ('id', 'category'):
+                if field in parts:
+                    evaluation[field] = str(parts[field])
             question += '\n\n' + '\n'.join('%s. %s' % (x['label'], x['text']) for x in choices)
         messages = []
         if parts.get('system'):
             messages.append({'role': 'system', 'content': string(parts['system'], 'system')})
         messages += [{'role': 'user', 'content': question}, {'role': 'assistant', 'content': ', '.join(answer) if isinstance(answer, list) else answer}]
         output = {'messages': messages}
+        if evaluation:
+            output['metadata'] = {'evaluation': evaluation}
     else:
         error('语义转换仅支持 messages/eval_qa')
     return output, consumed
+
+
+def messages_to_eval(record, turns):
+    """Restore typed single-turn evaluation without exposing the assistant answer."""
+    if not turns or turns[-1]['role'] != 'assistant':
+        error('评测对话必须以 assistant 答案结束')
+    systems = [m['content'] for m in turns[:-1] if m['role'] == 'system']
+    history = [m for m in turns[:-1] if m['role'] != 'system']
+    metadata = record.get('metadata') or {}
+    spec = metadata.get('evaluation') if isinstance(metadata, dict) else None
+    if spec is not None:
+        if not isinstance(spec, dict) or spec.get('version') != 1:
+            error('不支持的 evaluation 元数据版本')
+        if len(history) != 1 or history[0]['role'] != 'user':
+            error('选择题元数据仅支持单轮对话，禁止猜测目标轮次')
+        question = string(spec.get('input'), '原始问题')
+        choices, answer, kind = choice_parts(
+            {'choices': spec.get('choices'), 'answer': turns[-1]['content'], 'type': spec.get('type')}, 'label')
+        expected = question + '\n\n' + '\n'.join('%s. %s' % (x['label'], x['text']) for x in choices)
+        if history[0]['content'].strip() != expected:
+            error('messages 问题/选项与 evaluation 元数据不一致，请重新转换')
+        output = dict(input=question, choices=choices, target=answer, type=kind)
+        for field in ('id', 'category'):
+            if field in spec:
+                output[field] = spec[field]
+    else:
+        output = {'input': '\n\n'.join('%s: %s' % (m['role'], m['content']) for m in history),
+                  'target': turns[-1]['content'], 'type': 'short_answer'}
+    if systems:
+        output['system'] = '\n\n'.join(systems)
+    return output

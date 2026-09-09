@@ -206,9 +206,8 @@ def run_convert(config):
                             if config.target_schema == 'eval_qa' and effective in ('messages', 'sharegpt'):
                                 chat, consumed = convert(record, effective, 'messages')
                                 turns = chat['messages']
-                                if turns[-1]['role'] != 'assistant':
-                                    raise SchemaError('missing_answer', '评测对话必须以 assistant 答案结束')
-                                output = {'input': '\n\n'.join('%s: %s' % (m['role'], m['content']) for m in turns[:-1]), 'target': turns[-1]['content'], 'type': 'short_answer'}
+                                from semantic import messages_to_eval
+                                output = messages_to_eval(record, turns)
                             else:
                                 output, consumed = convert(record, effective, config.target_schema, field_mapping)
                             if config.target_schema == 'eval_qa':
@@ -225,7 +224,15 @@ def run_convert(config):
                         if config.keep_metadata:
                             extras = {key: value for key, value in record.items() if key not in consumed}
                             if extras:
-                                output["metadata"] = extras
+                                inherited = extras.pop('metadata', {})
+                                merged = dict(inherited) if isinstance(inherited, dict) else {}
+                                merged.update(extras)
+                                merged.update(output.get('metadata', {}))
+                                output["metadata"] = merged
+                        elif config.target_schema == 'messages':
+                            original_metadata = record.get('metadata') or {}
+                            if isinstance(original_metadata, dict) and 'evaluation' in original_metadata:
+                                output.setdefault('metadata', {}).setdefault('evaluation', original_metadata['evaluation'])
                         write_json_line(converted, output)
                         if len(preview) < 3:
                             preview.append(output)
