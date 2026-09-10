@@ -1,4 +1,4 @@
-"""Runtime 版本合并入「镜像管理」Images 表（第三版优化）
+"""Runtime 版本合并入「镜像管理」Images 表
 
 背景：RuntimeImageVersion 与 Images 业务语义 1:1（一个镜像只属于一个 Runtime 框架），
 真实库两张表（runtime_image_version / model_runtime_mapping）均为空表，合并零数据风险。

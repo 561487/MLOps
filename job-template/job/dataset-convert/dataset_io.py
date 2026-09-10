@@ -117,7 +117,7 @@ def iter_records(path, data_format, encoding="utf-8"):
         return
     if data_format == "json":
         # 大文件风险：json.load 会一次性载入内存。超大 JSON 建议转成 JSONL 再处理；
-        # V1 保留整体读取行为，与旧组件一致，后续可增加流式 JSON 解析。
+        # 保留整体读取行为，与旧组件一致，后续可增加流式 JSON 解析。
         try:
             with path.open("r", encoding=encoding) as stream:
                 value = json.load(stream)

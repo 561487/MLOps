@@ -1,5 +1,4 @@
-"""Runtime 镜像版本关联 Images 镜像资产（第二版优化）
-
+"""Runtime 镜像版本关联 Images 镜像资产（=
 - runtime_image_version 新增 images_id 外键 → images.id，镜像管理（Images 表）成为镜像资产的唯一来源
 - image 字段降级为兼容字段（nullable），新数据由 images 关联自动同步，后续可删除
 - 移除 uq_runtime_image 唯一约束（image 为兼容字段后不再强制唯一；同一镜像可服务于不同 Runtime）
